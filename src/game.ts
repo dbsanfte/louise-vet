@@ -37,6 +37,81 @@ export interface Visit {
   color: string;
 }
 
+const examinationZones: Partial<Record<Tool, Zone[]>> = {
+  listen: ['chest'],
+  ear: ['ear'],
+  mouth: ['mouth'],
+  xray: ['paw', 'chest'],
+  'water-test': ['tank'],
+  inspect: ['ear', 'chest', 'paw', 'coat', 'mouth', 'tank', 'fin'],
+};
+
+export function examine(
+  visit: Visit,
+  tool: Tool,
+  zone: Zone,
+):
+  | { kind: 'finding'; text: string; clueIndex: number }
+  | { kind: 'guidance'; text: string } {
+  const available =
+    visit.species === 'goldfish'
+      ? ['tank', 'fin']
+      : ['ear', 'chest', 'paw', 'coat', 'mouth'];
+  const targets = (examinationZones[tool] ?? []).filter((z) =>
+    available.includes(z),
+  );
+  if (!targets.includes(zone)) {
+    return {
+      kind: 'guidance',
+      text: targets.length
+        ? `${toolInfo[tool].name} works at ${targets.map((z) => zoneNames[z].toLowerCase()).join(' or ')}. Choose one of those markers.`
+        : 'Choose an examination tool for this patient.',
+    };
+  }
+  const clueIndex = visit.checks.findIndex(
+    (c) => c.tool === tool && c.zone === zone,
+  );
+  if (clueIndex >= 0)
+    return {
+      kind: 'finding',
+      text: visit.checks[clueIndex].finding,
+      clueIndex,
+    };
+
+  // Normal checks are useful too: an unneeded tool must never silently fail,
+  // and a surface look must not declare a hidden problem healthy.
+  const closerLook = visit.checks.find(
+    (c) => c.zone === zone && c.tool !== tool && c.tool !== 'listen',
+  );
+  let text: string;
+  if (tool === 'inspect' && closerLook) {
+    text = `This spot deserves a closer look. ${toolInfo[closerLook.tool].name} can help you investigate it.`;
+  } else if (tool === 'ear') {
+    text = `${visit.name}’s ear looks clear and comfortable. No irritation here.`;
+  } else if (tool === 'mouth') {
+    text = `${visit.name}’s teeth look clean and the gums look comfortable.`;
+  } else if (tool === 'xray') {
+    text =
+      'The storybook X-ray shows no cracks in these bones. Skin and fur need a different kind of check.';
+  } else if (tool === 'listen') {
+    text = `A steady heartbeat. ${visit.name} is settling comfortably on the table.`;
+  } else if (tool === 'water-test') {
+    text = 'The water check looks comfortable for our little fish.';
+  } else {
+    const normal: Record<Zone, string> = {
+      ear: 'The outside of the ear looks comfortable.',
+      chest: 'The chest is moving gently with each breath.',
+      paw: 'This paw looks comfortable on the outside.',
+      coat: 'The fur looks tidy, with no little specks or tangles.',
+      mouth: 'The outside of the mouth looks comfortable.',
+      tank: 'You can see the bowl and water. A water tester can check what your eyes cannot see.',
+      fin: 'The fin is moving gently and looks comfortable.',
+    };
+    text = normal[zone];
+  }
+  return { kind: 'finding', text, clueIndex: -1 };
+}
+
 export const visits: Visit[] = [
   {
     name: 'Luna',

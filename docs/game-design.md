@@ -9,11 +9,15 @@ instructions for treating real pets.
 
 1. Choose a waiting patient in the isometric reception. New neighbours arrive
    about every 22 seconds of active play, up to four patients including the pet
-   being treated. Animals and their people enter from the door.
+   being treated. Animals and their people enter from the side doorway, then walk
+   toward Louise behind the counter at the back. Waiting customers keep their
+   places when another neighbour arrives.
 2. Enter the 3D examination room. Drag to orbit, scroll or pinch to zoom, or use
    the rotation buttons. Read the owner's story, select a diagnostic tool, and
    tap a body marker or the corresponding part of the model.
-3. Collect two findings and choose the diagnosis that fits. The care notebook
+3. Collect two key findings and choose the diagnosis that fits. Other sensible
+   examinations also return observations, including healthy results; those checks
+   stay in the care notes without counting as the two key clues. The care notebook
    offers friendly reminders. Wrong answers allow a retry.
 4. Choose the care tool and body location shown in the plan. Stop the moving dot
    in the green zone to apply care. Misses allow a retry and gently reduce the

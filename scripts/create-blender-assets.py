@@ -147,21 +147,23 @@ cube('back dado',(0,3.83,.55),(10.4,.12,1.10),'mint',clinic)
 cube('left dado',(-5.01,0,.55),(.12,8,1.10),'mint',clinic)
 cube('back trim',(0,3.70,1.12),(10.4,.12,.09),'white',clinic)
 cube('left trim',(-4.94,0,1.12),(.12,8,.09),'white',clinic)
-# A broad window, entrance, and framed wall art.
+# A broad window and framed wall art on the back wall.
 cube('window frame',(-2.55,3.69,2.27),(2.9,.17,1.65),'white',clinic)
 cube('window sky',(-2.55,3.57,2.27),(2.62,.04,1.4),'blue',clinic)
 cube('window bar',(-2.55,3.49,2.27),(.08,.08,1.4),'white',clinic)
 cube('window crossbar',(-2.55,3.49,2.27),(2.65,.08,.08),'white',clinic)
-cube('door frame',(3.35,3.73,1.32),(1.65,.27,2.64),'wood',clinic)
-cube('door',(3.35,3.55,1.32),(1.40,.15,2.40),'mint',clinic)
-cube('door glass',(3.35,3.44,1.79),(1.09,.03,1.12),'blue',clinic)
-ball('door knob',(2.86,3.33,1.04),(.075,.07,.075),'gold',clinic)
-cube('welcome mat',(3.1,2.68,.08),(1.9,1.1,.08),'pink',clinic)
+# Open side entrance: customers come in from the right, then approach the desk.
+for y in [-2.60,-.70]:
+    cube('side entrance post',(5.02,y,1.24),(.20,.18,2.48),'mint',clinic)
+cube('side entrance lintel',(5.02,-1.65,2.48),(.20,2.08,.20),'mint',clinic)
+cube('side wall cutaway',(5.02,-3.25,.48),(.16,1.10,.96),'mint',clinic)
+cube('welcome mat',(4.45,-1.65,.08),(1.15,1.70,.08),'pink',clinic)
 cube('picture frame',(.31,3.61,2.38),(1.25,.18,1.05),'oak',clinic)
 cube('picture paper',(.31,3.49,2.38),(1.03,.04,.83),'white',clinic)
 for x,z,s in [(.31,2.29,.18),(.02,2.53,.085),(.24,2.66,.085),(.48,2.64,.085),(.64,2.48,.08)]:
     ball('paw print',(x,3.43,z),(s,.025,s),'mint',clinic)
-# Counter in the foreground; Louise stands behind it.
+# Counter at the back, with Louise behind it facing the waiting area.
+before_counter=set(clinic.children)
 cube('reception counter',(-.65,-1.42,.64),(4.1,1.03,1.28),'mint',clinic,.13)
 cube('countertop',(-.65,-1.42,1.32),(4.32,1.2,.16),'oak',clinic,.09)
 cube('counter front panel',(-.65,-1.957,.70),(3.68,.045,.84),'cream',clinic,.04)
@@ -172,12 +174,21 @@ cube('monitor',(-1.75,-1.30,1.73),(.68,.14,.48),'dark',clinic)
 cube('monitor screen',(-1.75,-1.391,1.73),(.57,.02,.36),'blue',clinic)
 cube('appointment book',(.26,-1.50,1.43),(.53,.37,.065),'white',clinic,.025)
 cyl('bell',(.79,-1.52,1.47),.13,.11,'gold',clinic)
+for obj in set(clinic.children)-before_counter:
+    obj.location.x-=.65
+    obj.location.y+=3.10
+    if obj.name.startswith('monitor screen'): obj.location.y+=.182
 # Bench, retail shelving and small touches.
+before_bench=set(clinic.children)
 for x in [-3.6,-2.85]:
     cube('bench foot',(x,2.10,.26),(.12,.60,.52),'wood',clinic)
 cube('waiting bench',(-3.22,2.10,.60),(2.15,.73,.20),'oak',clinic)
 cube('bench back',(-3.22,2.41,1.08),(2.15,.14,.88),'mint',clinic)
 for x in [-3.84,-3.13,-2.44]: cube('cushion',(x,2.08,.77),(.62,.58,.16),'pink',clinic,.10)
+for obj in set(clinic.children)-before_bench:
+    obj.location.x+=.62
+    obj.location.y-=4.75
+    if obj.name.startswith('bench back'): obj.location.y-=.62
 cube('shop back',(-4.83,-1.20,1.12),(.15,2.25,2.24),'oak',clinic)
 for z in [.20,.92,1.64,2.3]: cube('shop shelf',(-4.42,-1.20,z),(.98,2.27,.12),'oak',clinic)
 for y in [-1.98,-1.43,-.86,-.34]:

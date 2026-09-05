@@ -1916,3 +1916,10 @@ h1 {
   stroke: #718963;
   stroke-width: 1.5;
 }
+
+.findings li strong {
+  display: block;
+  font-size: 11px;
+  color: var(--green);
+  margin-bottom: 4px;
+}

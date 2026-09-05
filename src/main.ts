@@ -11,6 +11,7 @@ import {
   saveProgress,
   purchase,
   reward,
+  examine,
   type Visit,
   type Tool,
   type Zone,
@@ -29,6 +30,10 @@ let arrivalTime = 0;
 let patient: Visit | null = null;
 let patientId = 0;
 let findings = new Set<number>();
+let observations = new Map<
+  string,
+  { text: string; label: string; keyClue: boolean }
+>();
 let selectedTool: Tool | null = null;
 let mistakes = 0;
 let timing = false;
@@ -139,8 +144,8 @@ function renderCase() {
     <div class="case-heading"><span class="pet-avatar large ${patient.color}">${petIcon(patient.species)}</span><div><p class="eyebrow">YOUR LITTLE PATIENT</p><h2>${patient.name}</h2><p>${patient.breed} · ${patient.age}</p></div></div>
     <div class="owner-note"><p>“${patient.quote}”</p><span>— ${patient.owner}, ${patient.name}’s person</span></div>
     <ol class="case-steps">${['Examine', 'Diagnose', 'Treat'].map((label, i) => `<li class="${i === step ? 'current' : i < step ? 'complete' : ''}"><span>${i < step ? icon('check') : i + 1}</span>${label}</li>`).join('')}</ol>
-    ${mode === 'examine' ? `<div class="section-title"><h3>Look & listen</h3><span>${findings.size}/${patient.checks.length} clues</span></div><p class="instruction">Pick a tool, then tap a spot on ${patient.name}. Drag the view to look around.</p><div class="tool-grid">${diagnosticTools.map(toolButton).join('')}</div>` : ''}
-    <div class="section-title"><h3>Care notes</h3>${icon('book')}</div><ul class="findings">${[...findings].map((i) => `<li>${icon('check')}<span>${patient!.checks[i].finding}</span></li>`).join('') || '<li class="no-clues">Your clues will appear here.<br />Start with the story from their person.</li>'}</ul>
+    ${mode === 'examine' ? `<div class="section-title"><h3>Look & listen</h3><span>${findings.size}/${patient.checks.length} key clues</span></div><p class="instruction">Pick a tool, then tap a spot on ${patient.name}. Healthy checks help too. Find two key clues about the problem in their person’s story.</p><div class="tool-grid">${diagnosticTools.map(toolButton).join('')}</div>` : ''}
+    <div class="section-title"><h3>Care notes</h3>${icon('book')}</div><ul class="findings">${[...observations.values()].map((o) => `<li>${icon(o.keyClue ? 'check' : 'search')}<span><strong>${o.label}${o.keyClue ? ' · Key clue' : ''}</strong>${o.text}</span></li>`).join('') || '<li class="no-clues">Your observations will appear here.<br />Start with the story from their person.</li>'}</ul>
     ${mode === 'examine' ? button(`Choose a diagnosis ${icon('arrow')}`, 'diagnose', 'primary full-width', findings.size < patient.checks.length) : ''}
     ${
       mode === 'diagnose'
@@ -298,6 +303,7 @@ function startVisit(id: number) {
   patient = visitFor(id);
   queue = queue.filter((n) => n !== id);
   findings = new Set();
+  observations = new Map();
   mistakes = 0;
   selectedTool = null;
   timing = false;
@@ -318,22 +324,19 @@ function useZone(zone: Zone | null) {
     return;
   }
   if (mode === 'examine') {
-    const index = patient.checks.findIndex(
-      (c) => c.tool === selectedTool && c.zone === zone,
-    );
-    if (index < 0) {
-      announce(
-        `${toolInfo[selectedTool].hint}. Read ${patient.owner}’s note for a clue.`,
-      );
+    const result = examine(patient, selectedTool, zone);
+    if (result.kind === 'guidance') {
+      announce(result.text);
       return;
     }
-    if (findings.has(index)) {
-      announce('You have already added this clue to your care notes.');
-      return;
-    }
-    findings.add(index);
+    if (result.clueIndex >= 0) findings.add(result.clueIndex);
+    observations.set(`${selectedTool}:${zone}`, {
+      text: result.text,
+      label: `${toolInfo[selectedTool].name} · ${zoneNames[zone]}`,
+      keyClue: result.clueIndex >= 0,
+    });
     audio.play('tap');
-    announce(patient.checks[index].finding);
+    announce(result.text);
     render();
   } else {
     if (selectedTool !== patient.treatment || zone !== patient.zone) {

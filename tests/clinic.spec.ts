@@ -38,6 +38,20 @@ test('examine, diagnose, place treatment, earn rewards, and keep progress', asyn
   await expect(page).toHaveTitle("Louise's Vet Office");
   await page.locator('[data-action="next"]').click();
   await expect(page.locator('[data-action="diagnose"]')).toBeDisabled();
+  await page.getByRole('button', { name: 'Ear scope', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Front paw on Luna', exact: true })
+    .click();
+  await expect(page.getByRole('status')).toContainText(
+    'Ear scope works at ear',
+  );
+  await page.getByRole('button', { name: 'Ear on Luna', exact: true }).click();
+  await expect(page.locator('.findings')).toContainText(
+    'ear looks clear and comfortable',
+  );
+  await expect(page.locator('[data-action="diagnose"]')).toBeDisabled();
+  await page.getByRole('button', { name: 'Ear on Luna', exact: true }).click();
+  await expect(page.locator('.findings li')).toHaveCount(1);
   await page.getByRole('button', { name: 'Magnifier', exact: true }).click();
   await page
     .getByRole('button', { name: 'Front paw on Luna', exact: true })

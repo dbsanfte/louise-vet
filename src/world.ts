@@ -44,8 +44,11 @@ export class World {
   private raycaster = new THREE.Raycaster();
   private pointerStart = { x: 0, y: 0 };
   private people: {
+    id: number;
     group: THREE.Group;
     target: THREE.Vector3;
+    waypoints: THREE.Vector3[];
+    wait: number;
     offset: number;
   }[] = [];
   private width = 1;
@@ -63,7 +66,17 @@ export class World {
       alpha: true,
       powerPreference: 'high-performance',
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    const gl = this.renderer.getContext();
+    const rendererInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    const softwareGraphics =
+      rendererInfo &&
+      /swiftshader|llvmpipe|softpipe|software/i.test(
+        String(gl.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL)),
+      );
+    // Keep the same scene and controls usable when no graphics card is available.
+    this.renderer.setPixelRatio(
+      softwareGraphics ? 0.65 : Math.min(window.devicePixelRatio, 1.75),
+    );
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -79,7 +92,10 @@ export class World {
     const light = new THREE.DirectionalLight(0xffe6c0, 2.0);
     light.position.set(-3, 10, 5);
     light.castShadow = true;
-    light.shadow.mapSize.set(1024, 1024);
+    light.shadow.mapSize.set(
+      softwareGraphics ? 512 : 1024,
+      softwareGraphics ? 512 : 1024,
+    );
     Object.assign(light.shadow.camera, {
       left: -9,
       right: 9,
@@ -182,7 +198,7 @@ export class World {
     );
     this.reception.add(this.clone('clinic'));
     const louise = this.clone('louise');
-    louise.position.set(-0.65, 0, 0.35);
+    louise.position.set(-1.3, 0, -2.75);
     this.reception.add(louise);
     this.treatment.add(this.clone('table'));
     this.container.dataset.ready = 'true';
@@ -196,31 +212,39 @@ export class World {
 
   setQueue(queue: number[]) {
     if (!this.assets.size) return;
+    const existing = new Map(this.people.map((person) => [person.id, person]));
     this.guests.clear();
     this.people = [];
     const places = [
-      [1.9, 0.15],
-      [2.8, -1.65],
-      [0.6, -2.25],
-      [-1.1, -2.15],
-      [3.8, 1.0],
-      [3.6, 2.15],
+      [-1.3, -0.1],
+      [-0.8, 1.15],
+      [0.55, 1.8],
+      [2.15, 2.0],
+      [2.7, -0.7],
+      [1.25, -0.45],
     ];
     queue.forEach((id, i) => {
-      const group = new THREE.Group();
-      const person = this.clone('visitor');
-      person.scale.setScalar(0.86);
-      const pet = this.clone(visits[id % visits.length].species);
-      pet.scale.setScalar(
-        visits[id % visits.length].species === 'goldfish' ? 0.42 : 0.48,
-      );
-      pet.position.set(-0.52, 0, 0.3);
-      group.add(person, pet);
-      group.position.set(3.3, 0, -2.8);
+      const previous = existing.get(id);
+      const group = previous?.group ?? new THREE.Group();
+      if (!previous) {
+        const person = this.clone('visitor');
+        person.scale.setScalar(0.86);
+        const pet = this.clone(visits[id % visits.length].species);
+        pet.scale.setScalar(
+          visits[id % visits.length].species === 'goldfish' ? 0.42 : 0.48,
+        );
+        pet.position.set(-0.52, 0, 0.3);
+        group.add(person, pet);
+        group.position.set(5.65 + i * 0.5, 0, 1.65);
+        group.rotation.y = -Math.PI / 2;
+      }
       this.guests.add(group);
       this.people.push({
+        id,
         group,
         target: new THREE.Vector3(places[i][0], 0, places[i][1]),
+        waypoints: previous?.waypoints ?? [new THREE.Vector3(3.45, 0, 1.65)],
+        wait: previous?.wait ?? i * 0.65,
         offset: i * 0.8,
       });
     });
@@ -357,9 +381,29 @@ export class World {
   }
   draw(time: number, dt: number) {
     if (this.mode === 'reception')
-      this.people.forEach(({ group, target, offset }) => {
-        group.position.lerp(target, 1 - Math.exp(-dt * 1.3));
-        group.position.y = Math.sin(time * 0.003 + offset) * 0.022;
+      this.people.forEach((person) => {
+        const { group, target, offset, waypoints } = person;
+        if (person.wait > 0) {
+          person.wait -= dt;
+          return;
+        }
+        const destination = waypoints[0] ?? target;
+        const direction = destination.clone().sub(group.position);
+        direction.y = 0;
+        const distance = direction.length();
+        if (distance > 0.04) {
+          group.position.addScaledVector(
+            direction.normalize(),
+            Math.min(distance, dt * 2),
+          );
+          group.rotation.y = Math.atan2(direction.x, direction.z);
+          group.position.y = Math.sin(time * 0.009 + offset) * 0.022;
+        } else if (waypoints.length) {
+          waypoints.shift();
+        } else {
+          group.position.y = 0;
+          group.rotation.y = Math.atan2(-1.3 - target.x, -2.75 - target.z);
+        }
       });
     if (this.animal) {
       this.animal.scale.y = 1 + Math.sin(time * 0.002) * 0.012;

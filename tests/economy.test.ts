@@ -6,7 +6,65 @@ import {
   reward,
   visits,
   toolInfo,
+  examine,
+  type Tool,
+  type Zone,
 } from '../src/game.ts';
+
+test('normal examinations return findings, while wrong targets explain where the tool works', () => {
+  const luna = visits[0];
+  const ear = examine(luna, 'ear', 'ear');
+  assert.equal(ear.kind, 'finding');
+  if (ear.kind === 'finding') {
+    assert.match(ear.text, /clear and comfortable/);
+    assert.equal(ear.clueIndex, -1);
+  }
+  const wrong = examine(luna, 'ear', 'paw');
+  assert.equal(wrong.kind, 'guidance');
+  assert.match(wrong.text, /Ear scope works at ear/);
+  const pipSurface = examine(visits[2], 'inspect', 'paw');
+  assert.match(pipSurface.text, /X-ray/);
+  assert.doesNotMatch(pipSurface.text, /healthy|comfortable/);
+  assert.match(examine(visits[1], 'ear', 'ear').text, /irritated/);
+});
+
+test('every displayed examination tool produces a result at a sensible target for every patient', () => {
+  for (const visit of visits) {
+    const probes: [Tool, Zone][] =
+      visit.species === 'goldfish'
+        ? [
+            ['water-test', 'tank'],
+            ['inspect', 'fin'],
+            ['inspect', 'tank'],
+          ]
+        : [
+            ['listen', 'chest'],
+            ['ear', 'ear'],
+            ['mouth', 'mouth'],
+            ['xray', 'paw'],
+            ['xray', 'chest'],
+            ['inspect', 'paw'],
+            ['inspect', 'coat'],
+            ['inspect', 'ear'],
+            ['inspect', 'mouth'],
+            ['inspect', 'chest'],
+          ];
+    for (const [tool, zone] of probes)
+      assert.equal(
+        examine(visit, tool, zone).kind,
+        'finding',
+        `${visit.name}: ${tool} at ${zone}`,
+      );
+    visit.checks.forEach((check, index) => {
+      const result = examine(visit, check.tool, check.zone);
+      assert.equal(result.kind, 'finding');
+      if (result.kind === 'finding') {
+        assert.equal(result.clueIndex, index);
+        assert.equal(result.text, check.finding);
+      }
+    });
+  }
+});
 
 test('money, stock, reputation, and upgrades have consistent rewards', () => {
   const p = loadProgress();
