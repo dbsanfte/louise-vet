@@ -156,6 +156,7 @@ test('all eight visits are playable and every pet can receive care', async ({
     ).toBeVisible();
     const vaccination = visit.treatment === 'vaccine';
     if (vaccination) {
+      await expect(page.locator('#toast')).toBeEmpty();
       await expect(page.locator('#app')).toHaveAttribute(
         'data-mode',
         'place-vaccine',

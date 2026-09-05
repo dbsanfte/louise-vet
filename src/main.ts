@@ -74,6 +74,11 @@ function announce(text: string) {
   byId('toast').classList.add('show');
   toastUntil = performance.now() + 4600;
 }
+function clearAnnouncement() {
+  byId('toast').textContent = '';
+  byId('toast').classList.remove('show');
+  toastUntil = 0;
+}
 function save() {
   const okay = saveProgress(progress);
   byId('save-note').innerHTML = okay
@@ -313,6 +318,7 @@ function render() {
     );
 }
 function returnToReception(requeue = false) {
+  clearAnnouncement();
   const returnedName = requeue ? patient?.name : null;
   if (requeue && patient) queue.unshift(patientId);
   mode = 'reception';
@@ -332,6 +338,7 @@ function returnToReception(requeue = false) {
 }
 function startVisit(id: number) {
   if (!ready || mode !== 'reception' || !queue.includes(id)) return;
+  clearAnnouncement();
   patientId = id;
   patient = visitFor(id);
   queue = queue.filter((n) => n !== id);
