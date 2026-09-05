@@ -61,7 +61,14 @@ test('examine, diagnose, place treatment, earn rewards, and keep progress', asyn
   await page
     .getByRole('button', { name: 'Chest on Luna', exact: true })
     .click();
-  await page.locator('[data-action="diagnose"]').click();
+  const diagnose = page.locator('[data-action="diagnose"]');
+  await expect(diagnose).toBeInViewport({ ratio: 1 });
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(diagnose).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole('button', { name: 'Stop visit' })).toBeInViewport(
+    { ratio: 1 },
+  );
+  await diagnose.click();
   await page.getByRole('button', { name: 'Fleas', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-mode', 'diagnose');
   await page.getByRole('button', { name: 'Bee sting', exact: true }).click();
@@ -122,9 +129,7 @@ test('a patient can return to the queue without claiming a reward', async ({
   await page.getByRole('button', { name: 'Rotate animal right' }).click();
   expect((await canvas.screenshot()).equals(beforeRotation)).toBe(false);
   await page.getByRole('button', { name: 'Reset camera' }).click();
-  await page
-    .getByRole('button', { name: 'Back to waiting room', exact: false })
-    .click();
+  await page.getByRole('button', { name: 'Stop visit', exact: false }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-mode', 'reception');
   await expect(page.locator('[data-action="next"]')).toHaveText('See Luna');
   await expect(page.getByTestId('coins')).toHaveText('120');
@@ -149,36 +154,103 @@ test('all eight visits are playable and every pet can receive care', async ({
     await expect(
       page.getByRole('heading', { name: visit.name, exact: true }),
     ).toBeVisible();
-    for (const check of visit.checks) {
+    const vaccination = visit.treatment === 'vaccine';
+    if (vaccination) {
+      await expect(page.locator('#app')).toHaveAttribute(
+        'data-mode',
+        'place-vaccine',
+      );
+      await expect(page.locator('[data-action="diagnose"]')).toHaveCount(0);
+      await expect(page.locator('.case-steps')).not.toContainText('Diagnose');
       await page
-        .getByRole('button', { name: toolInfo[check.tool].name, exact: true })
+        .getByRole('button', { name: `Ear on ${visit.name}`, exact: true })
+        .click();
+      await expect(page.getByRole('meter')).toHaveCount(0);
+      await expect(page.getByRole('status')).toContainText(
+        'Nothing has been given yet',
+      );
+    } else {
+      for (const check of visit.checks) {
+        await page
+          .getByRole('button', { name: toolInfo[check.tool].name, exact: true })
+          .click();
+        await page
+          .getByRole('button', {
+            name: `${zoneNames[check.zone]} on ${visit.name}`,
+            exact: true,
+          })
+          .click();
+      }
+      await page.locator('[data-action="diagnose"]').click();
+      await page
+        .getByRole('button', { name: visit.diagnosis, exact: true })
         .click();
       await page
         .getByRole('button', {
-          name: `${zoneNames[check.zone]} on ${visit.name}`,
+          name: toolInfo[visit.treatment].name,
           exact: true,
         })
         .click();
     }
-    await page.locator('[data-action="diagnose"]').click();
-    await page
-      .getByRole('button', { name: visit.diagnosis, exact: true })
-      .click();
-    await page
-      .getByRole('button', {
-        name: toolInfo[visit.treatment].name,
-        exact: true,
-      })
-      .click();
     await page
       .getByRole('button', {
         name: `${zoneNames[visit.zone]} on ${visit.name}`,
         exact: true,
       })
       .click();
+    if (vaccination) {
+      const coinsBefore = await page.getByTestId('coins').textContent();
+      // A miss must leave the vaccine unapplied, and stopping during timing
+      // must return the same patient with no reward or lingering treatment.
+      await page.waitForFunction(() => {
+        const value = Number(
+          document
+            .querySelector('[role="meter"]')
+            ?.getAttribute('aria-valuenow'),
+        );
+        if (value > 85) {
+          document
+            .querySelector<HTMLButtonElement>('[data-action="apply"]')!
+            .click();
+          return true;
+        }
+        return false;
+      });
+      await expect(page.getByRole('status')).toContainText(
+        'No vaccine given yet',
+      );
+      await expect(page.getByRole('meter')).toBeVisible();
+      await expect(page.getByTestId('coins')).toHaveText(coinsBefore!);
+      await page.getByRole('button', { name: 'Stop visit' }).click();
+      await expect(page.locator('#app')).toHaveAttribute(
+        'data-mode',
+        'reception',
+      );
+      await expect(page.getByRole('meter')).toHaveCount(0);
+      await expect(page.getByTestId('coins')).toHaveText(coinsBefore!);
+      await page
+        .getByRole('button', { name: `See ${visit.name}`, exact: true })
+        .first()
+        .click();
+      await expect(page.locator('#app')).toHaveAttribute(
+        'data-mode',
+        'place-vaccine',
+      );
+      await page
+        .getByRole('button', {
+          name: `${zoneNames[visit.zone]} on ${visit.name}`,
+          exact: true,
+        })
+        .click();
+      await expect(
+        page.getByRole('button', { name: 'Give vaccine', exact: false }),
+      ).toBeVisible();
+    }
     await applyInGreen(page);
     await expect(
-      page.getByRole('heading', { name: `${visit.name} feels better!` }),
+      page.getByRole('heading', {
+        name: `${visit.name} ${vaccination ? 'is all set' : 'feels better'}!`,
+      }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'Back to reception' }).click();
   }

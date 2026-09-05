@@ -25,6 +25,17 @@ instructions for treating real pets.
 5. Receive satisfaction, a fee, a tip, and a retail sale if treats are stocked.
    Return to reception to help another patient or spend coins in the clinic shop.
 
+Scheduled vaccination visits skip examination and diagnosis. Find the matching
+body spot from the placement clue, then give the vaccine in the green timing
+zone. A wrong location or missed timing leaves the vaccine unapplied for another
+try. The completion message celebrates a finished routine visit.
+
+During any unfinished visit, **Stop visit** returns the patient to the front of
+the waiting queue, cancels any active treatment, and awards no coins. Restarting
+the visit clears its clues and attempts. This control and **Choose a diagnosis**
+stay fixed at the bottom of the screen; care notes scroll within their own panel.
+The interface uses locally bundled Nunito lettering with larger reading text.
+
 Dogs, cats, rabbits, hamsters, gerbils, and goldfish have original Blender models.
 Eight visits cover a bee sting, irritated ear, sore paw with a storybook X-ray,
 fleas, tangled fur, fish water care, a vaccination visit, and teeth cleaning.

@@ -84,11 +84,17 @@ test('money, stock, reputation, and upgrades have consistent rewards', () => {
   assert.equal(p.stock, 0);
 });
 
-test('every authored visit has two actionable clues and a valid care tool', () => {
+test('sick visits have actionable clues; scheduled vaccines only need placement and care', () => {
   assert.equal(new Set(visits.map((v) => v.species)).size, 6);
   for (const v of visits) {
-    assert.equal(v.checks.length, 2);
     assert.ok(toolInfo[v.treatment]);
+    if (v.treatment === 'vaccine') {
+      assert.equal(v.checks.length, 0);
+      assert.equal(v.alternatives.length, 0);
+      assert.equal(v.zone, 'coat');
+      continue;
+    }
+    assert.equal(v.checks.length, 2);
     assert.ok(v.checks.every((c) => Boolean(toolInfo[c.tool])));
     assert.equal(new Set([v.diagnosis, ...v.alternatives]).size, 3);
     assert.ok(v.checks.some((c) => c.zone === v.zone));

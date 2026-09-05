@@ -17,7 +17,8 @@ import {
   type Zone,
 } from './game';
 
-type Mode = 'reception' | 'examine' | 'diagnose' | 'treat' | 'result';
+type Mode =
+  'reception' | 'examine' | 'diagnose' | 'place-vaccine' | 'treat' | 'result';
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const progress = loadProgress();
 const audio = new Audio();
@@ -63,6 +64,7 @@ app.innerHTML = `
       <div id="stage-footer" class="stage-footer"></div>
     </section>
   </main>
+  <div id="visit-actions" class="visit-actions" role="region" aria-label="Visit actions" hidden></div>
   <footer class="bottom-bar"><nav aria-label="Clinic navigation"><button class="nav-button active" data-action="reception">${icon('home')}<span>My clinic</span></button><button class="nav-button" data-action="shop">${icon('bag')}<span>Clinic shop</span><span class="tiny-label">UPGRADES</span></button><button class="nav-button" data-action="casebook">${icon('book')}<span>Care notebook</span></button></nav><span id="save-note" class="save-note">${icon('check')} Progress saved on this browser</span></footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div><div id="modal-root"></div>`;
 
@@ -131,7 +133,19 @@ function renderReception() {
 }
 function renderCase() {
   if (!patient) return;
-  const step = mode === 'examine' ? 0 : mode === 'diagnose' ? 1 : 2;
+  const vaccination = patient.treatment === 'vaccine';
+  const steps = vaccination
+    ? ['Find a spot', 'Gentle vaccine']
+    : ['Examine', 'Diagnose', 'Treat'];
+  const step = vaccination
+    ? timing
+      ? 1
+      : 0
+    : mode === 'examine'
+      ? 0
+      : mode === 'diagnose'
+        ? 1
+        : 2;
   const diagnosticTools: Tool[] =
     patient.species === 'goldfish'
       ? ['water-test', 'inspect']
@@ -140,13 +154,11 @@ function renderCase() {
     ...new Set<Tool>([patient.treatment, 'cream', 'bandage', 'comb']),
   ];
   byId('sidebar').innerHTML = `
-    <button class="text-button back-link" data-action="back">← Back to waiting room</button>
     <div class="case-heading"><span class="pet-avatar large ${patient.color}">${petIcon(patient.species)}</span><div><p class="eyebrow">YOUR LITTLE PATIENT</p><h2>${patient.name}</h2><p>${patient.breed} · ${patient.age}</p></div></div>
     <div class="owner-note"><p>“${patient.quote}”</p><span>— ${patient.owner}, ${patient.name}’s person</span></div>
-    <ol class="case-steps">${['Examine', 'Diagnose', 'Treat'].map((label, i) => `<li class="${i === step ? 'current' : i < step ? 'complete' : ''}"><span>${i < step ? icon('check') : i + 1}</span>${label}</li>`).join('')}</ol>
+    <ol class="case-steps">${steps.map((label, i) => `<li class="${i === step ? 'current' : i < step ? 'complete' : ''}"><span>${i < step ? icon('check') : i + 1}</span>${label}</li>`).join('')}</ol>
+    ${vaccination ? `<div class="care-plan"><span>${icon('heart')} VACCINATION VISIT</span><h3>${timing ? 'A gentle touch' : 'Find a comfy spot'}</h3><p>${timing ? 'You found the spot! Now keep your hand steady.' : `The vaccine is ready. Find the soft patch of fur on ${patient.name}’s upper body. Turn her around and tap the matching body marker.`}</p></div><p class="instruction">${timing ? 'Tap Give vaccine in the green patch. A wobbly try pauses the vaccine so you can try again.' : 'No mystery to solve today — just a little practice with careful hands.'}</p>` : ''}
     ${mode === 'examine' ? `<div class="section-title"><h3>Look & listen</h3><span>${findings.size}/${patient.checks.length} key clues</span></div><p class="instruction">Pick a tool, then tap a spot on ${patient.name}. Healthy checks help too. Find two key clues about the problem in their person’s story.</p><div class="tool-grid">${diagnosticTools.map(toolButton).join('')}</div>` : ''}
-    <div class="section-title"><h3>Care notes</h3>${icon('book')}</div><ul class="findings">${[...observations.values()].map((o) => `<li>${icon(o.keyClue ? 'check' : 'search')}<span><strong>${o.label}${o.keyClue ? ' · Key clue' : ''}</strong>${o.text}</span></li>`).join('') || '<li class="no-clues">Your observations will appear here.<br />Start with the story from their person.</li>'}</ul>
-    ${mode === 'examine' ? button(`Choose a diagnosis ${icon('arrow')}`, 'diagnose', 'primary full-width', findings.size < patient.checks.length) : ''}
     ${
       mode === 'diagnose'
         ? `<h3 class="diagnosis-heading">What do your clues suggest?</h3><div class="diagnosis-choices">${diagnoses()
@@ -157,7 +169,8 @@ function renderCase() {
             .join('')}</div>`
         : ''
     }
-    ${mode === 'treat' ? `<div class="care-plan"><span>${icon('check')} CARE PLAN</span><h3>${patient.diagnosis}</h3><p>${toolInfo[patient.treatment].name} → <strong>${zoneNames[patient.zone]}</strong></p></div><p class="instruction">Choose the right care tool and place it at the spot in your plan.</p><div class="tool-grid">${treatments.map(toolButton).join('')}</div>` : ''}`;
+    ${mode === 'treat' && !vaccination ? `<div class="care-plan"><span>${icon('check')} CARE PLAN</span><h3>${patient.diagnosis}</h3><p>${toolInfo[patient.treatment].name} → <strong>${zoneNames[patient.zone]}</strong></p></div><p class="instruction">Choose the right care tool and place it at the spot in your plan.</p><div class="tool-grid">${treatments.map(toolButton).join('')}</div>` : ''}
+    ${!vaccination ? `<div class="section-title"><h3>Care notes</h3>${icon('book')}</div><ul class="findings" tabindex="0" aria-label="Care notes">${[...observations.values()].map((o) => `<li>${icon(o.keyClue ? 'check' : 'search')}<span><strong>${o.label}${o.keyClue ? ' · Key clue' : ''}</strong>${o.text}</span></li>`).join('') || '<li class="no-clues">Your observations will appear here.<br />Start with the story from their person.</li>'}</ul>` : ''}`;
   byId('scene-title').innerHTML =
     `<span class="room-pill treatment-pill">${icon('plus')} TREATMENT ROOM</span><h2>A little help for ${patient.name}</h2>`;
   byId('scene-goal').innerHTML =
@@ -167,7 +180,8 @@ function renderCase() {
   byId('scene-controls').innerHTML =
     `<button class="icon-button" data-action="rotate-left" aria-label="Rotate animal left">↶</button><button class="icon-button" data-action="rotate-right" aria-label="Rotate animal right">↷</button><button class="icon-button" data-action="reset-camera" aria-label="Reset camera">${icon('rotate')}</button>`;
   byId('zones').innerHTML =
-    (mode === 'examine' || mode === 'treat') && !timing
+    (mode === 'examine' || mode === 'treat' || mode === 'place-vaccine') &&
+    !timing
       ? `<svg class="zone-leaders" aria-hidden="true">${world
           .availableZones()
           .map(
@@ -197,7 +211,7 @@ function diagnoses() {
 }
 function renderPrecision() {
   byId('precision').innerHTML = timing
-    ? `<div class="precision-card"><div class="precision-heading"><span class="mini-badge">${icon(toolInfo[patient!.treatment].icon)}</span><div><p class="eyebrow">A GENTLE TOUCH</p><h3>Steady paws, Louise!</h3></div><button class="icon-button" data-action="cancel-timing" aria-label="Cancel treatment timing">${icon('close')}</button></div><p>Tap <strong>Apply care</strong> when the dot reaches the green patch.</p><div class="timing-track ${progress.upgrades.includes('equipment') ? 'upgraded' : ''}" role="meter" aria-label="Treatment timing" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><div class="green-zone"></div><span id="timing-dot"></span></div>${button(`Apply care ${icon('heart')}`, 'apply', 'primary full-width')}</div>`
+    ? `<div class="precision-card"><div class="precision-heading"><span class="mini-badge">${icon(toolInfo[patient!.treatment].icon)}</span><div><p class="eyebrow">A GENTLE TOUCH</p><h3>Steady paws, Louise!</h3></div><button class="icon-button" data-action="cancel-timing" aria-label="Cancel treatment timing">${icon('close')}</button></div><p>Tap <strong>${patient!.treatment === 'vaccine' ? 'Give vaccine' : 'Apply care'}</strong> when the dot reaches the green patch.</p><div class="timing-track ${progress.upgrades.includes('equipment') ? 'upgraded' : ''}" role="meter" aria-label="Treatment timing" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><div class="green-zone"></div><span id="timing-dot"></span></div>${button(`${patient!.treatment === 'vaccine' ? 'Give vaccine' : 'Apply care'} ${icon('heart')}`, 'apply', 'primary full-width')}</div>`
     : '';
 }
 
@@ -206,7 +220,7 @@ function renderModal() {
   if (mode === 'result' && receipt && patient) {
     const stars =
       receipt.satisfaction >= 90 ? 3 : receipt.satisfaction >= 75 ? 2 : 1;
-    root.innerHTML = `<div class="modal-scrim"><section class="result-card" role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="result-stars">${[0, 1, 2].map((i) => icon('star', i < stars ? 'filled' : '')).join('')}</div><span class="pet-avatar result-pet ${patient.color}">${petIcon(patient.species)}</span><p class="eyebrow">ANOTHER HAPPY LITTLE HEART</p><h2 id="result-title">${patient.name} feels better!</h2><p>${patient.aftercare}</p><div class="result-happiness">${icon('heart')} ${receipt.satisfaction}% patient & customer happiness</div><dl class="receipt"><div><dt>Wonderful care</dt><dd>+${receipt.fee}</dd></div><div><dt>A thank-you from ${patient.owner}</dt><dd>+${receipt.tip}</dd></div>${receipt.retail ? `<div><dt>A treat for the trip home</dt><dd>+${receipt.retail}</dd></div>` : ''}<div class="receipt-total"><dt>Coins earned</dt><dd>${icon('coin')} +${receipt.total}</dd></div></dl>${button(`Back to reception ${icon('arrow')}`, 'finish', 'primary full-width')}<small>${progress.treated} animal friend${progress.treated === 1 ? '' : 's'} helped. You’re making a difference.</small></section></div>`;
+    root.innerHTML = `<div class="modal-scrim"><section class="result-card" role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="result-stars">${[0, 1, 2].map((i) => icon('star', i < stars ? 'filled' : '')).join('')}</div><span class="pet-avatar result-pet ${patient.color}">${petIcon(patient.species)}</span><p class="eyebrow">ANOTHER HAPPY LITTLE HEART</p><h2 id="result-title">${patient.name} ${patient.treatment === 'vaccine' ? 'is all set' : 'feels better'}!</h2><p>${patient.aftercare}</p><div class="result-happiness">${icon('heart')} ${receipt.satisfaction}% patient & customer happiness</div><dl class="receipt"><div><dt>Wonderful care</dt><dd>+${receipt.fee}</dd></div><div><dt>A thank-you from ${patient.owner}</dt><dd>+${receipt.tip}</dd></div>${receipt.retail ? `<div><dt>A treat for the trip home</dt><dd>+${receipt.retail}</dd></div>` : ''}<div class="receipt-total"><dt>Coins earned</dt><dd>${icon('coin')} +${receipt.total}</dd></div></dl>${button(`Back to reception ${icon('arrow')}`, 'finish', 'primary full-width')}<small>${progress.treated} animal friend${progress.treated === 1 ? '' : 's'} helped. You’re making a difference.</small></section></div>`;
     return;
   }
   if (!modal) {
@@ -234,7 +248,7 @@ function renderModal() {
       [
         'search',
         'Be a little detective',
-        'Choose tools and tap the animal’s body markers to collect two clues. Drag to rotate; scroll or pinch to zoom.',
+        'For a poorly pet, choose tools and tap body markers to collect two key clues. Drag to rotate; scroll or pinch to zoom.',
       ],
       [
         'book',
@@ -244,12 +258,12 @@ function renderModal() {
       [
         'heart',
         'Give a gentle helping hand',
-        'Choose the care tool, tap the right body spot, then stop the moving dot in the green zone.',
+        'Choose the care tool, tap the right body spot, then stop the moving dot in the green zone. Vaccination visits go straight to finding the spot and giving a gentle vaccine.',
       ],
       [
         'bag',
         'Grow your happy place',
-        'Earn coins and happiness. Refill treats, add furniture, or make room for more neighbours.',
+        'Earn coins and happiness. Refill treats, add furniture, or make room for more neighbours. Need a break? Stop visit returns your patient to the waiting room to start again later.',
       ],
     ]
       .map(
@@ -261,9 +275,21 @@ function renderModal() {
       )}</div><p class="parent-note">Made for ages 7+. This is storybook animal care; a real animal needs a real veterinarian. Progress is saved in this browser. Sound is optional.</p>`;
   } else {
     title = 'Louise’s care notebook';
-    content = `<p class="modal-intro">A good vet stays curious. These friendly reminders can help you put the clues together.</p><div class="notebook-grid">${visits.map((p) => `<article><span class="pet-avatar ${p.color}">${petIcon(p.species)}</span><div><h3>${p.diagnosis}</h3><p>${p.checks[0].finding}</p><small>${toolInfo[p.treatment].name} · ${zoneNames[p.zone]}</small></div></article>`).join('')}</div>`;
+    content = `<p class="modal-intro">A good vet stays curious. These friendly reminders can help you put the clues together.</p><div class="notebook-grid">${visits.map((p) => `<article><span class="pet-avatar ${p.color}">${petIcon(p.species)}</span><div><h3>${p.diagnosis}</h3><p>${p.treatment === 'vaccine' ? 'Find the soft fur patch, then give the vaccine with a steady hand in the green timing zone.' : p.checks[0].finding}</p><small>${toolInfo[p.treatment].name} · ${zoneNames[p.zone]}</small></div></article>`).join('')}</div>`;
   }
   root.innerHTML = `<div class="modal-scrim"><section class="modal ${modal}" role="dialog" aria-modal="true" aria-labelledby="modal-title"><header><div><p class="eyebrow">LOUISE’S VET OFFICE</p><h2 id="modal-title">${title}</h2></div><button class="icon-button" data-action="close-modal" aria-label="Close ${modal}">${icon('close')}</button></header>${content}</section></div>`;
+}
+function renderVisitActions() {
+  const actions = byId('visit-actions');
+  actions.hidden =
+    !patient || mode === 'reception' || mode === 'result' || Boolean(modal);
+  if (actions.hidden) {
+    actions.innerHTML = '';
+    return;
+  }
+  actions.innerHTML = `${button('← Stop visit', 'back', 'secondary stop-visit')}
+    <span class="visit-action-hint">${mode === 'examine' ? `${findings.size}/${patient!.checks.length} key clues found` : timing ? 'Take your time. Aim for green!' : mode === 'diagnose' ? 'Choose the answer that fits your clues.' : 'Tap a spot on your patient.'}</span>
+    ${mode === 'examine' ? button(`Choose a diagnosis ${icon('arrow')}`, 'diagnose', 'primary', findings.size < patient!.checks.length) : ''}`;
 }
 function render() {
   app.dataset.mode = mode;
@@ -271,6 +297,7 @@ function render() {
   if (mode === 'reception') renderReception();
   else if (mode !== 'result') renderCase();
   renderModal();
+  renderVisitActions();
   document
     .querySelectorAll('.nav-button')
     .forEach((el) =>
@@ -286,6 +313,7 @@ function render() {
     );
 }
 function returnToReception(requeue = false) {
+  const returnedName = requeue ? patient?.name : null;
   if (requeue && patient) queue.unshift(patientId);
   mode = 'reception';
   patient = null;
@@ -296,6 +324,11 @@ function returnToReception(requeue = false) {
   world.setQueue(queue);
   world.setUpgrades(progress.upgrades);
   render();
+  window.scrollTo(0, 0);
+  if (returnedName)
+    announce(
+      `${returnedName} is back in the waiting room. You can try this visit again any time.`,
+    );
 }
 function startVisit(id: number) {
   if (!ready || mode !== 'reception' || !queue.includes(id)) return;
@@ -307,13 +340,19 @@ function startVisit(id: number) {
   mistakes = 0;
   selectedTool = null;
   timing = false;
-  mode = 'examine';
+  mode = patient.treatment === 'vaccine' ? 'place-vaccine' : 'examine';
+  if (mode === 'place-vaccine') selectedTool = 'vaccine';
   world.showTreatment(patient.species);
   audio.play('hello');
   render();
 }
 function useZone(zone: Zone | null) {
-  if (!patient || timing || modal || !['examine', 'treat'].includes(mode))
+  if (
+    !patient ||
+    timing ||
+    modal ||
+    !['examine', 'treat', 'place-vaccine'].includes(mode)
+  )
     return;
   if (!selectedTool) {
     announce('Choose a tool first, then a spot on your patient.');
@@ -342,10 +381,13 @@ function useZone(zone: Zone | null) {
     if (selectedTool !== patient.treatment || zone !== patient.zone) {
       mistakes++;
       announce(
-        `Check your care plan: ${toolInfo[patient.treatment].name} at the ${zoneNames[patient.zone].toLowerCase()}. You can try again.`,
+        patient.treatment === 'vaccine'
+          ? 'Not there — look for the soft fur on the upper body. Nothing has been given yet. Try another spot.'
+          : `Check your care plan: ${toolInfo[patient.treatment].name} at the ${zoneNames[patient.zone].toLowerCase()}. You can try again.`,
       );
       return;
     }
+    mode = 'treat';
     timing = true;
     meterStart = performance.now();
     render();
@@ -357,7 +399,9 @@ function applyCare() {
   if (Math.abs(meter - 0.5) > tolerance) {
     mistakes++;
     announce(
-      'A little wobbly! Let the dot come back to the green patch and try again.',
+      patient.treatment === 'vaccine'
+        ? 'Pause those paws! No vaccine given yet. Try again in the green patch for a gentle touch.'
+        : 'A little wobbly! Let the dot come back to the green patch and try again.',
     );
     return;
   }
@@ -371,6 +415,7 @@ function applyCare() {
   audio.play('success');
   renderModal();
   app.dataset.mode = mode;
+  renderVisitActions();
   renderStats();
   byId('zones').innerHTML = '';
   byId('precision').innerHTML = '';
@@ -395,12 +440,16 @@ app.addEventListener('click', (event) => {
   } else if (action === 'zone') useZone(target.dataset.zone as Zone);
   else if (
     action === 'diagnose' &&
+    mode === 'examine' &&
     patient &&
     findings.size === patient.checks.length
   ) {
     mode = 'diagnose';
     selectedTool = null;
     render();
+    byId('sidebar')
+      .querySelector<HTMLButtonElement>('[data-action="diagnosis"]')
+      ?.focus();
   } else if (action === 'diagnosis' && mode === 'diagnose' && patient) {
     if (target.dataset.diagnosis === patient.diagnosis) {
       mode = 'treat';
@@ -418,21 +467,24 @@ app.addEventListener('click', (event) => {
   } else if (action === 'apply') applyCare();
   else if (action === 'cancel-timing') {
     timing = false;
+    if (patient?.treatment === 'vaccine') mode = 'place-vaccine';
     render();
   } else if (action === 'finish') returnToReception();
-  else if (action === 'back') returnToReception(true);
+  else if (action === 'back' && patient && mode !== 'result')
+    returnToReception(true);
   else if (action === 'reception') {
     if (mode === 'reception') {
       modal = null;
       render();
     } else
       announce(
-        'Finish this visit, or use “Back to waiting room” to return your patient to the queue.',
+        'Finish this visit, or use “Stop visit” to return your patient to the queue.',
       );
   } else if (action === 'shop' || action === 'guide' || action === 'casebook') {
     if (mode === 'result') return;
     modal = action;
     renderModal();
+    renderVisitActions();
     byId('modal-root').querySelector<HTMLButtonElement>('button')?.focus();
   } else if (action === 'close-modal') {
     modal = null;

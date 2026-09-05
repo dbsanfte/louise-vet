@@ -32,9 +32,8 @@ Final prompt:
 
 ## Fonts, icons, and sound
 
-DM Sans and Fraunces are bundled locally through Fontsource under the SIL Open
-Font License. Their notices ship at `/licenses/dm-sans.txt` and
-`/licenses/fraunces.txt`. There are no external font requests.
+[Nunito](https://fontsource.org/fonts/nunito) is bundled locally through Fontsource
+under the SIL Open Font License. Its notice ships at `/licenses/nunito.txt`. There are no external font requests.
 
 The inline interface icons and pet silhouettes are original SVG code in
 `src/icons.ts`. Optional sounds are original synthesised chimes in `src/audio.ts`;

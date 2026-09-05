@@ -301,19 +301,8 @@ export const visits: Visit[] = [
     quote:
       'Hazel is here for her scheduled vaccination. She has been very brave today.',
     diagnosis: 'Routine vaccination',
-    alternatives: ['Fleas', 'Ear irritation'],
-    checks: [
-      {
-        tool: 'listen',
-        zone: 'chest',
-        finding: 'A steady heartbeat. Hazel is ready for her routine visit.',
-      },
-      {
-        tool: 'inspect',
-        zone: 'coat',
-        finding: 'A healthy coat, and the storybook care card is up to date.',
-      },
-    ],
+    alternatives: [],
+    checks: [],
     treatment: 'vaccine',
     zone: 'coat',
     aftercare:
