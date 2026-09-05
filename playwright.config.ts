@@ -12,7 +12,9 @@ export default defineConfig({
   use: {
     launchOptions: { args: ['--enable-unsafe-swiftshader'] },
     baseURL: externalURL ?? 'http://127.0.0.1:4173',
-    trace: 'retain-on-failure',
+    // Continuous canvas captures are expensive with software WebGL in CI.
+    // Keep DOM/action traces and a screenshot of any failure instead.
+    trace: { mode: 'retain-on-failure', screenshots: false, snapshots: true },
     screenshot: 'only-on-failure',
   },
   projects: [

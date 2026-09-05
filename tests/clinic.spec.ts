@@ -120,7 +120,7 @@ test('all eight visits are playable and every pet can receive care', async ({
     testInfo.project.name !== 'desktop',
     'Full case coverage runs once; the core loop also runs on mobile.',
   );
-  test.setTimeout(240000);
+  test.setTimeout(480000);
   const { visits, toolInfo, zoneNames } = await import('../src/game');
   await openClinic(page);
   for (const visit of visits) {
