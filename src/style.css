@@ -2070,3 +2070,126 @@ h1 {
     font-size: 20px;
   }
 }
+
+.examination-readout {
+  position: absolute;
+  right: 16px;
+  top: 104px;
+  z-index: 5;
+  width: min(285px, calc(100% - 32px));
+  padding: 14px 16px;
+  border: 1px solid #a6c3b4;
+  border-radius: 16px;
+  background: #fcfff8ed;
+  box-shadow: 0 8px 30px #23433118;
+  pointer-events: none;
+}
+.examination-readout[hidden] {
+  display: none;
+}
+.instrument-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #294f42;
+}
+.instrument-message {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 5px 0 10px;
+}
+.instrument-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.instrument-actions[hidden] {
+  display: none;
+}
+.instrument-actions button,
+.heart-sound,
+.orbit-mode {
+  pointer-events: auto;
+  border: 1px solid #a8c3b3;
+  border-radius: 9px;
+  background: #eef6e9;
+  padding: 7px 10px;
+  font-size: 13px;
+  min-height: 34px;
+}
+.instrument-zoom {
+  font-size: 14px;
+  min-width: 35px;
+}
+.ecg-trace {
+  width: 100%;
+  height: 100px;
+  border-radius: 10px;
+  margin-top: 8px;
+}
+.heart-reading {
+  display: block;
+  font-size: 15px;
+  margin: 7px 0;
+}
+.heart-reading[hidden],
+.heart-sound[hidden],
+.ecg-trace[hidden] {
+  display: none;
+}
+.stage:has(.examination-readout:not([hidden])) #world {
+  cursor: crosshair;
+}
+@media (max-width: 700px) {
+  .examination-readout {
+    position: relative;
+    inset: auto;
+    margin: 8px 12px;
+    width: calc(100% - 24px);
+    padding: 12px;
+  }
+  .instrument-message {
+    font-size: 14px;
+    margin: 4px 0;
+  }
+  .instrument-title {
+    font-size: 18px;
+  }
+  .instrument-actions {
+    gap: 4px;
+  }
+  .instrument-actions button {
+    font-size: 14px;
+    padding: 6px 10px;
+    min-height: 38px;
+  }
+  .ecg-trace {
+    height: 65px;
+  }
+  .heart-reading {
+    font-size: 14px;
+  }
+  .scene-controls {
+    gap: 4px;
+  }
+  .orbit-mode {
+    font-size: 12px;
+    padding: 5px;
+  }
+}
+
+/* Guide buttons remain available without drawing over the optical image. */
+.stage:has(.examination-readout[data-contact='true']:not([hidden]))
+  .zone-leaders {
+  opacity: 0;
+}
+
+@media (min-width: 701px) {
+  .examination-readout {
+    top: 16px;
+    width: 250px;
+  }
+}
+.stage:has(.examination-readout:not([hidden])) .scene-goal {
+  visibility: hidden;
+}

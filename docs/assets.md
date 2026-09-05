@@ -2,7 +2,7 @@
 
 ## Original Blender models
 
-All twelve runtime models in `public/models/` are original assets created for this
+The twelve clinic and character models in `public/models/` are original assets created for this
 project with Blender through Blender MCP. Their editable source is
 `assets/blender/louises-vet-office.blend`; the reproducible authoring script is
 `scripts/create-blender-assets.py`. They are not downloaded marketplace models.
@@ -15,6 +15,23 @@ customers, and all six pets have original transform-rig animations exported as
 looping `Idle` and `Walk` clips. The browser blends between these clips as
 customers arrive and stop; fish animate their fins and tail. Idle clips include
 breathing, head turns, blinking, and tail motion where appropriate.
+
+## Examination models and fur
+
+The 29 additional GLBs in `public/models/examination/` are original models authored
+with headless Blender by `scripts/create-examination-assets.py`. Editable source
+is `assets/blender/examination.blend` (compressed native Blender format). They
+include six complete species skeletons plus a fractured rabbit variant, two ear
+canals, six healthy/tartar/cavity mouth variants, and fourteen instruments. The
+fracture uses separate displaced bone geometry; tooth cavities use a boolean
+crater with dark dentine, and tartar/wax/swelling are additional meshes. Anatomy
+is simplified to fit the game's stylised animals and is not a clinical reference.
+
+`src/fur.ts` creates the original strand texture and surface hair geometry on
+the actual pet meshes. Skin findings (including splinters) are attached to those
+surfaces. `src/examination.ts` renders live optical close-ups and the underlying
+3D anatomy from the current camera angle. No external textures or stock medical
+images are used.
 
 ## Louise's portrait
 
@@ -43,7 +60,7 @@ Final prompt:
 under the SIL Open Font License. Its notice ships at `/licenses/nunito.txt`. There are no external font requests.
 
 The inline interface icons and pet silhouettes are original SVG code in
-`src/icons.ts`. Optional sounds are original synthesised chimes in `src/audio.ts`;
+`src/icons.ts`. Optional sounds are original synthesised chimes and double heartbeats in `src/audio.ts`;
 no music or third-party audio recordings are currently used.
 
 Three.js is distributed under the MIT License; its copyright and license notice

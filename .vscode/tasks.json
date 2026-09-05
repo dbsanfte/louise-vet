@@ -31,7 +31,7 @@
     {
       "label": "Game: rebuild Blender models (headless)",
       "type": "shell",
-      "command": "uv run --with mcp python scripts/blender-build.py --headless",
+      "command": "python3 scripts/blender-build.py --headless --all",
       "problemMatcher": []
     },
     {

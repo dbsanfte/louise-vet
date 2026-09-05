@@ -14,7 +14,8 @@ export type Tool =
   | 'comb'
   | 'vaccine'
   | 'brush'
-  | 'water-care';
+  | 'water-care'
+  | 'forceps';
 export interface Check {
   tool: Tool;
   zone: Zone;
@@ -32,6 +33,14 @@ export interface Visit {
   diagnosis: string;
   alternatives: string[];
   checks: Check[];
+  clinical?: {
+    skin?: 'sting' | 'fleas' | 'tangle' | 'splinter';
+    fracture?: boolean;
+    ear?: 'inflamed';
+    teeth?: 'tartar' | 'cavity';
+    heart?: 'fast';
+    water?: 'cloudy';
+  };
   treatment: Tool;
   zone: Zone;
   aftercare: string;
@@ -42,7 +51,7 @@ const examinationZones: Partial<Record<Tool, Zone[]>> = {
   listen: ['chest'],
   ear: ['ear'],
   mouth: ['mouth'],
-  xray: ['paw', 'chest'],
+  xray: ['ear', 'chest', 'paw', 'coat', 'mouth', 'tank', 'fin'],
   'water-test': ['tank'],
   inspect: ['ear', 'chest', 'paw', 'coat', 'mouth', 'tank', 'fin'],
 };
@@ -51,6 +60,7 @@ export function examine(
   visit: Visit,
   tool: Tool,
   zone: Zone,
+  findingVisible = true,
 ):
   | { kind: 'finding'; text: string; clueIndex: number }
   | { kind: 'guidance'; text: string } {
@@ -72,6 +82,11 @@ export function examine(
   const clueIndex = visit.checks.findIndex(
     (c) => c.tool === tool && c.zone === zone,
   );
+  if (clueIndex >= 0 && !findingVisible)
+    return {
+      kind: 'guidance',
+      text: 'Keep looking around this spot. Move the viewer closer, or look around the other side of your patient.',
+    };
   if (clueIndex >= 0)
     return {
       kind: 'finding',
@@ -116,6 +131,7 @@ export function examine(
 export const visits: Visit[] = [
   {
     name: 'Luna',
+    clinical: { skin: 'sting' },
     owner: 'Amelia',
     ownerModel: 'visitor-ponytail',
     species: 'dog',
@@ -146,6 +162,7 @@ export const visits: Visit[] = [
   },
   {
     name: 'Milo',
+    clinical: { ear: 'inflamed' },
     owner: 'Oliver',
     ownerModel: 'visitor',
     species: 'cat',
@@ -176,6 +193,7 @@ export const visits: Visit[] = [
   },
   {
     name: 'Pip',
+    clinical: { fracture: true, heart: 'fast' },
     owner: 'Sophie',
     ownerModel: 'visitor-bob',
     species: 'rabbit',
@@ -192,7 +210,7 @@ export const visits: Visit[] = [
         tool: 'xray',
         zone: 'paw',
         finding:
-          'The storybook X-ray shows a tiny crack. This paw needs support.',
+          'A clear gap and an offset in the front leg bone. Pip needs a support wrap.',
       },
       {
         tool: 'listen',
@@ -207,6 +225,7 @@ export const visits: Visit[] = [
   },
   {
     name: 'Peanut',
+    clinical: { skin: 'fleas' },
     owner: 'Noah',
     ownerModel: 'visitor',
     species: 'hamster',
@@ -238,6 +257,7 @@ export const visits: Visit[] = [
   },
   {
     name: 'Sunny',
+    clinical: { skin: 'tangle' },
     owner: 'Isla',
     ownerModel: 'visitor-ponytail',
     species: 'gerbil',
@@ -269,6 +289,7 @@ export const visits: Visit[] = [
   },
   {
     name: 'Bubbles',
+    clinical: { water: 'cloudy' },
     owner: 'Leo',
     ownerModel: 'visitor',
     species: 'goldfish',
@@ -318,6 +339,7 @@ export const visits: Visit[] = [
   },
   {
     name: 'Cleo',
+    clinical: { teeth: 'tartar' },
     owner: 'Freddie',
     ownerModel: 'visitor',
     species: 'cat',
@@ -345,12 +367,82 @@ export const visits: Visit[] = [
     zone: 'mouth',
     aftercare: 'A sparkling smile and a tooth-care plan for home. Well done!',
   },
+  {
+    name: 'Scout',
+    owner: 'Amelia',
+    ownerModel: 'visitor-ponytail',
+    species: 'dog',
+    breed: 'Curious terrier',
+    age: '2 years',
+    color: 'yellow',
+    symptom: 'A prickly paw',
+    quote:
+      'Scout stepped on a little piece of wood near the garden shed. He keeps lifting one paw.',
+    diagnosis: 'Splinter',
+    alternatives: ['Fleas', 'Ear irritation'],
+    clinical: { skin: 'splinter', heart: 'fast' },
+    checks: [
+      {
+        tool: 'inspect',
+        zone: 'paw',
+        finding:
+          'A sharp wooden splinter is sticking through the fur on the paw.',
+      },
+      {
+        tool: 'listen',
+        zone: 'chest',
+        finding:
+          'A quicker heartbeat. Scout is a little worried about his prickly paw.',
+      },
+    ],
+    treatment: 'forceps',
+    zone: 'paw',
+    aftercare:
+      'The little splinter is out. A gentle clean and a quiet rest for that brave paw.',
+  },
+  {
+    name: 'Poppy',
+    owner: 'Grace',
+    ownerModel: 'visitor-bob',
+    species: 'cat',
+    breed: 'Fluffy house cat',
+    age: '5 years',
+    color: 'pink',
+    symptom: 'A sore tooth',
+    quote:
+      'Poppy has been leaving the crunchy bits of dinner. Could a tooth be bothering her?',
+    diagnosis: 'Tooth cavity',
+    alternatives: ['Fleas', 'Ear irritation'],
+    clinical: { teeth: 'cavity' },
+    checks: [
+      {
+        tool: 'mouth',
+        zone: 'mouth',
+        finding:
+          'A dark crater in the tooth, with a brown edge. Poppy needs a dental care appointment.',
+      },
+      {
+        tool: 'listen',
+        zone: 'chest',
+        finding: 'A steady heartbeat. Poppy feels safe on the table.',
+      },
+    ],
+    treatment: 'brush',
+    zone: 'mouth',
+    aftercare:
+      'A gentle clean and a dental appointment booked to care for that damaged tooth.',
+  },
 ];
 
 export const toolInfo: Record<
   Tool,
   { name: string; icon: string; hint: string }
 > = {
+  forceps: {
+    name: 'Fine forceps',
+    icon: 'search',
+    hint: 'Lift the little splinter from the paw',
+  },
   listen: {
     name: 'Stethoscope',
     icon: 'stethoscope',
@@ -362,7 +454,11 @@ export const toolInfo: Record<
     icon: 'search',
     hint: 'Look closely at the problem',
   },
-  xray: { name: 'X-ray', icon: 'scan', hint: 'Check a sore paw' },
+  xray: {
+    name: 'X-ray',
+    icon: 'scan',
+    hint: 'Move the viewer across the whole animal',
+  },
   mouth: { name: 'Mouth mirror', icon: 'search', hint: 'Look at the teeth' },
   'water-test': {
     name: 'Water test',

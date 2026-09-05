@@ -12,9 +12,10 @@ instructions for treating real pets.
    being treated. Animals and their people enter from the side doorway, then walk
    toward Louise behind the counter at the back. Waiting customers keep their
    places when another neighbour arrives.
-2. Enter the 3D examination room. Drag to orbit, scroll or pinch to zoom, or use
-   the rotation buttons. Read the owner's story, select a diagnostic tool, and
-   tap a body marker or the corresponding part of the model.
+2. Enter the 3D examination room. Read the owner's story and select a diagnostic
+   tool. Hold and drag it across the animal to inspect the actual model; tapping
+   a body guide places the tool for you. Choose **Look around** to orbit, or use
+   rotation buttons while holding the tool. Optical viewers have zoom controls.
 3. Collect two key findings and choose the diagnosis that fits. Other sensible
    examinations also return observations, including healthy results; those checks
    stay in the care notes without counting as the two key clues. The care notebook
@@ -37,8 +38,10 @@ stay fixed at the bottom of the screen; care notes scroll within their own panel
 The interface uses locally bundled Nunito lettering with larger reading text.
 
 Dogs, cats, rabbits, hamsters, gerbils, and goldfish have original Blender models.
-Eight visits cover a bee sting, irritated ear, sore paw with a storybook X-ray,
-fleas, tangled fur, fish water care, a vaccination visit, and teeth cleaning.
+Ten visits cover a bee sting, irritated ear, fractured front leg, fleas, tangled
+fur, fish water care, vaccination, tartar cleaning, a splinter, and a tooth cavity.
+The cavity case finishes with gentle cleaning and a dental appointment; brushing
+does not claim to repair the cavity.
 
 ## Progress and purchases
 
@@ -56,9 +59,11 @@ between devices, or after clearing site data. No account or backend is involved.
 ## Direction after this slice
 
 The present slice proves the complete game loop with compact authored cases.
-Examination uses body hotspots and written findings; it does not yet simulate
-instrument handling, an interactive X-ray viewer, mouth/ear interiors, or
-physical cream spreading. People and pets now play Blender-authored walking and
+Examination now includes draggable 3D instruments, real-time magnified fur,
+complete 3D skeletal scans with a displaced fracture, lit healthy/abnormal ear
+and mouth interiors, and an ECG with matching heartbeat audio. Written notes
+record findings after inspection. Treatment still uses placement and timing;
+physical cream spreading and tissue deformation are future work. People and pets now play Blender-authored walking and
 idle clips, with three customer appearances including women. Hardware graphics
 render animation every frame; software graphics use a lighter display cadence.
 The care timing challenge holds the scene still while the meter runs.

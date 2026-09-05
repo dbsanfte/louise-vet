@@ -153,7 +153,7 @@ function renderCase() {
         : 2;
   const diagnosticTools: Tool[] =
     patient.species === 'goldfish'
-      ? ['water-test', 'inspect']
+      ? ['water-test', 'inspect', 'xray']
       : ['listen', 'inspect', 'ear', 'xray', 'mouth'];
   const treatments = [
     ...new Set<Tool>([patient.treatment, 'cream', 'bandage', 'comb']),
@@ -163,7 +163,7 @@ function renderCase() {
     <div class="owner-note"><p>“${patient.quote}”</p><span>— ${patient.owner}, ${patient.name}’s person</span></div>
     <ol class="case-steps">${steps.map((label, i) => `<li class="${i === step ? 'current' : i < step ? 'complete' : ''}"><span>${i < step ? icon('check') : i + 1}</span>${label}</li>`).join('')}</ol>
     ${vaccination ? `<div class="care-plan"><span>${icon('heart')} VACCINATION VISIT</span><h3>${timing ? 'A gentle touch' : 'Find a comfy spot'}</h3><p>${timing ? 'You found the spot! Now keep your hand steady.' : `The vaccine is ready. Find the soft patch of fur on ${patient.name}’s upper body. Turn her around and tap the matching body marker.`}</p></div><p class="instruction">${timing ? 'Tap Give vaccine in the green patch. A wobbly try pauses the vaccine so you can try again.' : 'No mystery to solve today — just a little practice with careful hands.'}</p>` : ''}
-    ${mode === 'examine' ? `<div class="section-title"><h3>Look & listen</h3><span>${findings.size}/${patient.checks.length} key clues</span></div><p class="instruction">Pick a tool, then tap a spot on ${patient.name}. Healthy checks help too. Find two key clues about the problem in their person’s story.</p><div class="tool-grid">${diagnosticTools.map(toolButton).join('')}</div>` : ''}
+    ${mode === 'examine' ? `<div class="section-title"><h3>Look & listen</h3><span>${findings.size}/${patient.checks.length} key clues</span></div><p class="instruction">Choose a tool, then hold and drag it over ${patient.name}. Look closely at what you see and hear. The body guides can help you place your tool.</p><div class="tool-grid">${diagnosticTools.map(toolButton).join('')}</div>` : ''}
     ${
       mode === 'diagnose'
         ? `<h3 class="diagnosis-heading">What do your clues suggest?</h3><div class="diagnosis-choices">${diagnoses()
@@ -181,9 +181,9 @@ function renderCase() {
   byId('scene-goal').innerHTML =
     `<div class="comfort-badge">${icon('heart')} <span>Safe, cosy & cared for</span></div>`;
   byId('scene-caption').innerHTML =
-    `<span class="orbit-hint">${icon('rotate')} Drag to look around · scroll to zoom</span>`;
+    `<span class="orbit-hint">${icon('rotate')} ${selectedTool && !world.orbitMode ? 'Hold and drag your tool over the animal' : 'Drag to look around · scroll to zoom'}</span>`;
   byId('scene-controls').innerHTML =
-    `<button class="icon-button" data-action="rotate-left" aria-label="Rotate animal left">↶</button><button class="icon-button" data-action="rotate-right" aria-label="Rotate animal right">↷</button><button class="icon-button" data-action="reset-camera" aria-label="Reset camera">${icon('rotate')}</button>`;
+    `<button class="orbit-mode" data-action="orbit-mode" aria-pressed="${world.orbitMode}">${world.orbitMode ? 'Use tool' : 'Look around'}</button><button class="icon-button" data-action="rotate-left" aria-label="Rotate animal left">↶</button><button class="icon-button" data-action="rotate-right" aria-label="Rotate animal right">↷</button><button class="icon-button" data-action="reset-camera" aria-label="Reset camera">${icon('rotate')}</button>`;
   byId('zones').innerHTML =
     (mode === 'examine' || mode === 'treat' || mode === 'place-vaccine') &&
     !timing
@@ -204,6 +204,10 @@ function renderCase() {
       : '';
   byId('stage-footer').innerHTML =
     `<span class="footer-tip">${icon(selectedTool ? toolInfo[selectedTool].icon : 'heart')} ${selectedTool ? `${toolInfo[selectedTool].name} selected · ${toolInfo[selectedTool].hint}` : mode === 'diagnose' ? 'Use both clues to choose your diagnosis.' : 'Choose a tool to begin. Every good vet starts by listening.'}</span><span class="clinic-total">${queue.length} waiting patiently</span>`;
+  world.setInstrument(
+    selectedTool,
+    !timing && ['examine', 'treat', 'place-vaccine'].includes(mode),
+  );
   renderPrecision();
 }
 function toolButton(tool: Tool) {
@@ -349,11 +353,11 @@ function startVisit(id: number) {
   timing = false;
   mode = patient.treatment === 'vaccine' ? 'place-vaccine' : 'examine';
   if (mode === 'place-vaccine') selectedTool = 'vaccine';
-  world.showTreatment(patient.species);
+  world.showTreatment(patient);
   audio.play('hello');
   render();
 }
-function useZone(zone: Zone | null) {
+function useZone(zone: Zone | null, findingVisible = true) {
   if (
     !patient ||
     timing ||
@@ -370,7 +374,7 @@ function useZone(zone: Zone | null) {
     return;
   }
   if (mode === 'examine') {
-    const result = examine(patient, selectedTool, zone);
+    const result = examine(patient, selectedTool, zone, findingVisible);
     if (result.kind === 'guidance') {
       announce(result.text);
       return;
@@ -444,7 +448,16 @@ app.addEventListener('click', (event) => {
     selectedTool = target.dataset.tool as Tool;
     audio.play('tap');
     render();
-  } else if (action === 'zone') useZone(target.dataset.zone as Zone);
+    if (window.innerWidth <= 700)
+      byId('world').scrollIntoView({ block: 'center', behavior: 'instant' });
+  } else if (action === 'zone')
+    world.placeInstrument(target.dataset.zone as Zone);
+  else if (action === 'orbit-mode') {
+    world.toggleOrbit();
+    render();
+  } else if (action === 'instrument-zoom-in') world.changeInstrumentZoom(0.5);
+  else if (action === 'instrument-zoom-out') world.changeInstrumentZoom(-0.5);
+  else if (action === 'full-xray') world.toggleFullXray();
   else if (
     action === 'diagnose' &&
     mode === 'examine' &&
@@ -546,7 +559,9 @@ document.addEventListener('keydown', (e) => {
 renderStats();
 renderReception();
 try {
-  world = new World(byId('world'), useZone);
+  world = new World(byId('world'), useZone, (bpm, now) =>
+    audio.heartbeat(now, bpm),
+  );
   void world
     .load()
     .then(() => {

@@ -33,6 +33,10 @@ export class Character {
     this.mixer.update(dt);
   }
 
+  holdStill() {
+    this.mixer.setTime(0);
+  }
+
   dispose() {
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.root);

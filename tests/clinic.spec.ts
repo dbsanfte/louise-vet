@@ -124,7 +124,7 @@ test('a patient can return to the queue without claiming a reward', async ({
 }) => {
   await openClinic(page);
   await page.locator('[data-action="next"]').click();
-  const canvas = page.locator('canvas');
+  const canvas = page.locator('#world > canvas');
   const beforeRotation = await canvas.screenshot();
   await page.getByRole('button', { name: 'Rotate animal right' }).click();
   expect((await canvas.screenshot()).equals(beforeRotation)).toBe(false);
@@ -135,7 +135,7 @@ test('a patient can return to the queue without claiming a reward', async ({
   await expect(page.getByTestId('coins')).toHaveText('120');
 });
 
-test('all eight visits are playable and every pet can receive care', async ({
+test('all ten visits are playable and every pet can receive care', async ({
   page,
 }, testInfo) => {
   test.skip(
@@ -181,6 +181,19 @@ test('all eight visits are playable and every pet can receive care', async ({
             exact: true,
           })
           .click();
+        if (
+          ['inspect', 'ear', 'mouth', 'xray', 'listen'].includes(check.tool)
+        ) {
+          await expect(
+            page.locator('.examination-readout'),
+          ).not.toHaveAttribute('data-view', 'positioning');
+          await testInfo.attach(`${visit.name}-${check.tool}`, {
+            body: await page.locator('#world > canvas').screenshot({
+              path: testInfo.outputPath(`${visit.name}-${check.tool}.png`),
+            }),
+            contentType: 'image/png',
+          });
+        }
       }
       await page.locator('[data-action="diagnose"]').click();
       await page
@@ -255,7 +268,9 @@ test('all eight visits are playable and every pet can receive care', async ({
     ).toBeVisible();
     await page.getByRole('button', { name: 'Back to reception' }).click();
   }
-  await expect(page.locator('.clinic-total')).toContainText('8 friends helped');
+  await expect(page.locator('.clinic-total')).toContainText(
+    `${visits.length} friends helped`,
+  );
   const happiness = parseInt(
     (await page.getByTestId('happiness').textContent())!,
   );

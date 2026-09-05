@@ -2,8 +2,16 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { visits, type Species, type Zone, type UpgradeId } from './game';
+import {
+  visits,
+  type Species,
+  type Zone,
+  type UpgradeId,
+  type Visit,
+  type Tool,
+} from './game';
 import { Character } from './character';
+import { Examination } from './examination';
 
 const assetNames = [
   'clinic',
@@ -60,14 +68,21 @@ export class World {
   private width = 1;
   private height = 1;
   private observer: ResizeObserver;
-  private onPick: (zone: Zone | null) => void;
+  private onPick: (zone: Zone | null, findingVisible: boolean) => void;
   private softwareGraphics = false;
   private needsRender = true;
   private lastRender = -Infinity;
+  private examination: Examination;
+  private examining = false;
+  private hoverZone: Zone | null = null;
+  private hoverSince = 0;
+  private sampled = false;
+  orbitMode = false;
 
   constructor(
     private container: HTMLElement,
-    onPick: (zone: Zone | null) => void,
+    onPick: (zone: Zone | null, findingVisible: boolean) => void,
+    onHeart: (bpm: number | null, now: number) => void,
   ) {
     this.onPick = onPick;
     this.renderer = new THREE.WebGLRenderer({
@@ -127,6 +142,11 @@ export class World {
     const room = new RoomEnvironment();
     this.scene.environment = pmrem.fromScene(room, 0.04).texture;
     this.scene.environmentIntensity = 0.25;
+    this.examination = new Examination(
+      container,
+      this.scene.environment,
+      onHeart,
+    );
     room.dispose();
     pmrem.dispose();
     const ground = new THREE.Mesh(
@@ -162,8 +182,27 @@ export class World {
     this.observer.observe(container);
     this.renderer.domElement.addEventListener('pointerdown', (e) => {
       this.pointerStart = { x: e.clientX, y: e.clientY };
+      if (this.examination.selected) {
+        this.examining = true;
+        this.sampled = false;
+        this.hoverSince = performance.now();
+        this.renderer.domElement.setPointerCapture(e.pointerId);
+        this.moveInstrument(e);
+      }
+    });
+    this.renderer.domElement.addEventListener('pointermove', (e) =>
+      this.moveInstrument(e),
+    );
+    this.renderer.domElement.addEventListener('pointercancel', () => {
+      this.examining = false;
     });
     this.renderer.domElement.addEventListener('pointerup', (e) => {
+      if (this.examination.selected) {
+        this.moveInstrument(e);
+        if (!this.sampled && this.hoverZone) this.pick(this.hoverZone);
+        this.examining = false;
+        return;
+      }
       if (
         this.mode !== 'treatment' ||
         !this.animal ||
@@ -192,7 +231,7 @@ export class World {
           nearest = zone;
         }
       }
-      this.onPick(nearest);
+      this.pick(nearest);
     });
     this.resize();
   }
@@ -212,6 +251,7 @@ export class World {
         this.assets.set(name, gltf.scene);
       }),
     );
+    await this.examination.load();
     this.reception.add(this.clone('clinic'));
     const louise = this.clone('louise');
     louise.position.set(-1.3, 0, -2.75);
@@ -334,6 +374,9 @@ export class World {
   }
 
   showReception() {
+    this.examination.select(null, false);
+    this.examining = false;
+    this.hoverZone = null;
     this.mode = 'reception';
     this.reception.visible = true;
     this.treatment.visible = false;
@@ -341,7 +384,8 @@ export class World {
     this.scene.background = new THREE.Color('#e9e8d9');
     this.resize();
   }
-  showTreatment(species: Species) {
+  showTreatment(visit: Visit) {
+    const species = visit.species;
     this.patientAnimation?.dispose();
     if (this.animal) this.treatment.remove(this.animal);
     this.species = species;
@@ -349,6 +393,8 @@ export class World {
     this.animal.position.y = 1.28;
     this.treatment.add(this.animal);
     this.patientAnimation = new Character(this.animal);
+    this.examination.setPatient(visit, this.animal);
+    this.orbitMode = false;
     this.mode = 'treatment';
     this.reception.visible = false;
     this.treatment.visible = true;
@@ -368,6 +414,85 @@ export class World {
     this.perspective.position.copy(this.controls.target).add(offset);
     this.controls.update();
   }
+  setInstrument(tool: Tool | null, active: boolean) {
+    if (tool === 'xray' && active && this.examination.selected !== 'xray')
+      this.patientAnimation?.holdStill();
+    this.examination.select(tool, active && !this.orbitMode);
+    this.controls.enabled =
+      this.mode === 'treatment' && (!active || !tool || this.orbitMode);
+    this.needsRender = true;
+  }
+  toggleOrbit() {
+    this.orbitMode = !this.orbitMode;
+  }
+  changeInstrumentZoom(delta: number) {
+    this.examination.changeZoom(delta);
+    this.needsRender = true;
+  }
+  toggleFullXray() {
+    this.examination.toggleWhole();
+    this.needsRender = true;
+  }
+  placeInstrument(zone: Zone) {
+    const p = this.projectZone(zone);
+    this.examination.setContact(p.x / this.width, p.y / this.height, zone);
+    this.needsRender = true;
+    this.pick(zone);
+  }
+  private pick(zone: Zone | null) {
+    this.onPick(
+      zone,
+      this.examination.findingVisible(
+        this.perspective,
+        this.width,
+        this.height,
+      ),
+    );
+  }
+  private moveInstrument(e: PointerEvent) {
+    if (!this.examination.selected || !this.animal) return;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width,
+      y = (e.clientY - rect.top) / rect.height;
+    this.raycaster.setFromCamera(
+      new THREE.Vector2(x * 2 - 1, 1 - y * 2),
+      this.perspective,
+    );
+    const hit = this.raycaster.intersectObject(this.animal, true)[0];
+    let zone: Zone | null = null;
+    if (hit) {
+      // Identify the surface itself before falling back to guide proximity.
+      // Both ears and all paws must work after orbiting to the other side.
+      let part: THREE.Object3D | null = hit.object;
+      while (part && part !== this.animal && !zone) {
+        const name = part.name;
+        if (/^(ear|inner_ear)/.test(name)) zone = 'ear';
+        else if (/^paw/.test(name)) zone = 'paw';
+        else if (/^(muzzle|nose)/.test(name)) zone = 'mouth';
+        else if (/^chest/.test(name)) zone = 'chest';
+        else if (/^bowl/.test(name)) zone = 'tank';
+        else if (/^fin/.test(name)) zone = 'fin';
+        else if (/^(body|tail)/.test(name))
+          zone = this.species === 'goldfish' ? 'fin' : 'coat';
+        part = part.parent;
+      }
+      let distance = Infinity;
+      for (const candidate of zone ? [] : this.availableZones()) {
+        const d = this.zonePosition(candidate).distanceTo(hit.point);
+        if (d < distance) {
+          distance = d;
+          zone = candidate;
+        }
+      }
+    }
+    if (zone !== this.hoverZone) {
+      this.hoverZone = zone;
+      this.hoverSince = performance.now();
+      this.sampled = false;
+    }
+    this.examination.setContact(x, y, zone);
+    this.needsRender = true;
+  }
   availableZones(): Zone[] {
     return this.species === 'goldfish'
       ? ['tank', 'fin']
@@ -376,6 +501,9 @@ export class World {
   zonePosition(zone: Zone) {
     const fallback = fallbackZones[zone].clone();
     if (!this.animal) return fallback;
+    this.animal.updateWorldMatrix(true, true);
+    const issue = this.examination.issuePosition(zone);
+    if (issue) return issue;
     let spot: THREE.Object3D | undefined;
     this.animal.traverse((o) => {
       if (o.name.startsWith(`spot_${zone}`)) spot = o;
@@ -450,7 +578,21 @@ export class World {
         }
       });
     } else {
-      this.patientAnimation?.update(dt);
+      // Hold the radiograph pose steady; other examinations retain breathing,
+      // blinking and the pet's gentle authored idle motion.
+      if (this.examination.selected !== 'xray')
+        this.patientAnimation?.update(dt);
+    }
+    this.examination.update(time);
+    if (
+      this.examining &&
+      this.hoverZone &&
+      !this.sampled &&
+      time - this.hoverSince > 500 &&
+      this.examination.findingVisible(this.perspective, this.width, this.height)
+    ) {
+      this.sampled = true;
+      this.pick(this.hoverZone);
     }
     this.controls.update();
     // Software WebGL keeps the same clips, at a lighter display cadence.
@@ -467,5 +609,13 @@ export class World {
       this.scene,
       this.mode === 'reception' ? this.ortho : this.perspective,
     );
+    if (this.mode === 'treatment')
+      this.examination.render(
+        this.renderer,
+        this.scene,
+        this.perspective,
+        this.width,
+        this.height,
+      );
   }
 }

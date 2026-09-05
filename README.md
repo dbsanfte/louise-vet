@@ -4,8 +4,8 @@ A cosy browser game made for Louise, ages 7 and up. Welcome neighbours into a
 2.5D clinic, examine their pets in 3D, put clues together, and give gentle care.
 Earn happy hearts and coins to grow the office.
 
-The first playable slice includes six pet species, eight authored visits,
-body-targeted examination tools, diagnosis choices, a treatment timing challenge,
+The first playable slice includes six pet species, ten authored visits,
+interactive 3D examination tools, diagnosis choices, a treatment timing challenge,
 retail treats, six shop purchases, saved progress, and optional original sounds.
 Louise has a personalised illustrated portrait and a Blender character.
 
@@ -204,12 +204,37 @@ you can run the asset script directly in Blender with `PROJECT_ROOT` set first.
 To use Blender inside the devcontainer without a desktop window or MCP server:
 
 ```sh
-uv run --with mcp python scripts/blender-build.py --headless
+python3 scripts/blender-build.py --headless --all
 ```
 
 The VS Code task **Game: rebuild Blender models (headless)** runs the same command.
+It needs neither Windows Blender nor a running MCP server. Use `--examination`
+instead of `--all` to rebuild only anatomy and instruments, or omit both flags
+to rebuild only the clinic and animated characters. A full rebuild takes several
+minutes. `BLENDER_PROJECT_ROOT` can direct output into a separate directory.
 This builds from the Python authoring script, so it does not need to open a source
 file made by a newer desktop Blender version. It replaces the generated GLBs and
-the Blender source file; rebuild the web container afterwards to serve them.
+the Blender source files; rebuild the web container afterwards to serve them.
 All people and pets include looping `Idle` and `Walk` clips. The fish uses its
 walk clip for swimming, with the bowl remaining still.
+
+## Interactive examinations
+
+Select a tool, then hold and drag it over the animal. Body guide buttons offer
+a keyboard/touch alternative. **Look around** switches dragging to camera orbit;
+rotation buttons remain available while holding a tool.
+
+- The magnifier enlarges the actual textured coat, with individual fur fibres,
+  fleas, tangles, sting swelling, and Scout's protruding wooden splinter.
+- The X-ray scans the complete skeleton from any camera angle. Pip's front leg
+  has separated, displaced bone ends. Use **Whole-body X-ray** for the overview
+  and **+ / −** to inspect a smaller area.
+- Ear and mouth tools show lit 3D interiors. Healthy ears differ from Milo's
+  swollen red canal with wax; Cleo has yellow tartar, and Poppy has a tooth crater.
+- The stethoscope shows a moving ECG and a species-specific story reading while
+  touching the chest. Enable sound for the matching double heartbeat. Moving off
+  the chest stops the reading; the sound preference is saved.
+
+All fourteen diagnostic and care tools have original Blender models. Findings
+from the magnifier and X-ray require the problem to be in view. These are
+child-friendly fictional cases, not medical simulations or real treatment advice.

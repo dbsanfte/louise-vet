@@ -14,7 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "npm run test:unit && playwright test",
-    "test:unit": "node --test tests/economy.test.ts tests/animations.test.ts",
+    "test:unit": "node --test tests/economy.test.ts tests/animations.test.ts tests/clinical.test.ts",
     "check": "npm run format:check && npm run build && npm test"
   },
   "devDependencies": {
