@@ -24,6 +24,7 @@ export class Examination {
   private zoom = 3.5;
   private whole = false;
   private xrayZoom = 1.5;
+  private lastTrace = -Infinity;
   private skeletonBounds = new THREE.Sphere();
   private skeletonBox = new THREE.Box3();
   private cleanupPatient = () => {};
@@ -313,11 +314,15 @@ export class Examination {
       mouth: 'Hold the mirror at the mouth to inspect teeth and gums.',
       listen: 'Hold the chestpiece against the chest and listen.',
     };
-    this.message.textContent =
+    const message =
       labels[this.tool] ?? 'Hold the tool against the spot in your care plan.';
-    this.panel.querySelector('.instrument-zoom')!.textContent =
-      `${this.tool === 'xray' ? (this.whole ? 'Full scan' : this.xrayZoom.toFixed(1) + '×') : this.zoom.toFixed(1) + '×'}`;
-    this.panel.dataset.view = valid
+    if (this.message.textContent !== message)
+      this.message.textContent = message;
+    const zoomLabel = `${this.tool === 'xray' ? (this.whole ? 'Full scan' : this.xrayZoom.toFixed(1) + '×') : this.zoom.toFixed(1) + '×'}`;
+    const zoomElement = this.panel.querySelector('.instrument-zoom')!;
+    if (zoomElement.textContent !== zoomLabel)
+      zoomElement.textContent = zoomLabel;
+    const view = valid
       ? this.tool === 'xray'
         ? 'skeleton'
         : this.tool === 'inspect'
@@ -330,13 +335,19 @@ export class Examination {
                 ? 'ecg'
                 : 'tool'
       : 'positioning';
+    if (this.panel.dataset.view !== view) this.panel.dataset.view = view;
     if (this.tool === 'listen') {
       const bpm = valid ? profile.bpm : null;
-      this.readout.textContent = bpm
+      const reading = bpm
         ? `${bpm} BPM · ${profile.heart === 'fast' ? 'Faster than usual' : 'Steady, normal rhythm'}`
         : 'Place the chestpiece on the chest';
-      this.readout.dataset.bpm = bpm ? String(bpm) : '';
+      if (this.readout.textContent !== reading) {
+        this.readout.textContent = reading;
+        this.readout.dataset.bpm = bpm ? String(bpm) : '';
+      }
       this.onHeart(bpm, now);
+      if (now - this.lastTrace < 1000 / 30) return;
+      this.lastTrace = now;
       const ctx = this.trace.getContext('2d')!,
         w = this.trace.width,
         h = this.trace.height;
@@ -422,9 +433,12 @@ export class Examination {
             : this.tool === 'mouth'
               ? 0.54
               : 0.78) * scale;
+        // Match the actual display density. Software WebGL otherwise shades
+        // sixteen times more lens pixels than can appear on its canvas.
+        const density = Math.min(2, Math.max(0.75, renderer.getPixelRatio()));
         this.target.setSize(
-          Math.round(Math.min(screenW * 2, 640)),
-          Math.round(Math.min(screenH * 2, 640)),
+          Math.round(Math.min(screenW * density, 640)),
+          Math.round(Math.min(screenH * density, 640)),
         );
         renderer.setRenderTarget(this.target);
         if (interior) {

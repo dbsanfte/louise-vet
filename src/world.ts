@@ -72,6 +72,7 @@ export class World {
   private softwareGraphics = false;
   private needsRender = true;
   private lastRender = -Infinity;
+  private loaded = false;
   private examination: Examination;
   private examining = false;
   private hoverZone: Zone | null = null;
@@ -103,6 +104,7 @@ export class World {
       softwareGraphics ? 0.5 : Math.min(window.devicePixelRatio, 1.75),
     );
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.type = softwareGraphics
       ? THREE.BasicShadowMap
       : THREE.PCFShadowMap;
@@ -259,6 +261,7 @@ export class World {
     this.louiseAnimation = new Character(louise);
     this.treatment.add(this.clone('table'));
     this.container.dataset.ready = 'true';
+    this.loaded = true;
     this.needsRender = true;
   }
 
@@ -542,6 +545,9 @@ export class World {
     this.perspective.updateProjectionMatrix();
   }
   draw(time: number, dt: number) {
+    // The opaque loading screen needs no 3D frames. Leave CPU time for parsing
+    // and preparing the models instead of competing with their initial load.
+    if (!this.loaded) return;
     if (this.mode === 'reception') {
       this.louiseAnimation?.update(dt);
       this.people.forEach((person) => {
@@ -600,11 +606,13 @@ export class World {
     if (
       this.softwareGraphics &&
       !this.needsRender &&
-      time - this.lastRender < 250
+      time - this.lastRender < 500
     )
       return;
     this.lastRender = time;
     this.needsRender = false;
+    // The magnifier reuses the main view's shadow map in its second pass.
+    this.renderer.shadowMap.needsUpdate = true;
     this.renderer.render(
       this.scene,
       this.mode === 'reception' ? this.ortho : this.perspective,
