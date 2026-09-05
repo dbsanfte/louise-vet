@@ -1,0 +1,26 @@
+{
+  "name": "Vet Game",
+  "dockerComposeFile": ["../compose.yaml", "compose.yaml"],
+  "service": "dev",
+  "runServices": ["dev", "web"],
+  "workspaceFolder": "/workspaces/vet-game",
+  "remoteUser": "node",
+  "shutdownAction": "stopCompose",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "forwardPorts": [5173],
+  "portsAttributes": {
+    "5173": { "label": "Game · live development", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "sudo chown node:node node_modules && npm ci && npx playwright install --with-deps chromium",
+  "customizations": {
+    "vscode": {
+      "extensions": ["esbenp.prettier-vscode", "ms-playwright.playwright"],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+      }
+    }
+  }
+}

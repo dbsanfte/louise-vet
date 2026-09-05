@@ -1,0 +1,92 @@
+name: CI and delivery
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Build and start production container
+        run: docker compose up --build --detach --wait --wait-timeout 90
+      - name: Test the served production game
+        run: npm test
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
+      - name: Check health and missing assets
+        run: |
+          test "$(curl --fail --silent http://127.0.0.1:8080/healthz)" = "ok"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/assets/missing.js)" = "404"
+      - name: Save the tested image
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: docker save vet-game:local -o /tmp/vet-game-image.tar
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          name: web-image
+          path: /tmp/vet-game-image.tar
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - name: Container logs
+        if: always()
+        run: docker compose logs
+      - name: Stop containers
+        if: always()
+        run: docker compose down
+
+  publish:
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-image
+          path: /tmp
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the exact tested image
+        env:
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+        run: |
+          image="ghcr.io/${REPOSITORY,,}"
+          docker load -i /tmp/vet-game-image.tar
+          docker tag vet-game:local "$image:$REVISION"
+          docker tag vet-game:local "$image:latest"
+          docker push "$image:$REVISION"
+          docker push "$image:latest"

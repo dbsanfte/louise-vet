@@ -1,0 +1,79 @@
+:root {
+  font-family: 'Trebuchet MS', system-ui, sans-serif;
+  color: #133d34;
+  background: #f6f3e9;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 280px;
+}
+#app {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.25rem;
+  background: radial-gradient(ellipse at 50% 15%, #e4eddb, transparent 65%);
+}
+.welcome {
+  width: min(100%, 44rem);
+  text-align: center;
+}
+.paw {
+  display: inline-grid;
+  place-items: center;
+  width: 6rem;
+  height: 6rem;
+  margin-bottom: 2rem;
+  border-radius: 2rem;
+  background: #dce7cf;
+  font-size: 3rem;
+  transform: rotate(-8deg);
+}
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+h1 {
+  margin: 1rem 0;
+  font-size: clamp(3rem, 10vw, 5rem);
+  letter-spacing: -0.06em;
+  line-height: 1.05;
+}
+.intro {
+  color: #4f655c;
+  font-size: 1.125rem;
+  line-height: 1.7;
+}
+button {
+  margin-top: 1.5rem;
+  padding: 1rem 2rem;
+  border: 0;
+  border-radius: 100px;
+  color: #fffdf5;
+  background: #133d34;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+button:hover {
+  background: #245849;
+}
+button:focus-visible {
+  outline: 3px solid #b05a24;
+  outline-offset: 5px;
+}
+.greeting {
+  min-height: 3rem;
+  margin-top: 1.5rem;
+  color: #4f655c;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}

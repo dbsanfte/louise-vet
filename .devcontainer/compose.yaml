@@ -1,0 +1,16 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - .:/workspaces/vet-game:cached
+      - node_modules:/workspaces/vet-game/node_modules
+    command: sleep infinity
+    environment:
+      VITE_USE_POLLING: 'true'
+      BLENDER_HOST: host.docker.internal
+      BLENDER_PORT: '9876'
+
+volumes:
+  node_modules:

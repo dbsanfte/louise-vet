@@ -1,0 +1,9 @@
+name: vet-game
+
+services:
+  web:
+    image: ${WEB_IMAGE:-vet-game:local}
+    build: .
+    ports:
+      - '127.0.0.1:${WEB_PORT:-8080}:8080'
+    restart: unless-stopped
