@@ -55,6 +55,8 @@ export class World {
   private height = 1;
   private observer: ResizeObserver;
   private onPick: (zone: Zone | null) => void;
+  private softwareGraphics = false;
+  private needsRender = true;
 
   constructor(
     private container: HTMLElement,
@@ -73,6 +75,7 @@ export class World {
       /swiftshader|llvmpipe|softpipe|software/i.test(
         String(gl.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL)),
       );
+    this.softwareGraphics = Boolean(softwareGraphics);
     // Keep the same scene and controls usable when no graphics card is available.
     this.renderer.setPixelRatio(
       softwareGraphics ? 0.65 : Math.min(window.devicePixelRatio, 1.75),
@@ -133,6 +136,9 @@ export class World {
       this.renderer.domElement,
     );
     this.controls.target.set(0, 1.95, 0);
+    this.controls.addEventListener('change', () => {
+      this.needsRender = true;
+    });
     this.controls.enableDamping = true;
     this.controls.enablePan = false;
     this.controls.minDistance = 3;
@@ -202,6 +208,7 @@ export class World {
     this.reception.add(louise);
     this.treatment.add(this.clone('table'));
     this.container.dataset.ready = 'true';
+    this.needsRender = true;
   }
 
   private clone(name: Asset) {
@@ -212,6 +219,7 @@ export class World {
 
   setQueue(queue: number[]) {
     if (!this.assets.size) return;
+    this.needsRender = true;
     const existing = new Map(this.people.map((person) => [person.id, person]));
     this.guests.clear();
     this.people = [];
@@ -251,6 +259,7 @@ export class World {
   }
 
   setUpgrades(ids: UpgradeId[]) {
+    this.needsRender = true;
     this.decoration.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.geometry.dispose();
@@ -366,6 +375,7 @@ export class World {
     };
   }
   private resize() {
+    this.needsRender = true;
     this.width = Math.max(1, this.container.clientWidth);
     this.height = Math.max(1, this.container.clientHeight);
     this.renderer.setSize(this.width, this.height);
@@ -380,6 +390,7 @@ export class World {
     this.perspective.updateProjectionMatrix();
   }
   draw(time: number, dt: number) {
+    let moving = false;
     if (this.mode === 'reception')
       this.people.forEach((person) => {
         const { group, target, offset, waypoints } = person;
@@ -392,6 +403,7 @@ export class World {
         direction.y = 0;
         const distance = direction.length();
         if (distance > 0.04) {
+          moving = true;
           group.position.addScaledVector(
             direction.normalize(),
             Math.min(distance, dt * 2),
@@ -399,16 +411,24 @@ export class World {
           group.rotation.y = Math.atan2(direction.x, direction.z);
           group.position.y = Math.sin(time * 0.009 + offset) * 0.022;
         } else if (waypoints.length) {
+          moving = true;
           waypoints.shift();
         } else {
+          const facing = Math.atan2(-1.3 - target.x, -2.75 - target.z);
+          if (group.position.y !== 0 || group.rotation.y !== facing)
+            moving = true;
           group.position.y = 0;
-          group.rotation.y = Math.atan2(-1.3 - target.x, -2.75 - target.z);
+          group.rotation.y = facing;
         }
       });
     if (this.animal) {
-      this.animal.scale.y = 1 + Math.sin(time * 0.002) * 0.012;
+      this.animal.scale.y = this.softwareGraphics
+        ? 1
+        : 1 + Math.sin(time * 0.002) * 0.012;
     }
     this.controls.update();
+    if (this.softwareGraphics && !this.needsRender && !moving) return;
+    this.needsRender = false;
     this.renderer.render(
       this.scene,
       this.mode === 'reception' ? this.ortho : this.perspective,

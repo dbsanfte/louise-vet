@@ -117,7 +117,10 @@ test('a patient can return to the queue without claiming a reward', async ({
 }) => {
   await openClinic(page);
   await page.locator('[data-action="next"]').click();
+  const canvas = page.locator('canvas');
+  const beforeRotation = await canvas.screenshot();
   await page.getByRole('button', { name: 'Rotate animal right' }).click();
+  expect((await canvas.screenshot()).equals(beforeRotation)).toBe(false);
   await page.getByRole('button', { name: 'Reset camera' }).click();
   await page
     .getByRole('button', { name: 'Back to waiting room', exact: false })
