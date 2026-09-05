@@ -11,8 +11,10 @@ Louise has a personalised illustrated portrait and a Blender character.
 
 TypeScript, Vite, and Three.js run the game. Original Blender models are exported
 as GLB; Nginx serves the finished static build. There is no game server or account
-requirement. See the [game design](docs/game-design.md) and
-[asset credits](docs/assets.md).
+requirement. The [master game design](docs/game-design.md) is authoritative for
+the game loop, current features, and future direction. See [asset credits](docs/assets.md)
+for provenance and licenses. Agents and contributors should start with
+[AGENTS.md](AGENTS.md) and the [design change checklist](.agents/design-change-checklist.md).
 
 ## Run the web container
 
@@ -220,21 +222,7 @@ walk clip for swimming, with the bowl remaining still.
 
 ## Interactive examinations
 
-Select a tool, then hold and drag it over the animal. Body guide buttons offer
-a keyboard/touch alternative. **Look around** switches dragging to camera orbit;
-rotation buttons remain available while holding a tool.
-
-- The magnifier enlarges the actual textured coat, with individual fur fibres,
-  fleas, tangles, sting swelling, and Scout's protruding wooden splinter.
-- The X-ray scans the complete skeleton from any camera angle. Pip's front leg
-  has separated, displaced bone ends. Use **Whole-body X-ray** for the overview
-  and **+ / −** to inspect a smaller area.
-- Ear and mouth tools show lit 3D interiors. Healthy ears differ from Milo's
-  swollen red canal with wax; Cleo has yellow tartar, and Poppy has a tooth crater.
-- The stethoscope shows a moving ECG and a species-specific story reading while
-  touching the chest. Enable sound for the matching double heartbeat. Moving off
-  the chest stops the reading; the sound preference is saved.
-
-All fourteen diagnostic and care tools have original Blender models. Findings
-from the magnifier and X-ray require the problem to be in view. These are
-child-friendly fictional cases, not medical simulations or real treatment advice.
+The master design describes [examination and care](docs/game-design.md#5-examination-and-care-mechanics),
+[controls](docs/game-design.md#6-interface-controls-and-accessibility), and the
+[current patients](docs/game-design.md#7-current-case-catalogue). Keep gameplay
+rules there so setup instructions and product design do not drift apart.
