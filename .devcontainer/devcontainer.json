@@ -20,7 +20,7 @@
   "portsAttributes": {
     "5173": { "label": "Game · live development", "onAutoForward": "notify" }
   },
-  "postCreateCommand": "sudo chown -R node:node node_modules && npm ci && npx playwright install --with-deps chromium",
+  "postCreateCommand": "mkdir -p dist test-results playwright-report && sudo chown -R node:node node_modules dist test-results playwright-report && npm ci && npx playwright install --with-deps chromium",
   "customizations": {
     "vscode": {
       "extensions": [

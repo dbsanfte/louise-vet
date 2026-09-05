@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let source = process.env.VET_GAME_CODEX_HOME ?? path.join(homedir(), '.codex');
 let previousWorkspace = process.platform === 'win32' ? undefined : root;
 let previousCodexHome = process.platform === 'win32' ? undefined : source;
+let workspaceSource = root;
 let uid = process.getuid?.() ?? 1000;
 let gid = process.getgid?.() ?? 1000;
 
@@ -39,8 +40,22 @@ if (
     );
     if (existsSync(path.join(candidate, 'sessions'))) {
       source = candidate;
-      previousWorkspace = workspace;
+      // Docker Desktop can make wslpath select a temporary bind-mount alias.
+      // Prefer the normal drive mount when it exists, keeping chat paths stable.
+      const drivePath = root
+        .replace(
+          /^([a-z]):[\\/]/i,
+          (_, drive) => `/mnt/${drive.toLowerCase()}/`,
+        )
+        .replaceAll('\\', '/');
+      const driveSource = `//wsl.localhost/${distro}${drivePath}`.replaceAll(
+        '/',
+        '\\',
+      );
+      previousWorkspace = existsSync(driveSource) ? drivePath : workspace;
       previousCodexHome = codexHome;
+      workspaceSource =
+        `//wsl.localhost/${distro}${previousWorkspace}`.replaceAll('/', '\\');
       uid = Number(wslUid);
       gid = Number(wslGid);
     }
@@ -50,13 +65,16 @@ if (
 }
 
 mkdirSync(source, { recursive: true });
-const volumes = [{ type: 'bind', source, target: '/home/node/.codex' }];
+const volumes = [
+  { type: 'bind', source, target: '/home/node/.codex' },
+  { type: 'bind', source: workspaceSource, target: '/workspaces/vet-game' },
+];
 if (previousCodexHome && previousCodexHome !== '/home/node/.codex') {
   volumes.push({ type: 'bind', source, target: previousCodexHome });
 }
 if (previousWorkspace && previousWorkspace !== '/workspaces/vet-game') {
   volumes.push(
-    { type: 'bind', source: root, target: previousWorkspace },
+    { type: 'bind', source: workspaceSource, target: previousWorkspace },
     {
       type: 'volume',
       source: 'node_modules',
