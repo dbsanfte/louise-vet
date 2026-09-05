@@ -124,12 +124,14 @@ test('all eight visits are playable and every pet can receive care', async ({
   const { visits, toolInfo, zoneNames } = await import('../src/game');
   await openClinic(page);
   for (const visit of visits) {
-    if (await page.locator('[data-action="invite"]').count())
-      await page.locator('[data-action="invite"]').click();
-    await page
-      .getByRole('button', { name: `See ${visit.name}`, exact: true })
-      .first()
-      .click();
+    // The primary control stays available if a timed arrival replaces the
+    // empty-queue invitation while the click is being delivered.
+    await page.locator('.call-next').click();
+    if ((await page.locator('#app').getAttribute('data-mode')) === 'reception')
+      await page.locator('.call-next').click();
+    await expect(
+      page.getByRole('heading', { name: visit.name, exact: true }),
+    ).toBeVisible();
     for (const check of visit.checks) {
       await page
         .getByRole('button', { name: toolInfo[check.tool].name, exact: true })

@@ -10,6 +10,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
+    actionTimeout: 20000,
     launchOptions: { args: ['--enable-unsafe-swiftshader'] },
     baseURL: externalURL ?? 'http://127.0.0.1:4173',
     // Continuous canvas captures are expensive with software WebGL in CI.
