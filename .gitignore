@@ -9,3 +9,4 @@ test-results/
 *.blend2
 .DS_Store
 Thumbs.db
+.devcontainer/compose.local.yaml

@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Game: develop",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE",
+          "endsPattern": "Local:"
+        }
+      }
+    },
+    {
+      "label": "Game: check",
+      "type": "npm",
+      "script": "check",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Game: build web container",
+      "type": "shell",
+      "command": "docker compose up --build --detach --wait web",
+      "problemMatcher": []
+    },
+    {
+      "label": "Codex: resume any saved chat",
+      "type": "shell",
+      "command": "codex resume --all",
+      "problemMatcher": []
+    }
+  ]
+}

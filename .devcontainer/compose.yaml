@@ -8,6 +8,7 @@ services:
       - node_modules:/workspaces/vet-game/node_modules
     command: sleep infinity
     environment:
+      CODEX_HOME: /home/node/.codex
       VITE_USE_POLLING: 'true'
       BLENDER_HOST: host.docker.internal
       BLENDER_PORT: '9876'

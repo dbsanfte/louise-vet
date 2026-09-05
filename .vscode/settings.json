@@ -1,0 +1,10 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "chatgpt.openOnStartup": true,
+  "files.exclude": { "**/node_modules": true, "**/dist": true },
+  "search.exclude": {
+    "**/package-lock.json": true,
+    "**/playwright-report": true
+  }
+}

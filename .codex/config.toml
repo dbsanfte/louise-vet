@@ -4,3 +4,6 @@ args = ["blender-mcp==1.9.1"]
 env_vars = ["BLENDER_HOST", "BLENDER_PORT"]
 startup_timeout_sec = 60
 tool_timeout_sec = 120
+
+[mcp_servers.blender.env]
+BLENDER_MCP_DISABLE_TELEMETRY = "1"

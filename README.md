@@ -33,10 +33,43 @@ build or run the production container.
 3. Wait for dependencies and the Chromium test browser to install.
 4. Run `npm run dev` in its terminal, then open **http://localhost:5173**.
 
-The devcontainer includes Node 24, Git, Docker CLI, Python, and `uvx` for Blender
+The devcontainer includes Node 24, Git, Docker CLI, Codex CLI, Python, and `uvx` for Blender
 MCP. It also starts the production web container on port 8080. Development uses a
 separate `node_modules` volume to avoid mixing Windows and Linux dependencies.
 File polling supports edits through Windows/WSL mounts.
+
+VS Code installs the Codex, Prettier, and Playwright extensions in the container.
+Press **F5** to launch the game in Chrome with debugging, or use **Tasks: Run Task**
+for development, checks, a web-container rebuild, or resuming a saved Codex chat.
+The host needs Node to run the devcontainer's initialization helper.
+
+### Codex chat persistence
+
+Before creating the container, `scripts/prepare-devcontainer.mjs` locates the host
+Codex state folder and writes an ignored `.devcontainer/compose.local.yaml`. The
+container mounts this folder at `/home/node/.codex` and sets `CODEX_HOME` to it.
+Chats, login state, and configuration stay on the host through container rebuilds.
+They are not copied into Git or the web image.
+
+On Windows, if the native Codex folder has no sessions, the helper checks the
+default WSL distro for existing sessions. For this machine it selects
+`Ubuntu_24_04`'s `/home/dbsanfte/.codex`, where this project's existing chats live.
+The container user matches that WSL user's IDs so private state remains readable
+and writable without changing permissions on the host folder.
+For another location, set `VET_GAME_CODEX_HOME` in the environment used to launch
+VS Code. The path must be accessible to Docker. Linux hosts need Docker access to
+their home directory; Docker Desktop handles the Windows/WSL mount here.
+
+After reopening, select the existing conversation in Codex history. If the
+extension filters it out because the workspace is now `/workspaces/vet-game`,
+use **Codex: resume any saved chat** (runs `codex resume --all`) or reopen the old
+workspace path from inside the container. The helper also mounts that old Linux
+path so prior file references still resolve. Resume after the existing turn has
+finished. Sharing transcripts preserves history; an active tool process does not
+migrate into the new container.
+
+See [Codex state locations](https://developers.openai.com/codex/config-advanced)
+and [CODEX_HOME](https://learn.chatgpt.com/docs/config-file/environment-variables).
 
 To develop without a container, install Node 24 and run:
 
@@ -129,9 +162,11 @@ there too.
    scene. If unreachable, check the host address, firewall, and add-on bind address;
    do not expose the Blender socket to the public internet.
 
-Only the MCP configuration and asset folders are supplied here. A running Blender
-instance with its add-on enabled is needed before scene tools can be used. Blender
-is an authoring tool and is not part of the web container or CI build.
+A running Blender instance with its add-on enabled is needed before scene tools
+can be used. On this machine, Blender MCP 1.9.1 is installed and enabled in Windows
+Blender 5.2, and the connection from the devcontainer has been verified. Reopen
+Codex in the devcontainer to load the configured MCP tools. Blender is an authoring
+tool and is not part of the web container or CI build.
 
 Configuration references: [Codex MCP](https://developers.openai.com/codex/mcp),
 [Blender MCP](https://github.com/ahujasid/blender-mcp),
