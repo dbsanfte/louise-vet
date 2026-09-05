@@ -85,10 +85,12 @@ export class World {
     this.softwareGraphics = Boolean(softwareGraphics);
     // Keep the same scene and controls usable when no graphics card is available.
     this.renderer.setPixelRatio(
-      softwareGraphics ? 0.65 : Math.min(window.devicePixelRatio, 1.75),
+      softwareGraphics ? 0.5 : Math.min(window.devicePixelRatio, 1.75),
     );
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.type = softwareGraphics
+      ? THREE.BasicShadowMap
+      : THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.85;
     this.renderer.domElement.setAttribute(
