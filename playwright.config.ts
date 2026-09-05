@@ -4,10 +4,13 @@ const externalURL = process.env.PLAYWRIGHT_BASE_URL;
 
 export default defineConfig({
   testDir: './tests',
+  testMatch: '**/*.spec.ts',
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
+    launchOptions: { args: ['--enable-unsafe-swiftshader'] },
     baseURL: externalURL ?? 'http://127.0.0.1:4173',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

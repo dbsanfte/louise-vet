@@ -6,6 +6,6 @@ RUN if [ "$(id -g node)" != "$DEV_GID" ]; then groupmod --gid "$DEV_GID" node; f
     && if [ "$(id -u node)" != "$DEV_UID" ]; then usermod --uid "$DEV_UID" node; fi \
     && chown -R node:node /home/node
 COPY --from=uv /uv /uvx /usr/local/bin/
-RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv \
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv gh \
     && rm -rf /var/lib/apt/lists/*
 RUN npm install --global @openai/codex@0.153.4

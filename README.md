@@ -1,8 +1,18 @@
-# Vet Game
+# Louise's Vet Office
 
-A browser game starting with an interactive Hello World. TypeScript + Vite build
-static files, Nginx serves them, and Playwright checks the running game on desktop
-and mobile Chromium.
+A cosy browser game made for Louise, ages 7 and up. Welcome neighbours into a
+2.5D clinic, examine their pets in 3D, put clues together, and give gentle care.
+Earn happy hearts and coins to grow the office.
+
+The first playable slice includes six pet species, eight authored visits,
+body-targeted examination tools, diagnosis choices, a treatment timing challenge,
+retail treats, six shop purchases, saved progress, and optional original sounds.
+Louise has a personalised illustrated portrait and a Blender character.
+
+TypeScript, Vite, and Three.js run the game. Original Blender models are exported
+as GLB; Nginx serves the finished static build. There is no game server or account
+requirement. See the [game design](docs/game-design.md) and
+[asset credits](docs/assets.md).
 
 ## Run the web container
 
@@ -86,8 +96,9 @@ npm run check
 ```
 
 `check` verifies formatting, typechecks and builds the game, then runs browser
-tests against the production build through Vite Preview. Tests check the initial
-screen, keyboard interaction, mobile overflow, and browser errors.
+tests against the production build through Vite Preview. Tests cover the examination/diagnosis/treatment loop, rewards, returning patients
+to the queue, persistent purchases, mobile overflow, and browser errors. Unit
+tests check economy and saved-data handling.
 
 To test the actual Nginx container, start it and set `PLAYWRIGHT_BASE_URL`:
 
@@ -141,7 +152,10 @@ default; configure an ingress/reverse proxy when choosing a public host.
 
 Keep Blender source files in `assets/blender/` and export runtime `.glb` files into
 `public/models/`. Vite copies the latter into the web image, where the game can
-load them from `/models/<name>.glb`. No renderer or asset loader is selected yet.
+load them with Three.js GLTFLoader from `/models/<name>.glb`. The original
+clinic, people, examination table, and six pets are already included, so running
+the game and CI does not require Blender. Blender creates the models; Three.js
+provides rendering and camera controls in the browser.
 
 The project [Codex MCP configuration](.codex/config.toml) launches
 `uvx blender-mcp==1.9.1`. Codex loads project configuration for trusted projects;
@@ -171,3 +185,18 @@ tool and is not part of the web container or CI build.
 Configuration references: [Codex MCP](https://developers.openai.com/codex/mcp),
 [Blender MCP](https://github.com/ahujasid/blender-mcp),
 [Vite](https://vite.dev/guide/).
+
+### Rebuild the original models
+
+With the Windows Blender MCP server running, use the devcontainer terminal:
+
+```sh
+uv run --with mcp python scripts/blender-build.py
+```
+
+The script uses `scripts/create-blender-assets.py`, recreates its own asset scene,
+exports all ten GLBs, and saves `assets/blender/louises-vet-office.blend`.
+It overwrites these generated project assets. On another machine, set
+`BLENDER_PROJECT_ROOT` to this repository's absolute path **as seen by Blender**,
+and `BLENDER_HOST` to the machine running Blender. For a local Blender install,
+you can run the asset script directly in Blender with `PROJECT_ROOT` set first.

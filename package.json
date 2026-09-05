@@ -13,14 +13,21 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "playwright test",
+    "test": "npm run test:unit && playwright test",
+    "test:unit": "node --test tests/economy.test.ts",
     "check": "npm run format:check && npm run build && npm test"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@types/node": "^24.0.0",
+    "@types/three": "^0.185.4",
     "prettier": "3.9.6",
     "typescript": "7.0.2",
     "vite": "8.2.2"
+  },
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/fraunces": "^5.3.0",
+    "three": "^0.185.1"
   }
 }
