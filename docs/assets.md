@@ -2,12 +2,19 @@
 
 ## Original Blender models
 
-All ten runtime models in `public/models/` are original assets created for this
+All twelve runtime models in `public/models/` are original assets created for this
 project with Blender through Blender MCP. Their editable source is
 `assets/blender/louises-vet-office.blend`; the reproducible authoring script is
 `scripts/create-blender-assets.py`. They are not downloaded marketplace models.
 Louise's model uses her long light-brown hair, pink headband, and a mint vet coat
 as recognisable character details.
+
+The three customer models include a man and two women with distinct hair,
+clothes, and skin tones. Each authored owner keeps a consistent model. Louise,
+customers, and all six pets have original transform-rig animations exported as
+looping `Idle` and `Walk` clips. The browser blends between these clips as
+customers arrive and stop; fish animate their fins and tail. Idle clips include
+breathing, head turns, blinking, and tail motion where appropriate.
 
 ## Louise's portrait
 

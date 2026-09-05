@@ -29,6 +29,12 @@
       "problemMatcher": []
     },
     {
+      "label": "Game: rebuild Blender models (headless)",
+      "type": "shell",
+      "command": "uv run --with mcp python scripts/blender-build.py --headless",
+      "problemMatcher": []
+    },
+    {
       "label": "Codex: resume any saved chat",
       "type": "shell",
       "command": "codex resume --all",

@@ -3,11 +3,14 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { visits, type Species, type Zone, type UpgradeId } from './game';
+import { Character } from './character';
 
 const assetNames = [
   'clinic',
   'louise',
   'visitor',
+  'visitor-ponytail',
+  'visitor-bob',
   'table',
   'dog',
   'cat',
@@ -39,6 +42,8 @@ export class World {
   private decoration = new THREE.Group();
   private assets = new Map<Asset, THREE.Group>();
   private animal?: THREE.Group;
+  private patientAnimation?: Character;
+  private louiseAnimation?: Character;
   private mode: 'reception' | 'treatment' = 'reception';
   private species: Species = 'dog';
   private raycaster = new THREE.Raycaster();
@@ -49,7 +54,8 @@ export class World {
     target: THREE.Vector3;
     waypoints: THREE.Vector3[];
     wait: number;
-    offset: number;
+    ownerAnimation: Character;
+    petAnimation: Character;
   }[] = [];
   private width = 1;
   private height = 1;
@@ -57,6 +63,7 @@ export class World {
   private onPick: (zone: Zone | null) => void;
   private softwareGraphics = false;
   private needsRender = true;
+  private lastRender = -Infinity;
 
   constructor(
     private container: HTMLElement,
@@ -193,6 +200,7 @@ export class World {
     await Promise.all(
       assetNames.map(async (name) => {
         const gltf = await loader.loadAsync(`/models/${name}.glb`);
+        gltf.scene.animations = gltf.animations;
         gltf.scene.traverse((o) => {
           if (o instanceof THREE.Mesh) {
             o.castShadow = true;
@@ -206,6 +214,7 @@ export class World {
     const louise = this.clone('louise');
     louise.position.set(-1.3, 0, -2.75);
     this.reception.add(louise);
+    this.louiseAnimation = new Character(louise);
     this.treatment.add(this.clone('table'));
     this.container.dataset.ready = 'true';
     this.needsRender = true;
@@ -221,6 +230,12 @@ export class World {
     if (!this.assets.size) return;
     this.needsRender = true;
     const existing = new Map(this.people.map((person) => [person.id, person]));
+    for (const person of this.people) {
+      if (!queue.includes(person.id)) {
+        person.ownerAnimation.dispose();
+        person.petAnimation.dispose();
+      }
+    }
     this.guests.clear();
     this.people = [];
     const places = [
@@ -234,8 +249,10 @@ export class World {
     queue.forEach((id, i) => {
       const previous = existing.get(id);
       const group = previous?.group ?? new THREE.Group();
+      let ownerAnimation = previous?.ownerAnimation;
+      let petAnimation = previous?.petAnimation;
       if (!previous) {
-        const person = this.clone('visitor');
+        const person = this.clone(visits[id % visits.length].ownerModel);
         person.scale.setScalar(0.86);
         const pet = this.clone(visits[id % visits.length].species);
         pet.scale.setScalar(
@@ -243,6 +260,8 @@ export class World {
         );
         pet.position.set(-0.52, 0, 0.3);
         group.add(person, pet);
+        ownerAnimation = new Character(person, id * 0.37);
+        petAnimation = new Character(pet, id * 0.51);
         group.position.set(5.65 + i * 0.5, 0, 1.65);
         group.rotation.y = -Math.PI / 2;
       }
@@ -253,7 +272,8 @@ export class World {
         target: new THREE.Vector3(places[i][0], 0, places[i][1]),
         waypoints: previous?.waypoints ?? [new THREE.Vector3(3.45, 0, 1.65)],
         wait: previous?.wait ?? i * 0.65,
-        offset: i * 0.8,
+        ownerAnimation: ownerAnimation!,
+        petAnimation: petAnimation!,
       });
     });
   }
@@ -320,11 +340,13 @@ export class World {
     this.resize();
   }
   showTreatment(species: Species) {
+    this.patientAnimation?.dispose();
     if (this.animal) this.treatment.remove(this.animal);
     this.species = species;
     this.animal = this.clone(species);
     this.animal.position.y = 1.28;
     this.treatment.add(this.animal);
+    this.patientAnimation = new Character(this.animal);
     this.mode = 'treatment';
     this.reception.visible = false;
     this.treatment.visible = true;
@@ -390,12 +412,17 @@ export class World {
     this.perspective.updateProjectionMatrix();
   }
   draw(time: number, dt: number) {
-    let moving = false;
-    if (this.mode === 'reception')
+    if (this.mode === 'reception') {
+      this.louiseAnimation?.update(dt);
       this.people.forEach((person) => {
-        const { group, target, offset, waypoints } = person;
+        const { group, target, waypoints, ownerAnimation, petAnimation } =
+          person;
+        ownerAnimation.update(dt);
+        petAnimation.update(dt);
         if (person.wait > 0) {
           person.wait -= dt;
+          ownerAnimation.setWalking(false);
+          petAnimation.setWalking(false);
           return;
         }
         const destination = waypoints[0] ?? target;
@@ -403,31 +430,36 @@ export class World {
         direction.y = 0;
         const distance = direction.length();
         if (distance > 0.04) {
-          moving = true;
+          ownerAnimation.setWalking(true);
+          petAnimation.setWalking(true);
           group.position.addScaledVector(
             direction.normalize(),
             Math.min(distance, dt * 2),
           );
           group.rotation.y = Math.atan2(direction.x, direction.z);
-          group.position.y = Math.sin(time * 0.009 + offset) * 0.022;
         } else if (waypoints.length) {
-          moving = true;
           waypoints.shift();
         } else {
+          ownerAnimation.setWalking(false);
+          petAnimation.setWalking(false);
           const facing = Math.atan2(-1.3 - target.x, -2.75 - target.z);
-          if (group.position.y !== 0 || group.rotation.y !== facing)
-            moving = true;
           group.position.y = 0;
           group.rotation.y = facing;
         }
       });
-    if (this.animal) {
-      this.animal.scale.y = this.softwareGraphics
-        ? 1
-        : 1 + Math.sin(time * 0.002) * 0.012;
+    } else {
+      this.patientAnimation?.update(dt);
     }
     this.controls.update();
-    if (this.softwareGraphics && !this.needsRender && !moving) return;
+    // Software WebGL keeps the same clips, at a lighter display cadence.
+    // Camera changes redraw immediately; hardware graphics animate every frame.
+    if (
+      this.softwareGraphics &&
+      !this.needsRender &&
+      time - this.lastRender < 250
+    )
+      return;
+    this.lastRender = time;
     this.needsRender = false;
     this.renderer.render(
       this.scene,

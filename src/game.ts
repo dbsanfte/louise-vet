@@ -23,6 +23,7 @@ export interface Check {
 export interface Visit {
   name: string;
   owner: string;
+  ownerModel: 'visitor' | 'visitor-ponytail' | 'visitor-bob';
   species: Species;
   breed: string;
   age: string;
@@ -116,6 +117,7 @@ export const visits: Visit[] = [
   {
     name: 'Luna',
     owner: 'Amelia',
+    ownerModel: 'visitor-ponytail',
     species: 'dog',
     breed: 'Golden retriever',
     age: '3 years',
@@ -145,6 +147,7 @@ export const visits: Visit[] = [
   {
     name: 'Milo',
     owner: 'Oliver',
+    ownerModel: 'visitor',
     species: 'cat',
     breed: 'British shorthair',
     age: '2 years',
@@ -174,6 +177,7 @@ export const visits: Visit[] = [
   {
     name: 'Pip',
     owner: 'Sophie',
+    ownerModel: 'visitor-bob',
     species: 'rabbit',
     breed: 'Little lop rabbit',
     age: '1 year',
@@ -204,6 +208,7 @@ export const visits: Visit[] = [
   {
     name: 'Peanut',
     owner: 'Noah',
+    ownerModel: 'visitor',
     species: 'hamster',
     breed: 'Golden hamster',
     age: '8 months',
@@ -234,6 +239,7 @@ export const visits: Visit[] = [
   {
     name: 'Sunny',
     owner: 'Isla',
+    ownerModel: 'visitor-ponytail',
     species: 'gerbil',
     breed: 'Mongolian gerbil',
     age: '1 year',
@@ -264,6 +270,7 @@ export const visits: Visit[] = [
   {
     name: 'Bubbles',
     owner: 'Leo',
+    ownerModel: 'visitor',
     species: 'goldfish',
     breed: 'Fancy goldfish',
     age: '2 years',
@@ -293,6 +300,7 @@ export const visits: Visit[] = [
   {
     name: 'Hazel',
     owner: 'Grace',
+    ownerModel: 'visitor-bob',
     species: 'dog',
     breed: 'Young retriever',
     age: '1 year',
@@ -311,6 +319,7 @@ export const visits: Visit[] = [
   {
     name: 'Cleo',
     owner: 'Freddie',
+    ownerModel: 'visitor',
     species: 'cat',
     breed: 'Silver house cat',
     age: '4 years',

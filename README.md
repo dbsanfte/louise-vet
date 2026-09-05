@@ -43,7 +43,7 @@ build or run the production container.
 3. Wait for dependencies and the Chromium test browser to install.
 4. Run `npm run dev` in its terminal, then open **http://localhost:5173**.
 
-The devcontainer includes Node 24, Git, Docker CLI, Codex CLI, Python, and `uvx` for Blender
+The devcontainer includes Node 24, Git, Docker CLI, Codex CLI, Python, headless Blender, and `uvx` for Blender
 MCP. It also starts the production web container on port 8080. Development uses a
 separate `node_modules` volume to avoid mixing Windows and Linux dependencies.
 File polling supports edits through Windows/WSL mounts.
@@ -195,8 +195,21 @@ uv run --with mcp python scripts/blender-build.py
 ```
 
 The script uses `scripts/create-blender-assets.py`, recreates its own asset scene,
-exports all ten GLBs, and saves `assets/blender/louises-vet-office.blend`.
+exports all twelve GLBs, and saves `assets/blender/louises-vet-office.blend`.
 It overwrites these generated project assets. On another machine, set
 `BLENDER_PROJECT_ROOT` to this repository's absolute path **as seen by Blender**,
 and `BLENDER_HOST` to the machine running Blender. For a local Blender install,
 you can run the asset script directly in Blender with `PROJECT_ROOT` set first.
+
+To use Blender inside the devcontainer without a desktop window or MCP server:
+
+```sh
+uv run --with mcp python scripts/blender-build.py --headless
+```
+
+The VS Code task **Game: rebuild Blender models (headless)** runs the same command.
+This builds from the Python authoring script, so it does not need to open a source
+file made by a newer desktop Blender version. It replaces the generated GLBs and
+the Blender source file; rebuild the web container afterwards to serve them.
+All people and pets include looping `Idle` and `Walk` clips. The fish uses its
+walk clip for swimming, with the bowl remaining still.

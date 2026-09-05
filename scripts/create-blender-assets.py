@@ -4,14 +4,17 @@ import math
 import os
 from mathutils import Vector
 
-ROOT = globals().get('PROJECT_ROOT', 'C:/Users/david/OneDrive/Desktop/vet-game')
+ROOT = globals().get('PROJECT_ROOT', os.environ.get('BLENDER_PROJECT_ROOT', 'C:/Users/david/OneDrive/Desktop/vet-game'))
 OUT = os.path.join(ROOT, 'public', 'models')
 os.makedirs(OUT, exist_ok=True)
+os.makedirs(os.path.join(ROOT,'assets','blender'),exist_ok=True)
 previous = bpy.data.scenes.get("Louise's asset studio")
 if previous:
     for obj in list(previous.objects): bpy.data.objects.remove(obj, do_unlink=True)
     bpy.data.scenes.remove(previous)
 scene = bpy.data.scenes.new("Louise's asset studio")
+scene.render.fps = 24
+scene.frame_end = 73
 bpy.context.window.scene = scene
 materials = {}
 
@@ -34,6 +37,8 @@ colors = {
     'fur': (.74,.43,.20), 'lightfur': (.92,.70,.40), 'gray': (.49,.57,.57),
     'louise_skin': (.82,.57,.44), 'louise_hair': (.32,.23,.14),
     'louise_pink': (.76,.30,.53), 'louise_eyes': (.12,.26,.33),
+    'plum': (.46,.30,.56), 'visitor_skin': (.47,.25,.15),
+    'visitor_hair': (.07,.045,.033),
 }
 for n,c in colors.items(): material(n,c)
 
@@ -50,6 +55,7 @@ def cube(name, loc, size, color, parent=None, bevel=.05):
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
     if bevel:
         mod=o.modifiers.new('Soft corners','BEVEL'); mod.width=bevel; mod.segments=3
+        if hasattr(o.data,'use_auto_smooth'): o.data.use_auto_smooth=True
         o.modifiers.new('Weighted normals','WEIGHTED_NORMAL')
     return finish(o,name,color,parent)
 
@@ -79,9 +85,102 @@ def export(name, group):
     group.select_set(True)
     for o in group.children_recursive: o.select_set(True)
     bpy.context.view_layer.objects.active=group
-    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT,name+'.glb'), export_format='GLB', use_selection=True, export_extras=True, export_cameras=False, export_lights=False)
+    options=dict(filepath=os.path.join(OUT,name+'.glb'), export_format='GLB', use_selection=True, export_extras=True, export_cameras=False, export_lights=False, export_animations=True, export_frame_range=False)
+    # Blender 3.4 groups NLA tracks by name; newer versions expose a mode selector.
+    if 'export_animation_mode' in bpy.ops.export_scene.gltf.get_rna_type().properties:
+        options['export_animation_mode']='NLA_TRACKS'
+    else:
+        options['export_nla_strips']=True
+        options['export_force_sampling']=False
+    bpy.ops.export_scene.gltf(**options)
     group.hide_set(True)
     for o in group.children_recursive: o.hide_set(True)
+
+def pivot(name, position, objects, parent):
+    """A transform rig joint, preserving each part's authored rest pose."""
+    bpy.context.view_layer.update()
+    joint=root(name); joint.parent=parent; joint.location=position
+    bpy.context.view_layer.update()
+    for obj in objects:
+        world=obj.matrix_world.copy(); obj.parent=joint; obj.matrix_world=world
+    return joint
+
+def animate_part(obj, pose):
+    """Two looping Blender NLA clips, merged by track name on GLB export."""
+    rest=(obj.location.copy(),obj.rotation_euler.copy(),obj.scale.copy())
+    for clip,length in [('Idle',72),('Walk',24)]:
+        obj.animation_data_create()
+        obj.animation_data.action=None
+        for frame in range(1,length+2,3):
+            obj.location=rest[0]; obj.rotation_euler=rest[1]; obj.scale=rest[2]
+            pose(obj,clip,(frame-1)/length*math.tau)
+            for path in ['location','rotation_euler','scale']:
+                obj.keyframe_insert(data_path=path,frame=frame)
+        action=obj.animation_data.action
+        action.name=obj.name+' '+clip
+        track=obj.animation_data.nla_tracks.new(); track.name=clip
+        track.strips.new(clip,1,action)
+        obj.animation_data.action=None
+        track.mute=True
+    obj.location=rest[0]; obj.rotation_euler=rest[1]; obj.scale=rest[2]
+
+def animate_character(group, human=False, fish=False):
+    parts=list(group.children)
+    def named(obj,prefix): return obj.name.split('.')[0]==prefix
+    body=next(obj for obj in parts if named(obj,'body'))
+    def breathe(o,clip,t):
+        o.scale.z*=1+(.012 if clip=='Idle' else .02)*math.sin(t)
+    animate_part(body,breathe)
+    if fish:
+        for obj in parts:
+            if named(obj,'tail') or named(obj,'fin'):
+                def swish(o,clip,t): o.rotation_euler.z+=.30*math.sin(t*(2 if clip=='Walk' else 1))
+                animate_part(obj,swish)
+        return
+    if human:
+        head_parts=[o for o in parts if o.location.z>1.35]
+        head=pivot('head_joint',(0,0,1.36),head_parts,group)
+        def look(o,clip,t):
+            o.rotation_euler.z+=.11*math.sin(t) if clip=='Idle' else .025*math.sin(t)
+            o.rotation_euler.x+=.025*math.sin(t*2)
+        animate_part(head,look)
+        for side in [-1,1]:
+            leg_parts=[o for o in parts if (named(o,'leg') or named(o,'shoe')) and o.location.x*side>0]
+            leg=pivot('leg_joint',(.17*side,0,.66),leg_parts,group)
+            def step(o,clip,t,side=side):
+                o.rotation_euler.x+=(.45*side*math.sin(t) if clip=='Walk' else .012*math.sin(t))
+            animate_part(leg,step)
+            arms=[o for o in parts if named(o,'arm') and o.location.x*side>0]
+            arm=pivot('arm_joint',(.42*side,0,1.22),arms,group)
+            def swing(o,clip,t,side=side):
+                o.rotation_euler.x+=(-.35*side*math.sin(t) if clip=='Walk' else .04*math.sin(t))
+                o.rotation_euler.y+=.025*side*math.sin(t)
+            animate_part(arm,swing)
+    else:
+        head_parts=[o for o in parts if any(named(o,n) for n in ['head','muzzle','nose','eye','eye_sparkle','ear','inner_ear','spot_ear'])]
+        head=pivot('head_joint',(0,-.32,.81),head_parts,group)
+        def look(o,clip,t):
+            o.rotation_euler.z+=.075*math.sin(t) if clip=='Idle' else .035*math.sin(t)
+            o.rotation_euler.x+=.03*math.sin(t*2)
+        animate_part(head,look)
+        for obj in parts:
+            if named(obj,'paw'):
+                phase=1 if obj.location.x*obj.location.y>0 else -1
+                def pad(o,clip,t,phase=phase):
+                    if clip=='Walk':
+                        o.location.y+=.16*phase*math.sin(t)
+                        o.location.z+=.11*max(0,phase*math.sin(t))
+                        o.rotation_euler.x+=.20*phase*math.sin(t)
+                animate_part(obj,pad)
+            if named(obj,'tail'):
+                def wag(o,clip,t): o.rotation_euler.z+=(.22 if clip=='Idle' else .30)*math.sin(t*2)
+                animate_part(obj,wag)
+    # Eyelids blink together; their tiny scale change is also in the GLB clips.
+    for obj in parts:
+        if named(obj,'eye') or named(obj,'eye white') or named(obj,'blue grey iris') or named(obj,'eye sparkle'):
+            def blink(o,clip,t):
+                if clip=='Idle': o.scale.z*=1-.88*max(0,1-abs(t-4.71)/.30)
+            animate_part(obj,blink)
 
 for species in ['dog','cat','rabbit','hamster','gerbil','goldfish']:
     r=root(species)
@@ -129,6 +228,7 @@ for species in ['dog','cat','rabbit','hamster','gerbil','goldfish']:
             if species=='gerbil': ball('tail',(.12,1.02,.30),(.08,.43,.07),'pink',r)
         for name,pos in [('ear',(.36,-.48,1.16)),('chest',(0,-.65,.66)),('paw',(.28,-.28,.29)),('coat',(.38,.28,.80))]:
             marker=root('spot_'+name); marker.parent=r; marker.location=pos
+    animate_character(r,fish=species=='goldfish')
     export(species,r)
 
 def plant(x,y,z=0,parent=None):
@@ -199,7 +299,7 @@ plant(-4.37,3.04,0,clinic); plant(4.35,3.1,0,clinic)
 cube('round rug',(1.70,.40,.075),(2.50,2.00,.06),'mint',clinic,.35)
 export('clinic',clinic)
 
-for name,coat in [('louise','mint'),('visitor','pink')]:
+for name,coat in [('louise','mint'),('visitor','pink'),('visitor-ponytail','blue'),('visitor-bob','plum')]:
     r=root(name)
     for x in [-.17,.17]:
         cube('shoe',(x,-.06,.12),(.26,.40,.20),'dark',r,.08)
@@ -223,11 +323,30 @@ for name,coat in [('louise','mint'),('visitor','pink')]:
         line('stethoscope',[(-.15,-.266,1.30),(-.17,-.286,1.08),(-.10,-.29,.99),(0,-.3,.97),(.10,-.29,.99),(.17,-.286,1.08),(.15,-.266,1.30)],.015,'dark',r)
         ball('stethoscope chestpiece',(.14,-.285,.93),(.045,.02,.045),'gold',r)
     else:
-        ball('head',(0,0,1.57),(.27,.25,.31),'lightfur',r)
-        ball('hair',(0,.035,1.76),(.29,.25,.20),'wood',r)
+        skin='visitor_skin' if name=='visitor-bob' else 'lightfur'
+        hair='visitor_hair' if name=='visitor-bob' else 'wood'
+        ball('head',(0,0,1.57),(.27,.25,.31),skin,r)
+        ball('hair',(0,.035,1.76),(.29,.25,.20),hair,r)
+        if name=='visitor-ponytail':
+            # The ponytail silhouette stays clear from the reception camera.
+            ball('ponytail',(0,.35,1.48),(.17,.20,.37),hair,r)
+            ball('hair tie',(0,.30,1.72),(.13,.10,.08),'gold',r)
+            for x in [-.24,.24]: ball('side hair',(x,.04,1.60),(.065,.19,.22),hair,r)
+            cube('cardigan front',(0,-.238,1.04),(.17,.035,.43),'white',r,.02)
+        elif name=='visitor-bob':
+            ball('bob back',(0,.15,1.55),(.31,.20,.35),hair,r)
+            for x in [-.265,.265]: ball('bob side',(x,.005,1.55),(.075,.20,.30),hair,r)
+            bpy.ops.mesh.primitive_cone_add(vertices=32,radius1=.43,radius2=.30,depth=.48,location=(0,0,.70))
+            skirt=finish(bpy.context.object,'dress skirt',coat,r)
+            skirt.scale.y=.73
+            for face in skirt.data.polygons: face.use_smooth=True
+            cube('dress belt',(0,-.245,.94),(.55,.04,.055),'gold',r,.015)
         for x in [-.09,.09]: ball('eye',(x,-.24,1.59),(.025,.018,.035),'black',r)
+        ball('nose',(0,-.25,1.51),(.032,.035,.035),skin,r)
+        line('friendly smile',[(-.055,-.239,1.455),(0,-.255,1.44),(.055,-.239,1.455)],.008,'pink',r)
     for x in [-.42,.42]: ball('arm',(x,0,.96),(.12,.13,.34),coat,r)
-    cube('badge',(.16,-.245,1.12),(.14,.025,.10),'white',r,.01)
+    if name=='louise': cube('badge',(.16,-.245,1.12),(.14,.025,.10),'white',r,.01)
+    animate_character(r,human=True)
     export(name,r)
 
 table=root('table')
@@ -240,4 +359,4 @@ export('table',table)
 # Leave the authored clinic visible when opening the source file.
 for o in [clinic,*clinic.children_recursive]: o.hide_set(False)
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT,'assets','blender','louises-vet-office.blend'))
-print('Exported original clinic, six pets, two people and examination table.')
+print('Exported original clinic, six pets, Louise, three customer models and examination table.')

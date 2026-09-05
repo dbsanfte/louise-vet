@@ -58,8 +58,10 @@ between devices, or after clearing site data. No account or backend is involved.
 The present slice proves the complete game loop with compact authored cases.
 Examination uses body hotspots and written findings; it does not yet simulate
 instrument handling, an interactive X-ray viewer, mouth/ear interiors, or
-physical cream spreading. Visitors glide into place, and pets have gentle
-breathing motion; full walking rigs and individual visitor designs remain future
-art work. The shop uses fixed placements and one expansion rather than a room
+physical cream spreading. People and pets now play Blender-authored walking and
+idle clips, with three customer appearances including women. Hardware graphics
+render animation every frame; software graphics use a lighter display cadence.
+The care timing challenge holds the scene still while the meter runs.
+The shop uses fixed placements and one expansion rather than a room
 layout editor. Longer campaigns, richer diagnostic skill games, broader pet
 variation, and narrated reading support can build on this foundation.
