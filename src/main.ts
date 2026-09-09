@@ -161,7 +161,7 @@ function renderReception() {
   const sidebar = byId('sidebar');
   const replaceSidebar =
     sidebar.dataset.receptionMarkup !== sidebarMarkup ||
-    !sidebar.querySelector('.office-tabs');
+    !sidebar.querySelector('[data-action="office-tab"]');
   if (replaceSidebar) {
     sidebar.innerHTML = sidebarMarkup;
     sidebar.dataset.receptionMarkup = sidebarMarkup;
