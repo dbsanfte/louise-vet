@@ -70,9 +70,10 @@ office gives those caring moments a continuing purpose.
 5. **Easy to read, forgiving to control.** Large rounded lettering, visible next
    actions, helpful targeting, and touch/keyboard alternatives support children.
 
-This is fictional storybook care, not veterinary training. Anatomy and readings
-are simplified; do not introduce real dosages or instructions for treating real
-animals. V2 permits occasional non-graphic accidents affecting cats or dogs, capped
+This is fictional storybook care, not veterinary training. Anatomy is simplified;
+heart rates use species-appropriate physiology with representative readings as
+defined in section 5. Do not introduce real dosages or instructions for treating
+real animals. V2 permits occasional non-graphic accidents affecting cats or dogs, capped
 at a recoverable broken bone, and house fires followed by gentle smoke/skin checks.
 Every fire is extinguished and every pet recovers. There are no deaths, blood,
 severe injuries, permanent property damage, or escalating crises. Emergencies
@@ -601,19 +602,78 @@ must not reveal it automatically.
 
 ### Diagnostic instruments
 
-| Instrument   | Where and what the player observes                                                                                                                                     |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Magnifier    | Live enlarged coat, skin, paws, and other surfaces; fur fibres, swelling, fleas, tangles, and a protruding splinter distinguish cases.                                 |
-| X-ray        | Complete species skeleton from the current angle, with zoom and whole-body overview. Pip's front leg has separated, displaced bone ends.                               |
-| Ear scope    | Ear contact opens a lit 3D canal. Healthy tissue differs from Milo's red, swollen canal and wax.                                                                       |
-| Mouth mirror | Mouth contact reveals 3D teeth and gums; healthy teeth, Cleo's tartar, and Poppy's tooth crater are distinct.                                                          |
-| Stethoscope  | Chest contact drives ECG and an authored heartbeat reading, with matching double-beat sound when enabled. Leaving the chest stops the reading and beats.               |
-| Water test   | The visible bowl water accepts contact across its volume, with a fictional comfortable/needs-care reading. Magnifier contact still reaches the fish through the water. |
-| Thermometer  | Non-invasive storybook coat contact reveals Comfortable or Fever. No reading off the correct body region.                                                              |
+| Instrument   | Where and what the player observes                                                                                                                                        |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Magnifier    | Live enlarged coat, skin, paws, and other surfaces; fur fibres, swelling, fleas, tangles, and a protruding splinter distinguish cases.                                    |
+| X-ray        | Complete species skeleton from the current angle, with zoom and whole-body overview. Pip's front leg has separated, displaced bone ends.                                  |
+| Ear scope    | Ear contact opens a lit 3D canal. Healthy tissue differs from Milo's red, swollen canal and wax.                                                                          |
+| Mouth mirror | Mouth contact reveals 3D teeth and gums; healthy teeth, Cleo's tartar, and Poppy's tooth crater are distinct.                                                             |
+| Stethoscope  | Chest contact drives a species-appropriate ECG rate, with the same cadence in optional double-beat audio. Fever raises that patient’s rate. Leaving the chest stops both. |
+| Water test   | The visible bowl water accepts contact across its volume, with a fictional comfortable/needs-care reading. Magnifier contact still reaches the fish through the water.    |
+| Thermometer  | Non-invasive storybook coat contact reveals Comfortable or Fever. No reading off the correct body region.                                                                 |
 
-Heartbeat numbers and anatomy support the story and are not clinical reference
-ranges. Pets breathe and idle during ordinary examination; X-ray holds the
-patient still so skeleton and body remain aligned.
+Pets breathe and idle during ordinary examination; X-ray holds the patient still
+so skeleton and body remain aligned.
+
+### Heartbeat physiology
+
+The ECG uses representative awake-patient heart rates appropriate to the animal,
+including dog size and the three bird types. A quick healthy hamster or canary
+must still read **Steady, normal rhythm**. A fever or an authored worry/pain
+finding reads **Faster than usual**, relative to that patient's healthy rate.
+Fever alone selects the elevated rate; a simultaneous `heart: fast` flag must not
+increase it twice. A later healthy visit returns to the normal value.
+
+Current game readings in beats per minute (BPM):
+
+| Patient type                  | Healthy | Worried / sore | Fever |
+| ----------------------------- | ------- | -------------- | ----- |
+| Golden retriever              | 90      | 120            | 140   |
+| Terrier                       | 110     | 140            | 160   |
+| Spaniel / collie / other dog  | 100     | 130            | 150   |
+| Cat                           | 180     | 210            | 230   |
+| Rabbit                        | 240     | 280            | 300   |
+| Hamster                       | 450     | 500            | 540   |
+| Gerbil                        | 360     | 410            | 440   |
+| Budgie / other small pet bird | 400     | 460            | 500   |
+| Cockatiel                     | 300     | 350            | 380   |
+| Canary                        | 600     | 680            | 720   |
+
+Healthy selections are grounded in published physiology: Merck's
+[resting-rate table](https://www.merckvetmanual.com/multimedia/table/resting-heart-rates)
+covers dogs, rabbits and hamsters; its
+[cardiovascular overview](https://www.merckvetmanual.com/circulatory-system/cardiovascular-system-introduction/the-cardiovascular-system-in-animals)
+describes dog-size differences and higher normal cat rates in a clinic. The
+[Pet Rodents reference chapter](https://pmc.ncbi.nlm.nih.gov/articles/PMC7271187/)
+lists 360 BPM for gerbils. University of Wisconsin Extension's
+[caged-bird health supplement, page 2](https://fyi.extension.wisc.edu/wi4hpublications/files/2015/10/4H369.pdf)
+distinguishes budgies, small parrots and canaries; the cockatiel uses the small
+parrot category. These values represent awake clinic patients, not sleeping rates.
+
+The worried and fever columns are **plausible game examples inferred from that
+physiology**, not published fever reference ranges or diagnostic thresholds.
+Merck describes fever, stress and pain as causes of
+[sinus tachycardia](https://www.merckvetmanual.com/circulatory-system/heart-disease-conduction-abnormalities-in-dogs-and-cats/heart-disease-conduction-abnormalities-in-dogs-and-cats).
+Actual responses vary with the individual, temperature, handling and illness;
+there is no assumed universal BPM-per-degree rule or fixed percentage increase.
+Small-mammal and bird fever increments are illustrative, not validated
+species-specific fever predictions. Heart rate alone never diagnoses fever:
+the thermometer finding and both required clues remain necessary. No numerical
+body temperatures, dosages or real care procedures are introduced.
+
+The scrolling trace spans 2.5 seconds and its cycles match the displayed BPM.
+Subpixel sampling preserves peaks at fast bird rates. On phones the compact ECG,
+BPM and sound control dock above the care notebook's maximum height, keeping
+them unobscured as clues accumulate. The chest-placement prompt remains in the
+reading when contact is lost. The optional audio loops
+one short lub-dub pair per cardiac cycle on the audio clock, aligned with the
+trace, so slow 3D rendering cannot drop beats. Leaving chest contact, changing
+tools, muting, hiding the page or stopping the visit stops the sound; returning
+resumes at the current cadence without a backlog. The waveform is a schematic
+regular rhythm, not a diagnostic ECG lead or a simulation of species-specific
+wave morphology. Goldfish keep water and fin checks: there is no invented
+stethoscope ECG or mammalian fever rate for them. Vaccination, retries, reading
+pace, rewards and saving are unchanged.
 
 ### Applying care
 
@@ -669,8 +729,9 @@ procedures, dosages or fluids.
 The first v2 increment includes a rendered, non-invasive storybook thermometer. Placing its sensor at the
 coat gives an explicit **Comfortable** or **Fever** reading, with no real-world
 temperature ranges or dosages. Off-body or wrong-target placement must not reveal
-a reading. A fever case pairs that observation with listening at the chest,
-then a gentle cooling pad and its steady-alignment activity. Healthy pets must
+a reading. A fever case pairs that observation with the species-appropriate
+elevated heartbeat described above, then a gentle cooling pad and its
+steady-alignment activity. Healthy pets must
 also return a meaningful normal thermometer result. Thermometer and cooling
 care have reproducible Blender models. Maple is the first authored fever visit;
 household schedules also create fever visits for named pets under V2-04.
@@ -1041,7 +1102,7 @@ and evidence, not a competing set of mechanics.
 | F01 | Browser and container foundation           | Implemented        | Local and public HTTPS hosting at louise.vet, devcontainer, tested-image CI deployment with rollback. [Workflow](../.github/workflows/ci.yml), [README](../README.md). [Production operations](../deploy/README.md).                                                                                                                                                                                                                                                                                                               |
 | F02 | Reception and customer traffic             | Implemented        | Side entry, face-to-face counter, selectable queue, arrivals/capacity. [World](../src/world.ts), [UI flow](../src/main.ts).                                                                                                                                                                                                                                                                                                                                                                                                        |
 | F03 | Louise, owners, and animated pets          | Implemented        | Personalised Louise, women and men with sculpted faces and articulated strides, seven species, eleven dog/cat/bird breed meshes, soft examination coats, Idle/Walk/Sit/Read/Play clips and uninterrupted bird flight. [Credits](assets.md), [animation checks](../tests/animations.test.ts), [model rendering checks](../tests/model-polish.spec.ts). Breed identity persists between views; articulated legs, wings, speed-matched walking and smoothed headings. [Breed care and visual checks](../tests/pet-varieties.spec.ts). |
-| F04 | Interactive diagnosis                      | Implemented        | Draggable instruments, visible anatomy, observations, two clues and diagnosis for authored sick visits; explicit species-appropriate routine-check guidance and whole-bowl water contact. [Examinations](../src/examination.ts), [clinical checks](../tests/clinical.test.ts), [browser checks](../tests/examination.spec.ts).                                                                                                                                                                                                     |
+| F04 | Interactive diagnosis                      | Implemented        | Draggable instruments, visible anatomy, observations, two clues and diagnosis for authored sick visits; explicit species-appropriate routine-check guidance, whole-bowl water contact, physiology-based heart rates and matching frame-independent audio. [Heartbeat contract](#heartbeat-physiology). [Examinations](../src/examination.ts), [clinical checks](../tests/clinical.test.ts), [browser checks](../tests/examination.spec.ts).                                                                                        |
 | F05 | Skilled treatment                          | Implemented        | Correct 3D tool placement plus nine instrument-specific care activities, harmless retries, keyboard/touch controls and explicit Finish care. [Rules](../src/care-skill.ts), [UI](../src/care-skill-view.ts), [rule checks](../tests/care-skill.test.ts), [activity browser checks](../tests/care-skill.spec.ts). Illustrated activities; no mesh deformation or physical medical simulation.                                                                                                                                       |
 | F06 | Routine vaccination                        | Implemented        | Placement then controlled vaccine pressure, no diagnosis, harmless retries. [Rules](../src/game.ts), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                      |
 | F07 | Friendly visit controls                    | Implemented        | Abort/requeue, fixed actions, scrollable notes, rounded text, body guides, touch layout. [UI](../src/main.ts), [styles](../src/style.css), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                |
@@ -1071,7 +1132,7 @@ Development milestones group work; they are not player levels or release dates:
 | V2-03 | Streets, crossings, and traffic         | Implemented | Three connected roads with curved neighbourhood loops, connected pavements, four distinct coloured vehicle bodies with rolling wheels, continuous car circuits and traffic yielding at crossings. [Vehicle asset and motion checks](../tests/town-assets.test.ts), [traffic rendering](../tests/traffic-visual.spec.ts). [Simulation checks](../tests/town.test.ts). Recoverable incidents use V2-05.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | V2-04 | Town-driven clinic visits               | Implemented | Shared actors/positions, including accompanying pets, drive pavement → doorway → waiting place → care → doorway → home, with regular care, abort/requeue, one-time rewards and saved state. Full-clinic families reserve separate exterior places, enter in arrival order and leave the doorway clear for departures. [Simulation checks](../tests/community.test.ts), [browser journeys](../tests/community.spec.ts), [entrance and save checks](../tests/entrance.test.ts), [rendered entrance](../tests/entrance.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | V2-05 | Recoverable road accidents              | Implemented | Traffic contact creates a dog/cat fracture; a stopped driver gets out, summons the owner and resumes after collection. The owner carries the patient to care and waits safely if full. Emergency driver coverage: [sequence checks](../tests/emergencies.test.ts). [Contact/capacity checks](../tests/community.test.ts), [rendered care journeys](../tests/community.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| V2-06 | Fever examination                       | Implemented | Maple’s playable fever visit; rendered thermometer and cooling pad, normal/off-target feedback. [Clinical models](../tests/clinical.test.ts), [contact checks](../tests/town.spec.ts), [all-case check](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| V2-06 | Fever examination                       | Implemented | Maple’s playable fever visit; rendered thermometer and cooling pad, normal/off-target feedback, and species-appropriate fever heart rates. [ECG and audio checks](../tests/examination.spec.ts). [Clinical models](../tests/clinical.test.ts), [contact checks](../tests/town.spec.ts), [all-case check](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | V2-07 | Visible clue summary                    | Implemented | Fixed care notebook with Key clues/Care notes pages, a new-clue pulse and persistent green completion state, newest observations first, internal scrolling, visible next/exit controls on desktop and phone. [Routine guidance and clue feedback checks](../tests/routine-guidance.spec.ts). [Clue viewport check](../tests/town.spec.ts), [notes scrolling check](../tests/care-notes.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | V2-08 | Modular clinic and waiting activities   | Implemented | Connected lounge, enlarged playground, play-garden extension and Sunshine courtyard clear of pavements, capacity up to eight, inward-facing lounge seating and furniture-aware routes, six new dispenser/toy/aviary/tree activities, flying birds, rollercoaster and Ferris wheel with animated occupants, usable seats/books/board games, species-appropriate single-pet rides with FIFO queues, one arrival check-in, stable waiting places, a player-triggered return to the desk, and saved activities. [Rules and simulation checks](../tests/leisure.test.ts), [shop, rooms, activities and recall browser checks](../tests/leisure.spec.ts). Viewport-sized office with patient/activity pages: [layout and ride browser checks](../tests/playground.spec.ts). The courtyard adds puzzles, bubbles, a cat nook, bird chimes and decorations; [courtyard checks](../tests/courtyard.test.ts), [scroll/purchase checks](../tests/shop-scroll.spec.ts). Fixed module/furniture placement; no construction editor or ride fares. |
 | V2-09 | Connected examination room and escort   | Implemented | Included furnished room with opening door and shared close-up models. Louise meets the selected family at the desk and leads them inside before care; cancellation, abort, completion and reload use doorway return routes. [Movement checks](../tests/room.test.ts), [desktop/touch room checks](../tests/exam-room.spec.ts). Fixed room layout; no free construction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -1130,7 +1191,10 @@ identifies coverage without claiming every visual requirement is automated.
   use of the ear scope on a visible ear.
 - Rotating/zooming preserves targeting and viewer alignment. Magnifier/X-ray
   findings need visible evidence; interiors distinguish cases; heartbeat feedback
-  follows chest contact and respects sound preference.
+  follows chest contact and respects sound preference. Healthy, worried and fever
+  rates match the species/bird type/dog size table; fever alone raises the rate,
+  normal small-animal rates are not labelled ill, and ECG cycles/audio cadence
+  agree even on slow graphics. Fish retain water/fin checks.
 - Vaccination starts with finding a site, requires successful gentle pressure control and Finish care,
   and never asks the player to diagnose a healthy routine visitor.
 - Wrong answers, placement, and care activities allow retry. Stop visit cancels the activity,
@@ -1276,6 +1340,12 @@ one continuous story linking home, streets, rescue and clinic. Allow exciting
 house-fire effects with guaranteed rescue and no permanent damage. Give each
 rescued pet real care, retain ordinary rewards, and save the whole handover so
 spectacle never replaces the game’s caring purpose.
+
+Decision **D16:** ground heartbeat cadence in animal physiology, including dog
+size and bird type, while keeping fever readings as documented plausible examples.
+This lets children notice that healthy small hearts beat quickly, and that fever
+raises a patient's own rate. The waveform remains schematic and the thermometer
+remains necessary for diagnosis; see [heartbeat physiology](#heartbeat-physiology).
 
 ## 14. Implementation and verification map
 

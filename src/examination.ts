@@ -1,7 +1,12 @@
 import { addBowlWater } from './fishbowl';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { clinicalProfile, ecg } from './clinical';
+import {
+  clinicalProfile,
+  ecg,
+  ECG_WINDOW_MS,
+  heartbeatPhase,
+} from './clinical';
 import { toolInfo, type Visit, type Tool, type Zone } from './game';
 import { dressPatient } from './fur';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -184,6 +189,7 @@ export class Examination {
   }
   select(tool: Tool | null, enabled: boolean) {
     this.active = enabled && tool !== null;
+    if (!this.active || tool !== 'listen') this.onHeart(null, 0);
     this.panel.hidden = !this.active;
     if (this.tool === tool) {
       if (!this.active) this.onHeart(null, 0);
@@ -410,9 +416,10 @@ export class Examination {
       ctx.shadowColor = '#80f7b4';
       ctx.shadowBlur = 5;
       ctx.beginPath();
-      for (let x = 0; x < w; x++) {
+      // Subpixel samples retain narrow peaks even at a canary's 720 BPM.
+      for (let x = 0; x <= w; x += 0.25) {
         const phase = bpm
-          ? (((((now - ((w - x) / w) * 2500) / 60000) * bpm) % 1) + 1) % 1
+          ? heartbeatPhase(now - ((w - x) / w) * ECG_WINDOW_MS, bpm)
           : 0;
         const y = h * 0.64 - (bpm ? ecg(phase) * h * 0.46 : 0);
         if (x === 0) ctx.moveTo(x, y);

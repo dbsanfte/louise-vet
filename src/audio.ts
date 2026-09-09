@@ -1,8 +1,11 @@
+import { HEARTBEAT_PEAK, heartbeatPhase } from './clinical';
+
 // Original, gently synthesised sound effects. No external recordings or tracking.
 export class Audio {
   private context?: AudioContext;
   enabled = false;
-  private lastHeartbeat = -1;
+  private heartSource?: AudioBufferSourceNode;
+  private heartBpm?: number;
   private lastSiren = -1;
   siren(now: number, active: boolean) {
     if (!this.enabled || !active) {
@@ -31,33 +34,58 @@ export class Audio {
     oscillator.stop(start + 0.7);
   }
   heartbeat(now: number, bpm: number | null) {
-    if (!this.enabled || !bpm) {
-      this.lastHeartbeat = -1;
+    if (
+      !this.enabled ||
+      !bpm ||
+      (typeof document !== 'undefined' && document.hidden)
+    ) {
+      this.heartSource?.stop();
+      this.heartSource?.disconnect();
+      this.heartSource = undefined;
+      this.heartBpm = undefined;
       return;
     }
-    const beat = Math.floor((now * bpm) / 60000 - 0.4);
-    if (beat === this.lastHeartbeat) return;
-    this.lastHeartbeat = beat;
     this.context ??= new AudioContext();
     if (this.context.state !== 'running') void this.context.resume();
+    if (this.heartBpm === bpm) return;
+    this.heartbeat(now, null);
     const ctx = this.context;
-    for (const [offset, hz, level] of [
-      [0, 64, 0.16],
-      [0.115, 83, 0.1],
-    ]) {
-      const oscillator = ctx.createOscillator(),
-        gain = ctx.createGain();
-      const start = ctx.currentTime + offset;
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(hz, start);
-      oscillator.frequency.exponentialRampToValueAtTime(35, start + 0.1);
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(level, start + 0.012);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13);
-      oscillator.connect(gain).connect(ctx.destination);
-      oscillator.start(start);
-      oscillator.stop(start + 0.15);
+    const period = 60 / bpm;
+    const buffer = ctx.createBuffer(
+      1,
+      Math.round(ctx.sampleRate * period),
+      ctx.sampleRate,
+    );
+    const samples = buffer.getChannelData(0);
+    const duration = Math.min(0.13, period * 0.26);
+    const pulse = (time: number, hz: number, level: number) => {
+      if (time < 0 || time >= duration) return 0;
+      const fraction = time / duration;
+      const envelope = Math.sin(Math.PI * fraction) ** 2 * (1 - fraction);
+      return (
+        level *
+        envelope *
+        Math.sin(
+          2 *
+            Math.PI *
+            (hz * time + ((35 - hz) * time * time) / (2 * duration)),
+        )
+      );
+    };
+    for (let i = 0; i < samples.length; i++) {
+      const time = ((i / samples.length - HEARTBEAT_PEAK + 1) % 1) * period;
+      samples[i] = pulse(time, 64, 0.16) + pulse(time - period * 0.28, 83, 0.1);
     }
+    // The audio clock loops one complete lub-dub per cardiac cycle, including
+    // between slow WebGL frames. It never queues a burst of missed beats.
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.playbackRate.value = buffer.duration / period;
+    source.connect(ctx.destination);
+    source.start(ctx.currentTime, heartbeatPhase(now, bpm) * buffer.duration);
+    this.heartSource = source;
+    this.heartBpm = bpm;
   }
   toggle() {
     this.enabled = !this.enabled;
@@ -65,7 +93,7 @@ export class Audio {
       this.context ??= new AudioContext();
       void this.context.resume();
       this.play('hello');
-    }
+    } else this.heartbeat(0, null);
     return this.enabled;
   }
   play(kind: 'hello' | 'success' | 'tap') {

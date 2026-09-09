@@ -1279,9 +1279,15 @@ function showLoadError(error: unknown) {
     `${icon('paw')}<h2>The clinic needs a moment</h2><p>Check your connection and make sure your browser supports WebGL 2.</p>${button('Try again', 'retry')}`;
 }
 
-window.addEventListener('pagehide', save);
+window.addEventListener('pagehide', () => {
+  audio.heartbeat(0, null);
+  save();
+});
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) save();
+  if (document.hidden) {
+    audio.heartbeat(0, null);
+    save();
+  }
 });
 
 window.addEventListener('blur', () => careActivity?.pause());

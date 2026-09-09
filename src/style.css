@@ -2175,6 +2175,37 @@ h1 {
   .heart-reading {
     font-size: 14px;
   }
+  /* Keep the live rate and trace clear of even a full care notebook. */
+  .examination-readout[data-tool='listen']:not([hidden]) {
+    position: fixed;
+    inset: auto 12px calc(96px + min(29dvh, 250px) + 8px);
+    width: auto;
+    margin: 0;
+    padding: 8px;
+    display: grid;
+    grid-template-areas: 'title sound' 'reading reading' 'trace trace';
+    grid-template-columns: 1fr auto;
+    gap: 4px;
+    align-items: center;
+  }
+  .examination-readout[data-tool='listen'] .instrument-title {
+    grid-area: title;
+  }
+  .examination-readout[data-tool='listen'] .instrument-message {
+    display: none;
+  }
+  .examination-readout[data-tool='listen'] .heart-sound {
+    grid-area: sound;
+  }
+  .examination-readout[data-tool='listen'] .heart-reading {
+    grid-area: reading;
+    margin: 0;
+  }
+  .examination-readout[data-tool='listen'] .ecg-trace {
+    grid-area: trace;
+    height: 48px;
+    margin: 0;
+  }
   .scene-controls {
     gap: 4px;
   }

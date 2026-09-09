@@ -1,6 +1,8 @@
 import { showPatient } from './browser-helpers';
 import { waitForExamination } from './browser-helpers';
 import { expect, test, type Page } from '@playwright/test';
+import { TownSimulation } from '../src/town-simulation';
+import { visits } from '../src/game';
 
 test.setTimeout(120000);
 async function openPatient(page: Page, name: string) {
@@ -91,35 +93,7 @@ test('drag the real X-ray across the patient, zoom, and orbit a whole skeleton',
 test('stethoscope contact drives a live ECG and audible heartbeats, stopping off the chest', async ({
   page,
 }) => {
-  await page.addInitScript(() => {
-    const state = window as typeof window & {
-      heartSounds: { hz: number; at: number; running: boolean }[];
-    };
-    state.heartSounds = [];
-    const create = AudioContext.prototype.createOscillator;
-    AudioContext.prototype.createOscillator = function () {
-      const oscillator = create.call(this),
-        start = oscillator.start.bind(oscillator),
-        context = this;
-      let scheduledHz = 0;
-      const setFrequency = oscillator.frequency.setValueAtTime.bind(
-        oscillator.frequency,
-      );
-      oscillator.frequency.setValueAtTime = (hz: number, at: number) => {
-        scheduledHz = hz;
-        return setFrequency(hz, at);
-      };
-      oscillator.start = (when?: number) => {
-        state.heartSounds.push({
-          hz: scheduledHz || oscillator.frequency.value,
-          at: performance.now(),
-          running: context.state === 'running',
-        });
-        start(when);
-      };
-      return oscillator;
-    };
-  });
+  await captureHeartAudio(page);
   await openPatient(page, 'Pip');
   await page
     .getByRole('button', { name: 'Turn sound on', exact: true })
@@ -127,34 +101,28 @@ test('stethoscope contact drives a live ECG and audible heartbeats, stopping off
   await page.getByRole('button', { name: 'Stethoscope', exact: true }).click();
   await page.getByRole('button', { name: 'Chest on Pip', exact: true }).click();
   const reading = page.locator('.heart-reading');
-  await expect(reading).toHaveText('261 BPM · Faster than usual');
+  await expect(reading).toHaveText('280 BPM · Faster than usual');
   const trace = page.locator('.ecg-trace');
   const first = await trace.screenshot();
   await expect
     .poll(async () => (await trace.screenshot()).equals(first))
     .toBe(false);
-  const sounds = () =>
-    page.evaluate(
-      () =>
-        (
-          window as typeof window & {
-            heartSounds: { hz: number; at: number; running: boolean }[];
-          }
-        ).heartSounds.filter((s) => s.hz <= 100 && s.running).length,
-    );
-  await expect.poll(sounds).toBeGreaterThanOrEqual(4);
+  await expect.poll(() => activeHeartRate(page)).toBeCloseTo(280, 3);
   await page
     .getByRole('button', { name: 'Turn sound off', exact: true })
     .click();
-  const count = await sounds();
-  await page.waitForTimeout(600);
-  expect(await sounds()).toBe(count);
+  await expect.poll(() => activeHeartRate(page)).toBe(0);
+  await page
+    .getByRole('button', { name: 'Turn sound on', exact: true })
+    .click();
+  await expect.poll(() => activeHeartRate(page)).toBeCloseTo(280, 3);
   const world = await page.locator('#world').boundingBox();
   await page.mouse.move(
     world!.x + world!.width / 2,
     world!.y + world!.height - 100,
   );
   await expect(reading).toHaveText('Place the chestpiece on the chest');
+  await expect.poll(() => activeHeartRate(page)).toBe(0);
   await page.getByRole('button', { name: 'Stop visit' }).click();
   await page
     .getByRole('button', { name: 'See Luna', exact: true })
@@ -165,7 +133,10 @@ test('stethoscope contact drives a live ECG and audible heartbeats, stopping off
   await page
     .getByRole('button', { name: 'Chest on Luna', exact: true })
     .click();
-  await expect(reading).toHaveText('88 BPM · Steady, normal rhythm');
+  await expect(reading).toHaveText('90 BPM · Steady, normal rhythm');
+  await expect.poll(() => activeHeartRate(page)).toBeCloseTo(90, 3);
+  await page.getByRole('button', { name: 'Stop visit' }).click();
+  await expect.poll(() => activeHeartRate(page)).toBe(0);
 });
 
 test('the magnifier follows the fur surface and discovers the visible sore spot during a drag', async ({
@@ -199,3 +170,155 @@ test('the magnifier follows the fur surface and discovers the visible sore spot 
   await expect(page.locator('.examination-readout')).toBeHidden();
   await expect(page.getByTestId('coins')).toHaveText('120');
 });
+
+type HeartAudio = {
+  bpm: number;
+  running: boolean;
+  stopped: boolean;
+  audible: boolean;
+};
+async function captureHeartAudio(page: Page) {
+  await page.addInitScript(() => {
+    const state = window as typeof window & { heartSounds: HeartAudio[] };
+    state.heartSounds = [];
+    const create = AudioContext.prototype.createBufferSource;
+    AudioContext.prototype.createBufferSource = function () {
+      const source = create.call(this),
+        start = source.start.bind(source),
+        stop = source.stop.bind(source),
+        context = this;
+      let record: HeartAudio | undefined;
+      source.start = (when?: number, offset?: number) => {
+        record = {
+          bpm: source.loop
+            ? (60 * source.playbackRate.value) / source.buffer!.duration
+            : 0,
+          running: context.state === 'running',
+          stopped: false,
+          audible: source
+            .buffer!.getChannelData(0)
+            .some((sample) => Math.abs(sample) > 0.001),
+        };
+        state.heartSounds.push(record);
+        start(when, offset);
+      };
+      source.stop = (when?: number) => {
+        if (record) record.stopped = true;
+        stop(when);
+      };
+      return source;
+    };
+  });
+}
+async function activeHeartRate(page: Page) {
+  return page.evaluate(() => {
+    const active = (
+      window as typeof window & { heartSounds: HeartAudio[] }
+    ).heartSounds.filter((s) => !s.stopped && s.running && s.audible);
+    return active.length === 1 ? active[0].bpm : active.length === 0 ? 0 : -1;
+  });
+}
+
+for (const [name, bpm] of [
+  ['Maple', 150],
+  ['Melody', 720],
+] as const) {
+  test(`${name}'s fever ECG and audio use species-appropriate elevated rates`, async ({
+    page,
+  }, info) => {
+    const sim = new TownSimulation(visits, () => 0.5);
+    sim.seedClinic([visits.findIndex((v) => v.name === name)]);
+    sim.tickets.get(sim.queue[0])!.reason = 'fever';
+    await page.addInitScript((town) => {
+      localStorage.setItem(
+        'louises-vet-office-v1',
+        JSON.stringify({
+          version: 1,
+          coins: 120,
+          earned: 0,
+          happiness: 100,
+          treated: 0,
+          stock: 3,
+          upgrades: [],
+          sound: false,
+          town,
+        }),
+      );
+    }, sim.snapshot());
+    await captureHeartAudio(page);
+    await openPatient(page, name);
+    await page
+      .getByRole('button', { name: 'Turn sound on', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Stethoscope', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: `Chest on ${name}`, exact: true })
+      .click();
+    const reading = page.locator('.heart-reading');
+    await expect(reading).toHaveText(`${bpm} BPM · Faster than usual`);
+    await expect.poll(() => activeHeartRate(page)).toBeCloseTo(bpm, 3);
+    // Count the actual bright ECG peaks across its 2.5-second canvas window.
+    const peaks = await page
+      .locator('.ecg-trace')
+      .evaluate((canvas: HTMLCanvasElement) => {
+        const { width, height } = canvas;
+        const data = canvas
+          .getContext('2d')!
+          .getImageData(0, 0, width, height).data;
+        let count = 0,
+          previous = false;
+        for (let x = 0; x < width; x++) {
+          let bright = false;
+          for (let y = 0; y < height * 0.35; y++) {
+            const i = (y * width + x) * 4;
+            bright ||= data[i + 1] > 180 && data[i + 2] > 110;
+          }
+          if (bright && !previous) count++;
+          previous = bright;
+        }
+        return count;
+      });
+    expect(Math.abs(peaks - (bpm * 2.5) / 60)).toBeLessThanOrEqual(1);
+    await expect(reading).toBeInViewport();
+    const clearOfNotes = async () => {
+      const notes = await page.locator('#clue-summary').boundingBox();
+      for (const element of [
+        reading,
+        page.locator('.ecg-trace'),
+        page.locator('.heart-sound'),
+      ]) {
+        await expect(element).toBeInViewport({ ratio: 1 });
+        const bounds = await element.boundingBox();
+        expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(notes!.y);
+      }
+    };
+    await clearOfNotes();
+    await page.screenshot({ path: info.outputPath(`${name}-fever-ecg.png`) });
+    await page
+      .getByRole('button', { name: 'Thermometer', exact: true })
+      .click();
+    await expect.poll(() => activeHeartRate(page)).toBe(0);
+    await page
+      .getByRole('button', {
+        name: `${name === 'Melody' ? 'Feathers' : 'Coat'} on ${name}`,
+        exact: true,
+      })
+      .click();
+    await expect(reading).toContainText('Fever');
+    await expect(page.locator('[data-tab=clues]')).toContainText('2/2');
+    await page
+      .getByRole('button', { name: 'Stethoscope', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: `Chest on ${name}`, exact: true })
+      .click();
+    await expect(reading).toHaveText(`${bpm} BPM · Faster than usual`);
+    await clearOfNotes();
+    if (info.project.name === 'mobile') {
+      await page.setViewportSize({ width: 360, height: 640 });
+      await clearOfNotes();
+    }
+  });
+}
