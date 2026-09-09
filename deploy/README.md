@@ -41,7 +41,11 @@ root-owned `/usr/local/sbin/louise-deploy`. That helper accepts a full commit SH
 and a matching single-image Docker archive, imports it into k3s containerd, updates
 only `louise-vet/web`, waits for readiness and a valid certificate, and checks the
 served `/version.json` revision. Failed rollout/local HTTPS checks restore the
-previous image when one exists. A separate GitHub-hosted job verifies public DNS,
+previous image when one exists. Pod readiness can precede Traefik's endpoint
+updates, so the helper allows up to ten health-and-revision attempts with
+three seconds between attempts and five-second request limits. Every attempt
+requires trusted TLS, an `ok` health response, and the expected image revision;
+persistent failures still roll back. A separate GitHub-hosted job verifies public DNS,
 HTTPS, redirect, game title, revision and missing-asset 404s from outside the LAN.
 A public-check failure is reported; it does not undo an otherwise healthy local rollout.
 
