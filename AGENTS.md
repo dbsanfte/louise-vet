@@ -106,3 +106,51 @@ understand the product without reading our chats.
 
 The [`.agents` directory](.agents/README.md) contains supporting workflow material.
 It does not replace this file or establish another product authority.
+
+## Local preview and deployment
+
+Keep the local game available as well as the public release. Before any push,
+workflow dispatch, or rerun that starts CI/CD, stand up the local web container
+with the latest runtime changes and verify it. After changing game code, styles,
+dependencies, or generated assets, rebuild and start it from this checkout:
+
+```sh
+docker compose up --build --detach --wait web
+```
+
+- Confirm `http://localhost:8080/healthz` returns `ok` and check the changed game
+  behavior in the browser before starting CI/CD. Inside the devcontainer, use
+  `http://web:8080` to reach that same web container; the user opens
+  `http://localhost:8080` on the host. Honor an existing `WEB_PORT` override.
+- Run the relevant local checks against this fresh production container and fix
+  failures before triggering delivery. A documentation-only update needs no
+  rebuild when the running container already serves the unchanged game, but
+  still confirm it is running before starting another pipeline.
+- Leave the local web container running with the latest game when finishing a
+  runtime-change task. A successful remote deployment does not replace this
+  requirement. Preserve the user's devcontainer and other services; never use
+  Compose `--remove-orphans`.
+
+The delivery sequence is **local build and verification → GitHub Actions build
+and tests → GHCR publication → server rollout → public HTTPS verification**.
+Follow [the workflow](.github/workflows/ci.yml) and the
+[production runbook](deploy/README.md) for current commands and recovery details:
+
+- Pull requests run checks. Successful authorized `main` releases publish the
+  exact tested image, tagged with its full commit SHA, and deploy that same image
+  artifact through the dedicated `louise-vet-eqvm` runner, using the
+  `louise-vet-deploy` label and `production` environment.
+- The Ubuntu host `eqvm` (`192.168.50.100`) runs single-node **k3s**, Traefik and
+  cert-manager. The root-owned `/usr/local/sbin/louise-deploy` helper imports the
+  image, rolls out `louise-vet/web`, checks readiness, certificate and revision,
+  and restores the preceding image on failure when one exists. Changes to this
+  privileged helper need review and installation on the host; pushing its source
+  does not update the installed helper. Preserve unrelated applications/runners.
+- Follow the run through its final external check of `https://louise.vet/` and
+  `/version.json`. Report the deployed revision and any remaining blocker. Image
+  publication or healthy local pods alone do not establish a successful public
+  release; do not bypass failing tests or certificate validation to claim one.
+- DNS uses the apex ALIAS to `home.sanftenberg.net`, following the existing
+  dynamic-DNS updater. Traefik/cert-manager provide HTTPS and certificate renewal.
+  Diagnose DNS/ACME failures using the runbook; keep credentials out of Git and
+  logs, and preserve the external SSH password file used during setup.
