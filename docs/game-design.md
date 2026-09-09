@@ -487,7 +487,7 @@ journeys use the pavement beside the waiting families. There is no deterioration
 waiting fee or urgency penalty. **Around Hookville** records recent events; **Find [owner]** focuses a
 family's current location or enters the clinic if they are already inside.
 
-Town time advances only during active play. Rendering delays up to two seconds are processed
+Town time advances only during active play. Rendering delays up to five seconds are processed
 in small simulation steps so a busy clinic does not stretch walks indefinitely.
 A long interruption catches up at most half a second; there is no offline town
 progress. Companion paths are recorded at each step to preserve doorway turns. Background tabs, dialogs, results,
