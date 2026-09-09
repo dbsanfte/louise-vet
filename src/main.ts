@@ -141,7 +141,7 @@ function renderReception() {
     patientPage,
     Math.max(0, Math.ceil(queue.length / 2) - 1),
   );
-  byId('sidebar').innerHTML = `
+  const sidebarMarkup = `
     <div class="panel-heading louise-welcome"><img class="louise-portrait" src="/images/louise-portrait.png" alt="Louise in her mint vet coat and pink headband" width="76" height="76" /><div><p class="eyebrow">MADE JUST FOR YOU</p><h2>Welcome, <br />Louise.</h2></div></div>
     <nav class="office-tabs" aria-label="Waiting room information"><button class="secondary" data-action="office-tab" data-tab="patients" aria-pressed="${officeTab === 'patients'}">Patients · ${queue.length}</button><button class="secondary" data-action="office-tab" data-tab="activities" aria-pressed="${officeTab === 'activities'}">While you wait</button></nav>
     <div id="clinic-call" aria-live="polite"></div><section class="office-patients" ${officeTab !== 'patients' ? 'hidden' : ''}><div class="queue-heading"><h3>In the waiting room</h3><span class="count">${queue.length}</span></div>
@@ -157,16 +157,26 @@ function renderReception() {
     <nav class="office-pages" aria-label="Patient pages"><button class="secondary" data-action="patient-page" data-step="-1" ${patientPage === 0 ? 'disabled' : ''} aria-label="Previous patients">←</button><span>${patientPage + 1} / ${Math.max(1, Math.ceil(queue.length / 2))}</span><button class="secondary" data-action="patient-page" data-step="1" ${patientPage >= Math.ceil(queue.length / 2) - 1 ? 'disabled' : ''} aria-label="Next patients">→</button></nav>
     ${queue.length ? button(`See ${visitFor(queue[0]).name} ${icon('arrow')}`, 'next', 'primary call-next', !ready) : button('Welcome a visitor', 'invite', 'primary call-next', !ready)}
     </section><div class="shelf-summary"><span>${icon('jar')} Treats on the shelf</span><strong>${progress.stock}</strong></div>`;
+  // Town events should not replace unchanged controls under a pointer or keyboard.
+  const sidebar = byId('sidebar');
+  const replaceSidebar =
+    sidebar.dataset.receptionMarkup !== sidebarMarkup ||
+    !sidebar.querySelector('.office-tabs');
+  if (replaceSidebar) {
+    sidebar.innerHTML = sidebarMarkup;
+    sidebar.dataset.receptionMarkup = sidebarMarkup;
+  }
   renderClinicTitle();
   byId('scene-goal').innerHTML =
     `<span class="goal-icon">${icon('star')}</span><div><small>TODAY’S LITTLE GOAL</small><strong>Help 3 animal friends</strong><div class="goal-dots">${[0, 1, 2].map((i) => `<span class="${progress.treated % 3 > i ? 'done' : ''}">${progress.treated % 3 > i ? icon('check') : ''}</span>`).join('')}</div></div>`;
   byId('scene-controls').innerHTML = '';
   byId('zones').innerHTML = '';
   byId('precision').innerHTML = '';
-  byId('sidebar').insertAdjacentHTML(
-    'beforeend',
-    `<section id="clinic-leisure" class="clinic-leisure" aria-label="Waiting room activities" ${officeTab !== 'activities' ? 'hidden' : ''}></section>`,
-  );
+  if (replaceSidebar)
+    sidebar.insertAdjacentHTML(
+      'beforeend',
+      `<section id="clinic-leisure" class="clinic-leisure" aria-label="Waiting room activities" ${officeTab !== 'activities' ? 'hidden' : ''}></section>`,
+    );
   renderLeisure();
   byId('stage-footer').innerHTML =
     `<span class="footer-tip">${icon('paw')} Choose a patient to begin their visit.</span><span class="clinic-total">${progress.treated} friends helped <span>·</span> ${progress.earned} coins earned</span>`;
@@ -205,8 +215,9 @@ function renderClinicTitle() {
                 : 'Your happy little clinic';
   byId('scene-title').innerHTML =
     `<span class="room-pill"><i></i> ${label}</span><h2>${heading}</h2>`;
-  byId('scene-caption').innerHTML =
-    `<nav class="clinic-views" aria-label="Clinic rooms">${[['reception', 'Reception'], ['exam', 'Exam room'], ...(progress.upgrades.includes('expansion') ? [['lounge', 'Customer lounge']] : []), ...(progress.upgrades.includes('pet-room') ? [['play', 'Pet playground']] : []), ...(progress.upgrades.includes('play-annex') ? [['annex', 'Play garden']] : []), ...(progress.upgrades.includes('sun-courtyard') ? [['courtyard', 'Courtyard']] : []), ['all', 'Whole clinic']].map(([id, name]) => `<button class="secondary" data-action="clinic-view" data-view="${id}" aria-pressed="${clinicView === id}">${name}</button>`).join('')}</nav>`;
+  const caption = `<nav class="clinic-views" aria-label="Clinic rooms">${[['reception', 'Reception'], ['exam', 'Exam room'], ...(progress.upgrades.includes('expansion') ? [['lounge', 'Customer lounge']] : []), ...(progress.upgrades.includes('pet-room') ? [['play', 'Pet playground']] : []), ...(progress.upgrades.includes('play-annex') ? [['annex', 'Play garden']] : []), ...(progress.upgrades.includes('sun-courtyard') ? [['courtyard', 'Courtyard']] : []), ['all', 'Whole clinic']].map(([id, name]) => `<button class="secondary" data-action="clinic-view" data-view="${id}" aria-pressed="${clinicView === id}">${name}</button>`).join('')}</nav>`;
+  if (byId('scene-caption').innerHTML !== caption)
+    byId('scene-caption').innerHTML = caption;
   if (focused)
     byId('scene-caption')
       .querySelector<HTMLButtonElement>(`[data-view="${focused}"]`)

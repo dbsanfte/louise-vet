@@ -1013,8 +1013,10 @@ clinic coins, upgrades, stock, and satisfaction. Future save-schema changes must
 how existing players' progress is preserved.
 
 Keep the game usable with software WebGL as well as hardware graphics. Software
-rendering uses reduced cost and cadence; interaction, loading, and care activities
-must stay responsive. Identifying a clue or completing a visit must not require
+rendering uses reduced cost and cadence, leaving CPU time between completed frames
+for browser input and compositing. Unchanged reception controls retain their DOM
+elements through town events so an update cannot interrupt a click or keyboard focus.
+Interaction, loading, and care activities must stay responsive. Identifying a clue or completing a visit must not require
 maximum visual settings.
 
 VS Code devcontainer support, headless Blender, and host-mounted Codex state are

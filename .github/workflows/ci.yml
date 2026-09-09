@@ -131,7 +131,8 @@ jobs:
     needs: publish
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, Linux, X64, louise-vet-deploy]
-    timeout-minutes: 10
+    # Includes certificate readiness and enough time for a failed-rollout rollback.
+    timeout-minutes: 15
     environment:
       name: production
       url: https://louise.vet/

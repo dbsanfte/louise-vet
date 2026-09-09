@@ -12,6 +12,9 @@ for ALIAS records. `home.sanftenberg.net` is a CNAME to
 `sanftenberg.dnsalias.org`, maintained by the existing `ddclient` service on eqvm.
 This chain follows home IP changes without an additional updater. See
 [Squarespace ALIAS instructions](https://support.squarespace.com/hc/en-us/articles/31119879125645-DNS-records-for-web-hosting).
+When first disabling DNSSEC, the registry DS removal and resolver caches must
+settle before ACME can validate the name; a stale DS with missing DNSKEY records
+causes SERVFAIL even if the ALIAS is correct. cert-manager retries failed issuance.
 A direct apex A record works as a temporary alternative but must be updated when
 the router's public IP changes. DNS caches can retain earlier records for their TTL.
 

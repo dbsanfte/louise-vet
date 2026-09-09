@@ -82,6 +82,7 @@ export class World {
   private observer: ResizeObserver;
   private onPick: (zone: Zone | null, findingVisible: boolean) => void;
   private softwareGraphics = false;
+  private softwareIdleUntil = 0;
   private courtyardOwned = false;
   private weatherScenery: WeatherScenery;
   private pendingFrame: WebGLSync | null = null;
@@ -857,12 +858,18 @@ export class World {
     )
       return;
     const gl = this.renderer.getContext() as WebGL2RenderingContext;
+    if (this.softwareGraphics && time < this.softwareIdleUntil) return;
     if (this.softwareGraphics && this.pendingFrame) {
       // Never build a queue of costly software frames behind input and readback.
       if (gl.clientWaitSync(this.pendingFrame, 0, 0) === gl.TIMEOUT_EXPIRED)
         return;
       gl.deleteSync(this.pendingFrame);
       this.pendingFrame = null;
+      // Software rendering shares the CPU with input and browser compositing.
+      // A completed expensive frame needs breathing room before another starts.
+      this.softwareIdleUntil =
+        time + Math.min(250, Math.max(32, time - this.lastRender));
+      return;
     }
     const sceneChanged = this.needsRender;
     this.lastRender = time;
