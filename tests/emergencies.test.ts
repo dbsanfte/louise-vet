@@ -32,7 +32,7 @@ function until(s: TownSimulation, ready: () => boolean, seconds = 400) {
   assert.ok(ready(), `Timed out at ${s.emergencies.active?.phase}`);
 }
 
-for (const name of ['Pico', 'Milo', 'Luna'])
+for (const name of ['Pico', 'Milo', 'Luna', 'Maple'])
   test(`${name}: lost search, reunion, saved phases and real care journey`, () => {
     const s = fixture(name, 'lost');
     const e = s.emergencies.active!,
@@ -43,12 +43,8 @@ for (const name of ['Pico', 'Milo', 'Luna'])
       step(s);
       const current = s.emergencies.active;
       if (!current) break;
-      if (current.phase === 'wander')
-        assert.equal(
-          distance(current.owner, home),
-          0,
-          'owner waits until pet out of sight',
-        );
+      if (current.phase === 'report')
+        assert.ok(distance(current.owner, home) > 1, 'owner first pursues pet');
       if (current.phase === 'descend') {
         assert.ok(
           Math.abs(current.pet.y - current.firefighter.y - 0.85) < 0.01,
@@ -69,7 +65,7 @@ for (const name of ['Pico', 'Milo', 'Luna'])
     assert.equal(s.emergencies.completed, 1);
     for (const phase of ['wander', 'report', 'search', 'handover', 'return'])
       assert.ok(phases.has(phase as RescuePhase), phase);
-    if (name !== 'Luna') {
+    if (name === 'Pico' || name === 'Milo') {
       for (const phase of [
         'dispatch',
         'unload',
@@ -93,6 +89,74 @@ for (const name of ['Pico', 'Milo', 'Luna'])
     assert.equal(s.completeVisit(ticket.id), false);
     until(s, () => !s.tickets.has(ticket.id));
   });
+
+test('escaping dogs, cats and birds move faster than their pursuing owners', () => {
+  for (const name of ['Luna', 'Milo', 'Pico']) {
+    const s = fixture(name, 'lost');
+    const e = s.emergencies.active!;
+    Object.assign(e.pet, { x: 0, z: -30, route: [{ x: 20, z: -30 }] });
+    Object.assign(e.owner, { x: -1, z: -30, route: [{ x: 20, z: -30 }] });
+    const before = { pet: { ...e.pet }, owner: { ...e.owner } };
+    s.emergencies.update(
+      0.1,
+      0.1,
+      s.households,
+      [],
+      () => 0.5,
+      () => {},
+    );
+    const petTravel = distance(before.pet, e.pet);
+    const ownerTravel = distance(before.owner, e.owner);
+    assert.ok(ownerTravel > 0.25, 'owner actively pursues');
+    assert.ok(petTravel >= ownerTravel * 1.49, name);
+    assert.ok(distance(e.pet, e.owner) > distance(before.pet, before.owner));
+    assert.equal(
+      e.phase,
+      'wander',
+      'a small head start does not end the chase',
+    );
+  }
+});
+
+test('a saved pursuit opens a clear gap, sends the owner to police and ends the speed boost', () => {
+  const s = fixture('Luna', 'lost');
+  until(s, () => s.emergencies.active!.age >= 3, 5);
+  assert.equal(s.emergencies.active!.phase, 'wander');
+  const resumed = new TownSimulation(visits, () => 0.5);
+  assert.ok(resumed.restore(s.snapshot()));
+  const e = resumed.emergencies.active!;
+  assert.deepEqual(resumed.emergencies.snapshot(), s.emergencies.snapshot());
+  until(resumed, () => e.phase === 'report', 20);
+  assert.ok(distance(e.pet, e.owner) > 11.7, 'pet is well ahead of its owner');
+  assert.deepEqual(e.owner.route.at(-1), stations.police.door);
+  const before = { ...e.pet };
+  step(resumed);
+  assert.ok(distance(before, e.pet) <= 0.181, 'escape boost has ended');
+  until(resumed, () => e.phase === 'search', 120);
+  assert.ok(distance(e.owner, stations.police.door) < 0.01);
+  until(resumed, () => e.delivered, 180);
+  assert.equal(resumed.tickets.size, 1);
+});
+
+test('an owner who catches up to a treed pet asks for help instead of chasing forever', () => {
+  for (const name of ['Milo', 'Pico']) {
+    const s = fixture(name, 'lost');
+    const e = s.emergencies.active!;
+    Object.assign(e.pet, { ...rescuePerch(rescueTrees[0]), y: 2.8, route: [] });
+    Object.assign(e.owner, { x: e.pet.x - 1, z: e.pet.z, route: [] });
+    e.trapped = name === 'Milo';
+    s.emergencies.update(
+      0.1,
+      0.1,
+      s.households,
+      [],
+      () => 0.5,
+      () => {},
+    );
+    assert.equal(e.phase, 'report');
+    assert.deepEqual(e.owner.route.at(-1), stations.police.door);
+  }
+});
 
 test('cats encounter a real dog before climbing the nearest tree and can jump while awaiting help', () => {
   const s = fixture('Milo', 'lost');

@@ -20,7 +20,13 @@ declare global {
     inspectRescue: (
       snapshot: unknown,
       focus?: 'fire' | 'police',
-    ) => Promise<{ phase?: string; activePets: number; raised: number }>;
+    ) => Promise<{
+      phase?: string;
+      activePets: number;
+      raised: number;
+      owner?: { x: number; z: number };
+      pet?: { x: number; z: number };
+    }>;
   }
 }
 window.inspectRescue = async (snapshot, focus) => {
@@ -33,12 +39,31 @@ window.inspectRescue = async (snapshot, focus) => {
       ? stations[focus]
       : e.kind === 'fire'
         ? simulation.households[e.household].home
-        : e.tree,
+        : e.phase === 'wander'
+          ? { x: (e.owner.x + e.pet.x) / 2, z: (e.owner.z + e.pet.z) / 2 }
+          : e.phase === 'report'
+            ? e.owner
+            : e.tree,
   );
   world.draw(performance.now() + 100, 0.1);
   // Wait for the one rendered frame before replacing it with the next pose.
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  return { phase: e.phase, activePets: e.pets.length, raised: e.firefighter.y };
+  let owner: { x: number; z: number } | undefined,
+    pet: { x: number; z: number } | undefined;
+  world.town!.group.traverse((o) => {
+    if (!o.visible) return;
+    if (o.userData.ownerName === simulation.households[e.household].owner)
+      owner = { x: o.position.x, z: o.position.z };
+    if (o.userData.petName === e.pets[0])
+      pet = { x: o.position.x, z: o.position.z };
+  });
+  return {
+    phase: e.phase,
+    activePets: e.pets.length,
+    raised: e.firefighter.y,
+    owner,
+    pet,
+  };
 };
 
 declare global {

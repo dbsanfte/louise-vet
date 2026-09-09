@@ -33,10 +33,16 @@ export interface DogBreak {
   litter: boolean;
   site?: string;
 }
+interface WalkProgress {
+  position: Point;
+  distance: number;
+  relieved: string[];
+}
 /** Small outdoor pauses own the family only until everyone is ready to walk on. */
 export class DogWalks {
   active = new Map<number, DogBreak>();
   due = new Map<number, number>();
+  walks = new Map<number, WalkProgress>();
   locked(id: number) {
     return this.active.has(id);
   }
@@ -121,6 +127,25 @@ export class DogWalks {
   ) {
     for (const h of households) {
       let b = this.active.get(h.id);
+      let walk = this.walks.get(h.id);
+      if (
+        h.inClinic ||
+        h.ticket !== undefined ||
+        !['walk', 'park', 'chat'].includes(h.routine)
+      ) {
+        this.walks.delete(h.id);
+        walk = undefined;
+      } else {
+        if (!walk) {
+          walk = { position: { ...h.position }, distance: 0, relieved: [] };
+          this.walks.set(h.id, walk);
+        }
+        // Count the actual walk, not time spent at the park, chatting, waiting
+        // at a crossing or performing the cleanup detour.
+        if (!b && !blocked(h.id) && h.routine === 'walk')
+          walk.distance += distance(walk.position, h.position);
+        walk.position = { ...h.position };
+      }
       if (!b) {
         if (
           blocked(h.id) ||
@@ -128,24 +153,28 @@ export class DogWalks {
           h.ticket !== undefined ||
           h.routine !== 'walk' ||
           onRoad(h.position) ||
-          !outsideClinic(h.position) ||
-          time < (this.due.get(h.id) ?? 15 + h.id * 3)
+          !outsideClinic(h.position)
         )
           continue;
         const dogs = h.pets.filter(
           (p) => p.species === 'dog' && h.companions.includes(p.name),
         );
         if (!dogs.length) continue;
+        // Every dog gets a toilet stop on a substantial outing, even if an
+        // earlier sniff/wee consumed the random-stop cooldown.
+        const needsPoo =
+          walk && walk.distance >= 12
+            ? dogs.find((p) => !walk.relieved.includes(p.name))
+            : undefined;
+        if (!needsPoo && time < (this.due.get(h.id) ?? 15 + h.id * 3)) continue;
         const site = streetDetails.find(
           (s) =>
             distance(s, h.position) < 1.8 &&
             ![...this.active.values()].some((b) => b.site === s.id),
         );
-        // Passing an interesting smell invites a stop; ordinary toilet breaks are rarer.
-        if (random() >= dt * (site ? 1.1 : 0.035)) continue;
-        const dog = dogs[Math.floor(random() * dogs.length)];
-        const poo = !site || random() < 0.15;
-        if (!poo && !site) continue;
+        if (!needsPoo && random() >= dt * (site ? 1.1 : 0.07)) continue;
+        const dog = needsPoo ?? dogs[Math.floor(random() * dogs.length)];
+        const poo = Boolean(needsPoo) || !site || random() < 0.3;
         let spot = {
           x: h.position.x + Math.sin(h.facing) * 0.45,
           z: h.position.z + Math.cos(h.facing) * 0.45,
@@ -157,7 +186,7 @@ export class DogWalks {
             z: site.z + ((h.position.z - site.z) / d) * 0.45,
           };
         }
-        if (
+        const start = (spot: Point, site?: string) =>
           this.start(
             h,
             dog.name,
@@ -167,8 +196,13 @@ export class DogWalks {
                 ? 'wee'
                 : 'sniff',
             spot,
-            site?.id,
-          )
+            site,
+          );
+        if (
+          start(spot, site?.id) ||
+          // A busy fixture must not prevent the promised toilet stop. Try
+          // beside the owner, then wait for safe pavement if still crossing.
+          (needsPoo && start(h.position))
         )
           this.due.set(h.id, time + 45 + random() * 45);
         continue;
@@ -215,6 +249,7 @@ export class DogWalks {
         if (b.ownerRoute.length) b.elapsed = 0;
         else if (b.elapsed > 1.4) {
           b.litter = false;
+          if (walk && !walk.relieved.includes(b.pet)) walk.relieved.push(b.pet);
           phase('return');
         }
       }
@@ -228,12 +263,14 @@ export class DogWalks {
           this.due.set(h.id, time + 45 + random() * 45);
         }
       }
+      if (walk) walk.position = { ...h.position };
     }
   }
   snapshot() {
     return structuredClone({
       active: [...this.active.values()],
       due: [...this.due.entries()],
+      walks: [...this.walks.entries()],
     });
   }
   restore(value: unknown, households: Household[]) {
@@ -261,6 +298,29 @@ export class DogWalks {
           !households[id] ||
           !Number.isFinite(time) ||
           time < 0
+        )
+          return false;
+      const walks = s.walks ?? [];
+      if (
+        !Array.isArray(walks) ||
+        walks.length > households.length ||
+        new Set(walks.map(([id]) => id)).size !== walks.length
+      )
+        return false;
+      for (const [id, walk] of walks)
+        if (
+          !Number.isInteger(id) ||
+          !households[id] ||
+          !point(walk.position) ||
+          !Number.isFinite(walk.distance) ||
+          walk.distance < 0 ||
+          !Array.isArray(walk.relieved) ||
+          new Set(walk.relieved).size !== walk.relieved.length ||
+          !walk.relieved.every((name) =>
+            households[id].pets.some(
+              (p) => p.name === name && p.species === 'dog',
+            ),
+          )
         )
           return false;
       for (const b of s.active) {
@@ -303,6 +363,7 @@ export class DogWalks {
       }
       this.active = new Map(s.active.map((b) => [b.household, b]));
       this.due = new Map(s.due);
+      this.walks = new Map(walks);
       return true;
     } catch {
       return false;

@@ -179,8 +179,8 @@ export class Emergencies {
     const e = this.active;
     if (!e) return 'Police and firefighters are ready to help.';
     return {
-      wander: `${e.pets[0]} has wandered away.`,
-      report: 'The owner is asking the police for help.',
+      wander: `${e.pets[0]} is running away! Their owner is trying to catch up.`,
+      report: 'The owner is heading to the police station for help.',
       search: e.recalled
         ? `${e.pets[0]} is waiting for their owner to catch up.`
         : 'The officer is guiding the owner to their pet.',
@@ -401,7 +401,7 @@ export class Emergencies {
       if (!e.trapped && !e.recalled && e.injury !== 'accident') {
         if (pet.species === 'bird') {
           e.pet.y = 2.8;
-          if (move(e.pet, dt, 3.2)) {
+          if (move(e.pet, dt, e.phase === 'wander' ? 4.8 : 3.2)) {
             e.hop += dt;
             if (e.hop > 7 && e.age < 120) {
               e.hop = 0;
@@ -417,12 +417,16 @@ export class Emergencies {
           }
           e.tree = nearestTree(e.pet);
         } else {
-          move(e.pet, dt, e.chase ? 3.2 : 1.8);
+          move(e.pet, dt, e.phase === 'wander' ? 4.2 : e.chase ? 3.2 : 1.8);
           if (!e.pet.route.length && !e.chase) {
+            // Keep fleeing away from the owner instead of circling the same
+            // nearby tree forever when a short first leg cannot open a gap.
+            const choices =
+              e.phase === 'wander'
+                ? rescueTrees.filter((t) => distance(t, e.owner) > 20)
+                : rescueTrees;
             const dest =
-              rescueTrees[
-                Math.floor(random() * rescueTrees.length) % rescueTrees.length
-              ];
+              choices[Math.floor(random() * choices.length) % choices.length];
             go(e.pet, dest);
           }
           if (pet.species === 'cat' && !e.chased) {
@@ -480,13 +484,25 @@ export class Emergencies {
           this.phase(e, 'search');
         }
       }
-      if (
-        e.phase === 'wander' &&
-        distance(e.pet, h.position) > 9 &&
-        e.age > e.notice
-      ) {
-        this.phase(e, 'report');
-        go(e.owner, stations.police.door);
+      if (e.phase === 'wander') {
+        // Chase on the connected paths, then seek help once the faster pet
+        // pulls out of sight. A pet already up a tree also needs responders.
+        if (
+          (distance(e.pet, e.owner) > 12 && e.age > e.notice) ||
+          e.trapped ||
+          (pet.species === 'bird' &&
+            !e.pet.route.length &&
+            distance(e.pet, e.owner) < 2)
+        ) {
+          this.phase(e, 'report');
+          go(e.owner, stations.police.door);
+        } else {
+          if (!e.owner.route.length || e.elapsed >= 1) {
+            go(e.owner, e.pet);
+            e.elapsed = 0;
+          }
+          move(e.owner, dt, 2.8);
+        }
       }
     }
     if (

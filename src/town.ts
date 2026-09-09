@@ -727,6 +727,7 @@ export class Town {
           : null;
         if (rescue) {
           p.model.position.set(rescue.x, rescue.y, rescue.z);
+          petDistance = distance(previous, p.model.position);
           p.model.rotation.set(
             0,
             turnToward(previousFacing, rescue.facing, dt),

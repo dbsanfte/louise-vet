@@ -100,7 +100,7 @@ test('cleanup resumes after reloading; invalid or old saves cannot leave litter 
   delete legacy.dogWalks;
   assert.ok(new TownSimulation(visits).restore(legacy));
 });
-test('natural dog walks produce occasional cleanups and sniffing stops; street fixtures stay off the road and clinic', () => {
+test('natural substantial dog walks include cleanups alongside sniffing and wee stops', () => {
   let seed = 129;
   const random = () => {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
@@ -109,10 +109,24 @@ test('natural dog walks produce occasional cleanups and sniffing stops; street f
   const s = new TownSimulation(visits, random);
   s.emergencies.due = 99999;
   const seen = new Set<string>();
-  let starts = 0;
+  let starts = 0,
+    substantialWalks = 0;
   const previous = new Set<number>();
   for (let i = 0; i < 12000; i++) {
+    const outings = [...s.dogWalks.walks.entries()];
     s.update(0.1);
+    for (const [id, walk] of outings) {
+      const h = s.households[id];
+      if (h.routine !== 'garden' || walk.distance < 12) continue;
+      const dogs = h.pets.filter((p) => p.species === 'dog');
+      if (!dogs.length) continue;
+      substantialWalks++;
+      for (const dog of dogs)
+        assert.ok(
+          walk.relieved.includes(dog.name),
+          `${dog.name}'s completed walk`,
+        );
+    }
     for (const [id, b] of s.dogWalks.active) {
       seen.add(b.kind);
       if (!previous.has(id)) starts++;
@@ -125,7 +139,11 @@ test('natural dog walks produce occasional cleanups and sniffing stops; street f
     previous.clear();
     for (const id of s.dogWalks.active.keys()) previous.add(id);
   }
-  assert.ok(starts > 3 && starts < 80, `occasional breaks: ${starts}`);
+  assert.ok(
+    substantialWalks >= 10,
+    `completed substantial walks: ${substantialWalks}`,
+  );
+  assert.ok(starts >= substantialWalks);
   assert.ok(seen.has('poo'));
   assert.ok(seen.has('sniff'));
   assert.ok(seen.has('wee'));
@@ -135,6 +153,105 @@ test('natural dog walks produce occasional cleanups and sniffing stops; street f
     assert.ok(!onRoad(p));
     assert.ok(outsideClinic(p));
   }
+});
+
+test('both dogs get a poo on each substantial outing despite cooldown, bad luck and reload', () => {
+  let s = new TownSimulation(visits, () => 0.999);
+  const initial = s.snapshot();
+  initial.catalogueCursor = visits.length;
+  assert.ok(s.restore(initial));
+  const id = s.households.find((h) =>
+    h.pets.some((p) => p.name === 'Scout'),
+  )!.id;
+  s.emergencies.due = 99999;
+  for (const h of s.households) h.nextCare = 99999;
+  for (let outing = 0; outing < 2; outing++) {
+    const h = s.households[id];
+    Object.assign(h, {
+      routine: 'walk',
+      returning: true,
+      companions: ['Luna', 'Scout'],
+      position: { x: -10, z: -3 },
+      facing: Math.PI / 2,
+      route: [{ x: 12, z: -3 }],
+    });
+    s.dogWalks.due.set(id, 99999);
+    let reloaded = false;
+    const cleaned = new Set<string>();
+    for (let i = 0; i < 700 && s.households[id].routine !== 'garden'; i++) {
+      s.update(0.1);
+      const walk = s.dogWalks.walks.get(id);
+      for (const pet of walk?.relieved ?? []) cleaned.add(pet);
+      if (!reloaded && walk && walk.distance >= 8) {
+        assert.equal(cleaned.size, 0, 'no forced stop on a short stroll');
+        const snapshot = s.snapshot();
+        s = new TownSimulation(visits, () => 0.999);
+        assert.ok(s.restore(snapshot));
+        assert.deepEqual(s.dogWalks.snapshot(), snapshot.dogWalks);
+        reloaded = true;
+      }
+    }
+    assert.ok(reloaded);
+    assert.equal(
+      s.households[id].routine,
+      'garden',
+      'family finishes its walk',
+    );
+    assert.deepEqual([...cleaned].sort(), ['Luna', 'Scout']);
+    assert.equal(s.dogWalks.active.has(id), false, 'no litter left behind');
+    s.update(0.1);
+    assert.equal(s.dogWalks.walks.has(id), false, 'new outings start fresh');
+  }
+});
+
+test('walk progress excludes waiting and unsafe stops, migrates old saves and rejects corrupt data', () => {
+  const { s, h } = fixture();
+  h.route = [];
+  s.dogWalks.update(
+    0.1,
+    0,
+    s.households,
+    () => 0.999,
+    () => false,
+  );
+  const walk = s.dogWalks.walks.get(h.id)!;
+  for (let i = 0; i < 100; i++)
+    s.dogWalks.update(
+      0.1,
+      0,
+      s.households,
+      () => 0.999,
+      () => false,
+    );
+  assert.equal(walk.distance, 0, 'standing still does not count as a walk');
+  walk.distance = 12;
+  h.position = { x: 0, z: 0 };
+  s.dogWalks.update(
+    0.1,
+    0,
+    s.households,
+    () => 0.999,
+    () => false,
+  );
+  assert.equal(
+    s.dogWalks.active.size,
+    0,
+    'overdue toilet stops wait until off road',
+  );
+  const snapshot = s.snapshot();
+  const legacy = structuredClone(snapshot);
+  delete (legacy.dogWalks as Partial<typeof legacy.dogWalks>).walks;
+  assert.ok(new TownSimulation(visits).restore(legacy));
+  for (const invalid of [-1, NaN]) {
+    const broken = structuredClone(snapshot);
+    broken.dogWalks.walks[0][1].distance = invalid;
+    assert.equal(s.restore(broken), false);
+    assert.deepEqual(s.snapshot(), snapshot);
+  }
+  const broken = structuredClone(snapshot);
+  broken.dogWalks.walks[0][1].relieved = ['not a dog'];
+  assert.equal(s.restore(broken), false);
+  assert.deepEqual(s.snapshot(), snapshot);
 });
 
 test('nearby families cannot crowd a reserved fixture, and dogs do not stop half inside a crossing', () => {

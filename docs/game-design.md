@@ -355,7 +355,14 @@ and Waffles are male dogs and sometimes lift a hind leg for a brief wee; Luna,
 Hazel, Maple and Daisy are female and sniff without that behavior. This identity
 belongs to the named pet and remains consistent across visits and reloads.
 
-Dogs also occasionally squat for a poo. Their owner waits, approaches with a
+Every dog on a substantial outing gets a poo stop: after the family has walked
+twelve town units (about seven seconds of uninterrupted walking), each accompanying
+dog that has not yet had a poo stops at the next safe pavement spot. Sniffing or
+wee cooldowns cannot prevent this stop, and two-dog families take turns. Actual
+walking distance counts; waiting, chatting, park activities and cleanup detours
+do not. Progress spans the outward and homeward legs, survives reload, and resets
+once the family is home. Shorter walks can also get a random toilet stop.
+The dog squats; its owner waits, approaches with a
 mint cleanup bag, bends to pick it up, and returns to the walking route with the
 dog. The small pile disappears into the cleanup; no litter or stains accumulate.
 A family finishes its stop before walking on, chatting or accepting a clinic
@@ -370,12 +377,14 @@ shop requirement, reward, penalty or toileting deadline. Vaccination, Stop visit
 and unhurried care retain their existing flows and pause rules.
 
 Current tuning gives a passing street fixture a higher chance of inviting a
-stop than an ordinary pavement stretch (1.1 versus 0.035 opportunities per active
-second while eligible). Initial opportunities unlock after 15 seconds plus three
-seconds per household ID. Sniffing lasts about 1.7 seconds, a
-toilet pose 2.4 seconds and pickup 1.4 seconds, plus approach/return walking.
+random stop than an ordinary pavement stretch (1.1 versus 0.07 opportunities per
+active second while eligible). Thirty percent of random fixture stops are poos;
+other stops are sniffing or, for male dogs, sometimes wees. Initial random
+opportunities unlock after 15 seconds plus three seconds per household ID.
+Sniffing lasts about 1.7 seconds, a toilet pose 2.4 seconds and pickup 1.4 seconds, plus approach/return walking.
 Each family waits 45–90 active seconds after a completed stop before another
-opportunity. These are ambient rhythms, not player timers. Lamps have warm bulbs
+random opportunity; a dog still owed its first poo bypasses that cooldown.
+These are ambient rhythms, not player timers. Lamps have warm bulbs
 within the existing daylight scene; a night cycle is not part of this feature.
 
 ### Sunshine, showers and shelter
@@ -422,10 +431,18 @@ Responders handle events automatically while Louise continues caring for patient
 The town’s existing pause rules apply; reading a care activity never makes a
 rescue worse. The current phase appears in Around Hookville.
 
-- **Lost pets:** the pet leaves its garden while its owner remains at home. Once
-  it is more than nine town units away, after a short noticing delay, the owner
-  walks to the police station. Distance approximates being out of sight; building
-  occlusion is not simulated. A police officer walks out and leads the owner
+- **Lost pets:** the pet bolts from its garden and its owner visibly chases it
+  along the connected paths. During this escape, dogs and cats move at 4.2 town
+  units per active second and birds fly at 4.8, ahead of the owner at 2.8. After
+  at least 4–8 seconds and a gap of more than twelve town units, the owner gives
+  up the chase and walks to the police station. The gap measures distance from
+  the moving owner, not the house; building occlusion is not simulated. A ground
+  pet reaching a nearby destination continues toward a distant tree so short
+  routes do not become endless circles. An owner who reaches a perched bird, or
+  whose cat has already climbed a tree, seeks help even without the full gap.
+  The escape boost ends when the owner leaves for help: unchased ground pets
+  return to 1.8, dog-chased cats to 3.2 and birds to 3.2 town units per second.
+  A police officer walks out and leads the owner
   toward the pet. An unchased ground pet within six town units of the officer
   waits when called, once it is off the road. Its waiting position persists
   across reloads; the officer closes the distance and the owner walks up before
@@ -1044,8 +1061,10 @@ cooldowns within 90, garden rests within 20 and park stays within 55. Current
 saves retain exact timers; ongoing rescues and dog stops keep their phases and
 routes.
 Dog-walk saves retain the selected dog, stop kind/phase, local routes, positions,
-cleanup progress and cooldown. Reload resumes pickup without leaving litter or
-repeating it; older saves start without an active stop. Invalid dog-walk data
+cleanup progress, cooldown, outing distance and which dogs have finished a poo.
+Reload resumes pickup without leaving litter or repeating the guaranteed stop;
+older saves without outing progress start counting from their current position,
+and saves without dog-walk state start without an active stop. Invalid dog-walk data
 rejects the town snapshot atomically.
 Weather saves retain phase, remaining active time, surface wetness, per-shower
 cat decisions, tree reservations and both owner/pet detour positions and routes.
@@ -1136,8 +1155,8 @@ Development milestones group work; they are not player levels or release dates:
 | V2-07 | Visible clue summary                    | Implemented | Fixed care notebook with Key clues/Care notes pages, a new-clue pulse and persistent green completion state, newest observations first, internal scrolling, visible next/exit controls on desktop and phone. [Routine guidance and clue feedback checks](../tests/routine-guidance.spec.ts). [Clue viewport check](../tests/town.spec.ts), [notes scrolling check](../tests/care-notes.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | V2-08 | Modular clinic and waiting activities   | Implemented | Connected lounge, enlarged playground, play-garden extension and Sunshine courtyard clear of pavements, capacity up to eight, inward-facing lounge seating and furniture-aware routes, six new dispenser/toy/aviary/tree activities, flying birds, rollercoaster and Ferris wheel with animated occupants, usable seats/books/board games, species-appropriate single-pet rides with FIFO queues, one arrival check-in, stable waiting places, a player-triggered return to the desk, and saved activities. [Rules and simulation checks](../tests/leisure.test.ts), [shop, rooms, activities and recall browser checks](../tests/leisure.spec.ts). Viewport-sized office with patient/activity pages: [layout and ride browser checks](../tests/playground.spec.ts). The courtyard adds puzzles, bubbles, a cat nook, bird chimes and decorations; [courtyard checks](../tests/courtyard.test.ts), [scroll/purchase checks](../tests/shop-scroll.spec.ts). Fixed module/furniture placement; no construction editor or ride fares. |
 | V2-09 | Connected examination room and escort   | Implemented | Included furnished room with opening door and shared close-up models. Louise meets the selected family at the desk and leads them inside before care; cancellation, abort, completion and reload use doorway return routes. [Movement checks](../tests/room.test.ts), [desktop/touch room checks](../tests/exam-room.spec.ts). Fixed room layout; no free construction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| V2-10 | Police, fire service and rescue stories | Implemented | Automatic lost-pet searches, dog chases, tree flights/climbs and ladder handovers, driver collection, safely extinguished house fires, every resident pet’s care, service cameras and saved phases. [Director checks](../tests/emergencies.test.ts), [rendering and care checks](../tests/emergencies.spec.ts), [authored rescue scene checks](../tests/emergency-visual.spec.ts). First opportunity at 35 seconds, then 100–160 seconds between starts with a twenty-second rest after responders return. Pending clinic care does not block the next story. One story at a time; authored public rescue trees, distance-based noticing and exterior-only house rescues.                                                                                                                                                                                                                                                                                                                                                           |
-| V2-11 | Street furniture and dog stops          | Implemented | Seventeen lamps, six hydrants, reserved sniffing stops, male-only leg-lift wees and owner poo pickup before resuming outdoor walks. 45–90-second cooldowns and more frequent sniffing opportunities; saved phases/cooldowns; no clinic or road stops, litter buildup or rewards. [Rules and save checks](../tests/dog-walks.test.ts), [rendered poses](../tests/street-visual.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| V2-10 | Police, fire service and rescue stories | Implemented | Visible owner pursuits with an initial pet speed boost, distance-triggered police reports, lost-pet searches, dog chases, tree flights/climbs and ladder handovers, driver collection, safely extinguished house fires, every resident pet’s care, service cameras and saved phases. [Director checks](../tests/emergencies.test.ts), [rendering and care checks](../tests/emergencies.spec.ts), [authored rescue scene checks](../tests/emergency-visual.spec.ts). First opportunity at 35 seconds, then 100–160 seconds between starts with a twenty-second rest after responders return. Pending clinic care does not block the next story. One story at a time; authored public rescue trees, distance-based noticing and exterior-only house rescues.                                                                                                                                                                                                                                                                          |
+| V2-11 | Street furniture and dog stops          | Implemented | Seventeen lamps, six hydrants, reserved sniffing stops, male-only leg-lift wees and owner poo pickup before resuming outdoor walks. One poo per dog on outings of twelve town units at the next safe spot, more frequent random poos, 45–90-second random-stop cooldowns and sniffing opportunities; saved outing progress/phases/cooldowns; no clinic or road stops, litter buildup or rewards. [Rules and save checks](../tests/dog-walks.test.ts), [rendered poses](../tests/street-visual.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | V2-12 | Textured town, weather and cat shelter  | Implemented | Textured ground/wood/roof/plaster, glossy car paint, mostly sunny active-time weather with brief rain, saved off-road cat/owner shelter detours and automatic return. [Weather rules and saves](../tests/weather.test.ts), [materials and rendered scenes](../tests/weather-visual.spec.ts). No storms, weather injuries or rain effects inside examinations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 V2 connects navigation and ambient routines to actual appointments, bounded road
@@ -1166,6 +1185,9 @@ identifies coverage without claiming every visual requirement is automated.
 - Mouse hover and touch reveal visible person/pet identities without selecting
   hidden actors. Arrow keys pan in all four screen directions without scrolling
   the page or interfering with dialogs; returning to the clinic ends town input.
+- Escaping pets visibly outpace pursuing owners. A clear gap sends the owner to
+  the police station and ends the speed boost; short routes and treed pets cannot
+  trap owners in endless pursuit. Reload preserves pursuit and reporting routes.
 - Nearby unchased pets wait for collection off the road, including after reload.
   Ground cats have no minimum chase duration; tree/bird rescue sequences still
   complete. Owner and pet visibly meet before the care journey starts.
@@ -1177,8 +1199,9 @@ identifies coverage without claiming every visual requirement is automated.
   actual movement, and the same vehicle resumes after yielding or an incident.
 - Dog stops occur only on outdoor walks, clear of roads and clinic grounds.
   Female dogs never wee; dogs sniff real street fixtures, owners visibly pick up
-  poo before moving on, reload resumes cleanup, and fixture reservations prevent
-  overlapping stops.
+  poo before moving on. Every dog on a substantial outing gets a safe stop even
+  after a sniff/wee cooldown; multi-dog families take turns, reload preserves
+  progress/cleanup, and fixture reservations prevent overlapping stops.
 - A stopped driver remains until the owner collects the pet; the car resumes.
   A house fire always reaches zero intensity and all resident animals emerge;
   the unchanged home remains usable. Shared-flat and multi-pet families each get

@@ -55,12 +55,13 @@ test('authored service models and every major rescue pose render in the actual t
     const wanted = new Set(
       kind === 'fire'
         ? ['dispatch', 'extinguish', 'exit-house']
-        : ['climb', 'descend', 'handover'],
+        : ['wander', 'report', 'climb', 'descend', 'handover'],
     );
     for (let i = 0; i < 4000 && wanted.size; i++) {
       s.update(0.1);
       const e = s.emergencies.active;
-      if (!e || !wanted.has(e.phase) || e.elapsed < 2) continue;
+      if (!e || !wanted.has(e.phase)) continue;
+      if (e.phase === 'wander' ? e.age < 3 : e.elapsed < 2) continue;
       if (e.phase === 'climb' && e.elapsed < 3) continue;
       if (
         e.phase === 'extinguish' &&
@@ -73,6 +74,10 @@ test('authored service models and every major rescue pose render in the actual t
         s.snapshot(),
       );
       expect(pose.phase).toBe(e.phase);
+      if (kind === 'lost') {
+        expect(pose.owner).toEqual({ x: e.owner.x, z: e.owner.z });
+        expect(pose.pet).toEqual({ x: e.pet.x, z: e.pet.z });
+      }
       await page.screenshot({
         path: info.outputPath(`${name}-${e.phase}.png`),
       });
