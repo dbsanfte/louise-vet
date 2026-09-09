@@ -50,6 +50,22 @@ export async function showTownNews(page: Page, owner: string) {
   return target;
 }
 
+/** Find a home through the same paged directory used on phones and desktop. */
+export async function showTownHome(page: Page, label: string) {
+  await page.getByRole('button', { name: 'Homes', exact: true }).click();
+  const previous = page.getByRole('button', {
+    name: 'Previous homes',
+    exact: true,
+  });
+  while (await previous.isEnabled()) await previous.click();
+  const home = page.getByRole('button', { name: label, exact: true });
+  for (let i = 0; i < 4 && !(await home.isVisible()); i++) {
+    await page.getByRole('button', { name: 'Next homes', exact: true }).click();
+  }
+  await expect(home).toBeVisible();
+  return home;
+}
+
 /** Complete the visible care activity through its normal controls. */
 export async function completeCareSkill(page: Page) {
   const dialog = page.locator('.skill-dialog');

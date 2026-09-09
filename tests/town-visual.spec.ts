@@ -1,4 +1,4 @@
-import { showPatient, showTownNews } from './browser-helpers';
+import { showPatient, showTownNews, showTownHome } from './browser-helpers';
 import { waitForExamination } from './browser-helpers';
 import { expect, test } from '@playwright/test';
 import { PerspectiveCamera, Vector3 } from 'three';
@@ -161,10 +161,12 @@ test('the clinic doorway joins the street and a served family visibly leaves int
   await page.locator('#world').scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath('street-to-reception.png') });
   await page.getByRole('button', { name: 'Hookville', exact: true }).click();
-  await page
-    .getByRole('button', { name: "Mia and Clover's Flat", exact: true })
-    .click();
-  await expect(page.locator('#town-home')).toContainText(
+  await (await showTownHome(page, "Mia and Clover's Flat")).click();
+  await expect(page.locator('#town-home h3')).toHaveText(
+    "Mia and Clover's Flat",
+  );
+  await page.getByRole('button', { name: 'Zara', exact: true }).click();
+  await expect(page.locator('#town-home h3')).toHaveText(
     "Zara and Waffles's Flat",
   );
   await page
@@ -188,12 +190,7 @@ test('the clinic doorway joins the street and a served family visibly leaves int
   await page.locator('#world').scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath('leaving-reception.png') });
   await page.getByRole('button', { name: 'Hookville', exact: true }).click();
-  await page
-    .getByRole('button', {
-      name: "Amelia, Luna and Scout's House",
-      exact: true,
-    })
-    .click();
+  await (await showTownHome(page, "Amelia, Luna and Scout's House")).click();
   await page
     .getByRole('button', { name: 'Follow Amelia', exact: true })
     .click();

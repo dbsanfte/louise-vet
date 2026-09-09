@@ -77,7 +77,9 @@ test('all Hookville homes, shared flats, news and clinic return fit short window
           .getBoundingClientRect();
         const map = document.getElementById('world')!.getBoundingClientRect();
         if (hint.top < map.top || hint.bottom > map.bottom)
-          bad.push('home label outside map');
+          bad.push(
+            `home label outside map: ${hint.top}–${hint.bottom}, map ${map.top}–${map.bottom}`,
+          );
         for (const button of document.querySelectorAll(
           '#scene-controls button',
         )) {

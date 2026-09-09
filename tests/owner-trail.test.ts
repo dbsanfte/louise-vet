@@ -99,15 +99,20 @@ test('slow active frames advance the town clock without large physics jumps or o
     largest <= 0.05,
     'crossings and companion paths are checked in small steps',
   );
+  for (let i = 0; i < 10; i++) advance(1.2);
+  assert.ok(
+    Math.abs(s.time - 20) < 1e-6,
+    'one-second software frames preserve the duration of a journey',
+  );
   advance(60);
   assert.ok(
-    Math.abs(s.time - 8.5) < 1e-6,
+    Math.abs(s.time - 20.5) < 1e-6,
     'returning after a long pause catches up at most half a second',
   );
   advance(0);
   advance(-1);
   advance(NaN);
-  assert.ok(Math.abs(s.time - 8.5) < 1e-6);
+  assert.ok(Math.abs(s.time - 20.5) < 1e-6);
 });
 
 test('route walking consumes short segments without pausing or cutting corners', async () => {

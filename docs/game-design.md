@@ -288,8 +288,9 @@ schedules generate vaccinations, healthy checkups, and occasional fevers.
 **Eighteen named customers and twenty-four pets live at sixteen distinct addresses.**
 Four buildings are flats; Mia/Clover and Zara/Waffles share one, and Theo/Coral
 and Max/Ziggy share another. Each family retains its own schedule, pets, visits,
-and return destination. Hovering or tapping a shared flat identifies both
-families; the directory and **Follow [owner]** controls locate individual people.
+and return destination. Hovering or tapping a shared flat opens Home info with both
+families available; the map caption names the selected family. The directory and
+**Follow [owner]** controls locate individual people.
 Hover a visible person or animal, or tap them on a touch screen, to show their
 identity in the fixed caption beneath the town view. Residents show their name
 and pets; pets show their name, owner and species. Louise, police, firefighters,
@@ -486,7 +487,7 @@ journeys use the pavement beside the waiting families. There is no deterioration
 waiting fee or urgency penalty. **Around Hookville** records recent events; **Find [owner]** focuses a
 family's current location or enters the clinic if they are already inside.
 
-Town time advances only during active play. Short rendering delays are processed
+Town time advances only during active play. Rendering delays up to two seconds are processed
 in small simulation steps so a busy clinic does not stretch walks indefinitely.
 A long interruption catches up at most half a second; there is no offline town
 progress. Companion paths are recorded at each step to preserve doorway turns. Background tabs, dialogs, results,

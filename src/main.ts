@@ -337,8 +337,8 @@ function showHome(id: number | undefined) {
       pointedResident ??
       (selectedHome === -1
         ? 'Louise’s Vet Office'
-        : neighbours.length
-          ? neighbours.map((n) => n.label).join(' · ')
+        : h
+          ? h.label
           : 'Hover or tap a person, pet or home to meet your neighbours');
   const markup =
     selectedHome === -1

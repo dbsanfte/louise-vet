@@ -8,7 +8,6 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  maxFailures: process.env.CI ? 1 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     actionTimeout: 20000,
