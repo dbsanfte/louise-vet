@@ -1,3 +1,6 @@
+import { completeCareSkill } from './browser-helpers';
+import { showPatient } from './browser-helpers';
+import { waitForExamination } from './browser-helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 test.setTimeout(90000);
@@ -6,24 +9,6 @@ async function openClinic(page: Page) {
   await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
     timeout: 45000,
   });
-}
-async function applyInGreen(page: Page) {
-  // Click the real care control when its visible moving meter is in the green.
-  await page.waitForFunction(
-    () => {
-      const meter = document.querySelector('[role="meter"]');
-      const value = Number(meter?.getAttribute('aria-valuenow'));
-      if (meter && value >= 40 && value <= 60) {
-        document
-          .querySelector<HTMLButtonElement>('[data-action="apply"]')!
-          .click();
-        return true;
-      }
-      return false;
-    },
-    {},
-    { timeout: 15000 },
-  );
 }
 
 test('examine, diagnose, place treatment, earn rewards, and keep progress', async ({
@@ -37,6 +22,7 @@ test('examine, diagnose, place treatment, earn rewards, and keep progress', asyn
   await openClinic(page);
   await expect(page).toHaveTitle("Louise's Vet Office");
   await page.locator('[data-action="next"]').click();
+  await waitForExamination(page);
   await expect(page.locator('[data-action="diagnose"]')).toBeDisabled();
   await page.getByRole('button', { name: 'Ear scope', exact: true }).click();
   await page
@@ -81,7 +67,7 @@ test('examine, diagnose, place treatment, earn rewards, and keep progress', asyn
     .getByRole('button', { name: 'Front paw on Luna', exact: true })
     .click();
   await expect(page.getByRole('meter')).toBeVisible();
-  await applyInGreen(page);
+  await completeCareSkill(page);
   await expect(
     page.getByRole('heading', { name: 'Luna feels better!' }),
   ).toBeVisible();
@@ -124,6 +110,7 @@ test('a patient can return to the queue without claiming a reward', async ({
 }) => {
   await openClinic(page);
   await page.locator('[data-action="next"]').click();
+  await waitForExamination(page);
   const canvas = page.locator('#world > canvas');
   const beforeRotation = await canvas.screenshot();
   await page.getByRole('button', { name: 'Rotate animal right' }).click();
@@ -135,7 +122,7 @@ test('a patient can return to the queue without claiming a reward', async ({
   await expect(page.getByTestId('coins')).toHaveText('120');
 });
 
-test('all ten visits are playable and every pet can receive care', async ({
+test('all authored visits are playable and every pet can receive care', async ({
   page,
 }, testInfo) => {
   test.skip(
@@ -143,14 +130,40 @@ test('all ten visits are playable and every pet can receive care', async ({
     'Full case coverage runs once; the core loop also runs on mobile.',
   );
   test.setTimeout(480000);
-  const { visits, toolInfo, zoneNames } = await import('../src/game');
+  const {
+    authoredVisits: visits,
+    toolInfo,
+    zoneNames,
+  } = await import('../src/game');
+  // This sweep verifies authored conditions. Random accidents have their own
+  // journey/care tests and must not replace Maple's fever during the long run.
+  const { TownSimulation } = await import('../src/town-simulation');
+  const { visits: roster } = await import('../src/game');
+  const simulation = new TownSimulation(roster, () => 0.5);
+  simulation.seedClinic();
+  const town = simulation.snapshot();
+  town.accidentDue = 3600;
+  await page.addInitScript((town) => {
+    localStorage.setItem(
+      'louises-vet-office-v1',
+      JSON.stringify({
+        version: 1,
+        coins: 120,
+        earned: 0,
+        happiness: 100,
+        treated: 0,
+        stock: 3,
+        upgrades: [],
+        sound: false,
+        town,
+      }),
+    );
+  }, town);
   await openClinic(page);
   for (const visit of visits) {
-    // The primary control stays available if a timed arrival replaces the
-    // empty-queue invitation while the click is being delivered.
-    await page.locator('.call-next').click();
-    if ((await page.locator('#app').getAttribute('data-mode')) === 'reception')
-      await page.locator('.call-next').click();
+    // Families now walk from their homes before joining the waiting room.
+    await (await showPatient(page, visit.name)).click();
+    await waitForExamination(page);
     await expect(
       page.getByRole('heading', { name: visit.name, exact: true }),
     ).toBeVisible();
@@ -216,22 +229,15 @@ test('all ten visits are playable and every pet can receive care', async ({
       const coinsBefore = await page.getByTestId('coins').textContent();
       // A miss must leave the vaccine unapplied, and stopping during timing
       // must return the same patient with no reward or lingering treatment.
-      await page.waitForFunction(() => {
-        const value = Number(
-          document
-            .querySelector('[role="meter"]')
-            ?.getAttribute('aria-valuenow'),
-        );
-        if (value > 85) {
-          document
-            .querySelector<HTMLButtonElement>('[data-action="apply"]')!
-            .click();
-          return true;
-        }
-        return false;
-      });
-      await expect(page.getByRole('status')).toContainText(
-        'No vaccine given yet',
+      await page.getByRole('button', { name: 'Start when ready' }).click();
+      await page
+        .getByRole('button', { name: 'Give vaccine', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'Pause vaccine', exact: true })
+        .click();
+      await expect(page.locator('.skill-feedback')).toContainText(
+        'No vaccine given',
       );
       await expect(page.getByRole('meter')).toBeVisible();
       await expect(page.getByTestId('coins')).toHaveText(coinsBefore!);
@@ -242,10 +248,8 @@ test('all ten visits are playable and every pet can receive care', async ({
       );
       await expect(page.getByRole('meter')).toHaveCount(0);
       await expect(page.getByTestId('coins')).toHaveText(coinsBefore!);
-      await page
-        .getByRole('button', { name: `See ${visit.name}`, exact: true })
-        .first()
-        .click();
+      await (await showPatient(page, visit.name)).click();
+      await waitForExamination(page);
       await expect(page.locator('#app')).toHaveAttribute(
         'data-mode',
         'place-vaccine',
@@ -257,10 +261,10 @@ test('all ten visits are playable and every pet can receive care', async ({
         })
         .click();
       await expect(
-        page.getByRole('button', { name: 'Give vaccine', exact: false }),
+        page.getByRole('button', { name: 'Start when ready', exact: true }),
       ).toBeVisible();
     }
-    await applyInGreen(page);
+    await completeCareSkill(page);
     await expect(
       page.getByRole('heading', {
         name: `${visit.name} ${vaccination ? 'is all set' : 'feels better'}!`,
@@ -276,4 +280,74 @@ test('all ten visits are playable and every pet can receive care', async ({
   );
   expect(happiness).toBeGreaterThanOrEqual(96);
   expect(happiness).toBeLessThanOrEqual(100);
+});
+
+test('vaccination pressure can be cancelled, retried and confirmed for exactly one reward', async ({
+  page,
+}) => {
+  const { TownSimulation } = await import('../src/town-simulation');
+  const { visits } = await import('../src/game');
+  const s = new TownSimulation(visits, () => 0.5);
+  const id = visits.findIndex((v) => v.treatment === 'vaccine');
+  s.seedClinic([id]);
+  const town = s.snapshot();
+  town.catalogueCursor = visits.length;
+  town.accidentDue = 10000;
+  await page.addInitScript((town) => {
+    if (!localStorage.getItem('louises-vet-office-v1'))
+      localStorage.setItem(
+        'louises-vet-office-v1',
+        JSON.stringify({
+          version: 1,
+          coins: 120,
+          earned: 0,
+          happiness: 100,
+          treated: 0,
+          stock: 3,
+          upgrades: [],
+          sound: false,
+          town,
+        }),
+      );
+  }, town);
+  await openClinic(page);
+  await (await showPatient(page, visits[id].name)).click();
+  await waitForExamination(page);
+  await expect(page.locator('#app')).toHaveAttribute(
+    'data-mode',
+    'place-vaccine',
+  );
+  await page
+    .getByRole('button', { name: `Coat on ${visits[id].name}`, exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Start when ready' }).click();
+  await page.getByRole('button', { name: 'Give vaccine', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Pause vaccine', exact: true })
+    .click();
+  await expect(page.locator('.skill-feedback')).toContainText(
+    'No vaccine given',
+  );
+  await expect(page.getByTestId('coins')).toHaveText('120');
+  await page.getByRole('button', { name: 'Cancel care activity' }).click();
+  await expect(page.locator('#app')).toHaveAttribute(
+    'data-mode',
+    'place-vaccine',
+  );
+  await page
+    .getByRole('button', { name: `Coat on ${visits[id].name}`, exact: true })
+    .click();
+  await completeCareSkill(page);
+  await expect(page.locator('#app')).toHaveAttribute('data-mode', 'result');
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('louises-vet-office-v1')!),
+  );
+  expect(saved.treated).toBe(1);
+  expect(saved.coins).toBeGreaterThan(120);
+  await page.reload();
+  await expect(page.getByTestId('coins')).toHaveText(String(saved.coins));
+  const reloaded = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('louises-vet-office-v1')!),
+  );
+  expect(reloaded.treated).toBe(1);
 });

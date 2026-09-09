@@ -4,9 +4,9 @@ A cosy browser game made for Louise, ages 7 and up. Welcome neighbours into a
 2.5D clinic, examine their pets in 3D, put clues together, and give gentle care.
 Earn happy hearts and coins to grow the office.
 
-The first playable slice includes six pet species, ten authored visits,
-interactive 3D examination tools, diagnosis choices, a treatment timing challenge,
-retail treats, six shop purchases, saved progress, and optional original sounds.
+The first playable slice includes six pet species, eleven authored visits,
+interactive 3D examination tools, diagnosis choices, instrument-specific care activities,
+retail treats, twelve shop items, saved progress, and optional original sounds.
 Louise has a personalised illustrated portrait and a Blender character.
 
 TypeScript, Vite, and Three.js run the game. Original Blender models are exported
@@ -15,6 +15,66 @@ requirement. The [master game design](docs/game-design.md) is authoritative for
 the game loop, current features, and future direction. See [asset credits](docs/assets.md)
 for provenance and licenses. Agents and contributors should start with
 [AGENTS.md](AGENTS.md) and the [design change checklist](.agents/design-change-checklist.md).
+
+## Hookville — v2
+
+Hookville’s police and fire crews automatically help lost pets, perform ladder
+rescues, and extinguish occasional house fires safely. Choose **Town news** for
+station cameras and **Watch rescue**; rescued pets become real clinic patients.
+Enable sound to hear the engine’s siren.
+
+Choose **Hookville** in the clinic navigation to browse the town. Drag to orbit,
+right-drag, use the keyboard arrow keys or the arrow buttons to pan, and
+pinch/scroll or use +/− to zoom. Hover or tap people and animals to see their
+names, or a home to identify its family; the household directory also focuses the
+camera. **Visit Louise’s office** returns to the waiting room.
+
+Hookville has **16 distinct houses/flats and 18 named customers**, with gardens,
+kennels, walks/chats, park visits, and traffic with coral hatchbacks, blue estates,
+mint pickups and plum delivery vans. High Street connects winding
+Willow Crescent and Orchard Lane. Lampposts and occasional hydrants give dogs
+places to sniff; male dogs sometimes lift a leg. On outdoor walks, dogs may also
+stop for a poo and their owners pick it up before continuing. These routines
+never happen in the clinic and resume safely after a reload.
+Shared flats show both families on hover/tap.
+Reception is the actual town clinic viewed close up: the same families walk
+through its doorway, wait inside, leave after care and return home. Pets along
+for company follow their owner inside and wait nearby, including when the
+patient is a smaller pet and the accompanying animal is a dog. Use
+**Follow [owner]** in a home's panel to find someone on their journey.
+Families travel to the clinic for scheduled care, fevers, and occasional
+recoverable road accidents, then head home after treatment. **Around Hookville**
+shows recent happenings; **Find [owner]** locates the family. Healthy checkups
+finish without unnecessary treatment. Town journeys, doorway movement, queue, and incident state
+save with your clinic progress; reloading restarts an unfinished examination
+without repeating rewards. The thermometer, cooling pad, and fixed care notebook
+support the expanded visits. The notebook switches between **Care notes** and
+**Key clues**; new notes appear first and older observations scroll within the
+notebook without moving the page. See the
+[authoritative v2 plan](docs/game-design.md#version-2--hookville-delivery-plan).
+
+## Expand the clinic
+
+In **Clinic shop**, buy **Room for more paws** to add a customer lounge, then
+**Pet playground** for an adjoining playroom. Capacity grows from 4 to 6 to 8.
+The room buttons beneath the scene show each area or the whole clinic.
+
+Hookville also fits the window: **Homes** pages through the household directory, **Home info** shows the selected family, and **Town news** pages through updates. **Back to the clinic** stays beside the map.
+
+The office fits the browser window: bottom navigation stays visible, with two patients per page and a **While you wait** tab for paged activities. The larger playground stays inside the clinic grounds and offers a purchasable **Pet rollercoaster** and **Pet Ferris wheel**. Pets queue and ride in moving cars/cabins; a called rider finishes its lap before getting out.
+
+Owners check in once on arrival, then stay at their waiting seat or game table until called. Buy books for seated reading and a
+board-game table for the lounge. The playground includes a toy corner; add a
+scratching post, exercise wheel, or merry-go-round to watch suitable pets queue
+and take turns. Fever and broken-bone patients rest beside their owners. Calling
+a pet brings it back, then its owner walks it to the desk. Louise leads them
+through the door into the furnished examination room before close-up care begins; **Cancel call** lets it resume waiting.
+The included examination room has the same table, mat and furnishings in both
+views; **Exam room** focuses it from reception. Purchases and ordinary activity/queue
+state save with clinic progress. Cancelled or stopped visits return through the
+room’s door, and Louise walks back to reception.
+
+After buying **Pet playground**, the shop offers a **Play garden extension** with six reserved spaces for a treat dispenser, water dispenser, bouncy toy box, yarn corner, bird aviary and friendly play tree. Purchase each activity separately; **Play garden** focuses the new wing. Healthy birds fly, cats climb, and both share the tree peacefully. Dispenser refills are included.
 
 ## Run the web container
 
@@ -136,19 +196,16 @@ Publishing uses the repository's `GITHUB_TOKEN` with `packages: write`; no separ
 registry secret is needed. The repository is
 [dbsanfte/vet-game](https://github.com/dbsanfte/vet-game).
 
-This first delivery stage publishes a runnable image. Automatic deployment to an
-external server is not configured because there is no deployment destination yet.
-On a Docker host, deploy a published version using this repository's Compose file:
+Successful main runs also deploy to **https://louise.vet/** using the dedicated
+`louise-vet-eqvm` runner on the Ubuntu server. Four browser-test shards check the
+same built image before publication and rollout. The server imports that tested
+artifact into its single-node k3s cluster, and Traefik serves it with an automatically
+renewed Let's Encrypt certificate. A final GitHub-hosted check verifies public HTTPS
+and the exact deployed revision. Pull requests do not deploy.
 
-```sh
-export WEB_IMAGE='ghcr.io/dbsanfte/vet-game:<full-commit-sha>'
-docker compose pull web
-docker compose up --detach --no-build --wait web
-```
-
-Private packages require `docker login ghcr.io`. Pin a commit tag for repeatable
-deployments and use a previous tag to roll back. Compose binds to loopback by
-default; configure an ingress/reverse proxy when choosing a public host.
+See [production hosting](deploy/README.md) for DNS, runner setup, health checks,
+rollback and recovery. `/version.json` identifies the deployed commit. The game
+keeps browser-local saves; localhost progress does not transfer to the new domain.
 
 ## Blender assets and MCP
 
@@ -211,7 +268,7 @@ python3 scripts/blender-build.py --headless --all
 
 The VS Code task **Game: rebuild Blender models (headless)** runs the same command.
 It needs neither Windows Blender nor a running MCP server. Use `--examination`
-instead of `--all` to rebuild only anatomy and instruments, or omit both flags
+instead of `--all` to rebuild only anatomy and instruments, `--pets` for the eleven dog/cat/bird varieties and bird skeleton, `--town` for Hookville scenery, `--vehicles` for its four ordinary traffic models, `--street` for lampposts, hydrants and dog-walk cleanup props, `--park` for its pet park and ducks, `--emergencies` for police/fire stations, engine, ladder and responder kits, `--leisure` for modular clinic rooms and amusements, `--room` for the connected examination room, or omit scope flags
 to rebuild only the clinic and animated characters. A full rebuild takes several
 minutes. `BLENDER_PROJECT_ROOT` can direct output into a separate directory.
 This builds from the Python authoring script, so it does not need to open a source
@@ -226,3 +283,5 @@ The master design describes [examination and care](docs/game-design.md#5-examina
 [controls](docs/game-design.md#6-interface-controls-and-accessibility), and the
 [current patients](docs/game-design.md#7-current-case-catalogue). Keep gameplay
 rules there so setup instructions and product design do not drift apart.
+
+After placing the correct care tool, read its activity card and choose **Start when ready**. Spread cream, follow bandage arrows, make comb/brush strokes, aim drops, ease a splinter out, steady a cooling pad, control vaccine pressure or pour water. **Finish care** confirms a successful activity. **Cancel care activity** returns to placement; **Stop visit** returns to the office without a reward. Sliders support touch and keyboard arrows, and cream/wrap steps have individual buttons.

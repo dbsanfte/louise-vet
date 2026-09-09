@@ -1,0 +1,70 @@
+#!/bin/bash
+# Install as root-owned /usr/local/sbin/louise-deploy, mode 0755.
+# Only trusted main-branch CI may invoke this via the dedicated runner's sudo rule.
+set -euo pipefail
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+[[ $EUID == 0 && $# -ge 1 && $# -le 2 && $1 =~ ^[0-9a-f]{40}$ ]] || {
+  echo 'Usage: louise-deploy FULL_COMMIT_SHA [--cached]' >&2
+  exit 2
+}
+revision=$1
+[[ $# == 1 || $2 == --cached ]] || exit 2
+image="ghcr.io/dbsanfte/vet-game:$revision"
+state=/var/lib/louise-vet
+install -d -m 0700 "$state" "$state/images"
+exec 9>"$state/deploy.lock"
+flock -w 300 9
+archive="$state/images/$revision.tar"
+temporary=$(mktemp "$state/image.XXXXXXXX.tar")
+trap 'rm -f "$temporary"' EXIT
+if [[ $# == 1 ]]; then
+  # Consume stdin as data, never shell source; cap input to 512 MiB.
+  head -c 536870913 > "$temporary"
+  [[ $(stat -c %s "$temporary") -le 536870912 ]] || exit 2
+else
+  test -f "$archive"
+  cp "$archive" "$temporary"
+fi
+# Permit only the expected single-image Docker archive, with no other image tags.
+python3 - "$temporary" "$image" <<'PY'
+import json, sys, tarfile
+with tarfile.open(sys.argv[1]) as archive:
+    names = archive.getnames()
+    manifest = json.load(archive.extractfile('manifest.json'))
+    if len(manifest) != 1 or manifest[0].get('RepoTags') != [sys.argv[2]]:
+        raise SystemExit('Archive tag does not match the requested revision')
+    # Newer Docker also emits an OCI index; containerd must see the same tag.
+    if 'index.json' in names:
+        index = json.load(archive.extractfile('index.json'))['manifests']
+        if len(index) != 1 or index[0].get('annotations', {}).get('io.containerd.image.name') != sys.argv[2]:
+            raise SystemExit('OCI index tag does not match the requested revision')
+PY
+k3s ctr --namespace k8s.io images import "$temporary"
+previous=$(kubectl -n louise-vet get deployment web -o jsonpath='{.spec.template.spec.containers[0].image}')
+rollback() {
+  echo 'Deployment failed; restoring the preceding image.' >&2
+  if [[ $previous != *:bootstrap ]]; then
+    kubectl -n louise-vet set image deployment/web "web=$previous"
+    kubectl -n louise-vet rollout status deployment/web --timeout=180s
+  fi
+}
+trap 'rollback' ERR
+kubectl -n louise-vet set image deployment/web "web=$image"
+kubectl -n louise-vet rollout status deployment/web --timeout=180s
+kubectl -n louise-vet wait certificate/louise-vet-tls --for=condition=Ready --timeout=300s
+test "$(curl --fail --silent --show-error --resolve louise.vet:443:127.0.0.1 https://louise.vet/healthz)" = ok
+curl --fail --silent --show-error --resolve louise.vet:443:127.0.0.1 https://louise.vet/version.json |
+  python3 -c 'import json,sys; assert json.load(sys.stdin)["revision"] == sys.argv[1]' "$revision"
+trap - ERR
+mv "$temporary" "$archive"
+printf '%s\n' "$revision" > "$state/current-revision"
+# Retain five successful archives for explicit rollback or node image-cache loss.
+python3 - "$state/images" <<'PY'
+from pathlib import Path
+import sys
+archives = sorted(Path(sys.argv[1]).glob('*.tar'), key=lambda p: p.stat().st_mtime, reverse=True)
+for archive in archives[5:]:
+    archive.unlink()
+PY
+printf 'Live revision: %s\n' "$revision"

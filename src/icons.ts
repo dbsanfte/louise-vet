@@ -35,6 +35,8 @@ export function icon(name: string, cls = '') {
   return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="${name === 'paw' ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] ?? paths.paw}</svg>`;
 }
 export function petIcon(species: string) {
+  if (species === 'bird')
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20C2 13 5 4 13 4c4 0 6 4 5 7l4 2-5 2c-1 5-5 7-10 5Z" fill="currentColor"/><path d="M8 12q0 6 6 4M9 20l-1 3m5-3 1 3" fill="none" stroke="white"/><circle cx="15" cy="8" r="1.4" fill="white"/></svg>';
   const ears =
     species === 'rabbit'
       ? '<ellipse cx="8" cy="6" rx="2" ry="6"/><ellipse cx="16" cy="6" rx="2" ry="6"/>'

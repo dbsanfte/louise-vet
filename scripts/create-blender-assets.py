@@ -1,4 +1,4 @@
-"""Run in Blender via MCP. Original low-poly models for Louise's Vet Office."""
+"""Run in Blender via MCP. Original storybook models for Louise's Vet Office."""
 import bpy
 import math
 import os
@@ -59,8 +59,8 @@ def cube(name, loc, size, color, parent=None, bevel=.05):
         o.modifiers.new('Weighted normals','WEIGHTED_NORMAL')
     return finish(o,name,color,parent)
 
-def ball(name, loc, scale, color, parent=None):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=10, radius=1, location=loc)
+def ball(name, loc, scale, color, parent=None, detail=False):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=32 if detail else 16, ring_count=20 if detail else 10, radius=1, location=loc)
     o=bpy.context.object; o.scale=scale
     for p in o.data.polygons: p.use_smooth=True
     return finish(o,name,color,parent)
@@ -105,10 +105,10 @@ def pivot(name, position, objects, parent):
         world=obj.matrix_world.copy(); obj.parent=joint; obj.matrix_world=world
     return joint
 
-def animate_part(obj, pose):
-    """Two looping Blender NLA clips, merged by track name on GLB export."""
+def animate_part(obj, pose, extra_clips=()):
+    """Looping Blender NLA clips, merged by track name on GLB export."""
     rest=(obj.location.copy(),obj.rotation_euler.copy(),obj.scale.copy())
-    for clip,length in [('Idle',72),('Walk',24)]:
+    for clip,length in [('Idle',72),('Walk',24),('Sit',72),('Read',72),('Play',36),*extra_clips]:
         obj.animation_data_create()
         obj.animation_data.action=None
         for frame in range(1,length+2,3):
@@ -141,21 +141,56 @@ def animate_character(group, human=False, fish=False):
         head_parts=[o for o in parts if o.location.z>1.35]
         head=pivot('head_joint',(0,0,1.36),head_parts,group)
         def look(o,clip,t):
-            o.rotation_euler.z+=.11*math.sin(t) if clip=='Idle' else .025*math.sin(t)
-            o.rotation_euler.x+=.025*math.sin(t*2)
+            o.rotation_euler.z+=(.10 if clip in ['Idle','Sit'] else .035)*math.sin(t)
+            o.rotation_euler.x+=(.12 if clip=='Read' else .025*math.sin(t*2))
         animate_part(head,look)
         for side in [-1,1]:
-            leg_parts=[o for o in parts if (named(o,'leg') or named(o,'shoe')) and o.location.x*side>0]
+            leg_parts=[o for o in parts if (named(o,'leg') or named(o,'shin') or named(o,'shoe')) and o.location.x*side>0]
             leg=pivot('leg_joint',(.17*side,0,.66),leg_parts,group)
             def step(o,clip,t,side=side):
-                o.rotation_euler.x+=(.45*side*math.sin(t) if clip=='Walk' else .012*math.sin(t))
+                o.rotation_euler.x+=(-math.pi/2 if clip in ['Sit','Read','Play'] else .45*side*math.sin(t) if clip=='Walk' else .012*math.sin(t))
             animate_part(leg,step)
-            arms=[o for o in parts if named(o,'arm') and o.location.x*side>0]
+            knee=pivot('knee_joint',(.17*side,0,.38),[o for o in leg_parts if named(o,'shin') or named(o,'shoe')],group)
+            matrix=knee.matrix_world.copy();knee.parent=leg;knee.matrix_world=matrix
+            def bend(o,clip,t,side=side):
+                if clip in ['Sit','Read','Play']:o.rotation_euler.x+=math.pi/2
+                elif clip=='Walk':o.rotation_euler.x+=.70*max(0,-side*math.sin(t))
+            animate_part(knee,bend)
+            ankle=pivot('ankle_joint',(.17*side,0,.17),[o for o in leg_parts if named(o,'shoe')],group)
+            matrix=ankle.matrix_world.copy();ankle.parent=knee;ankle.matrix_world=matrix
+            def flex(o,clip,t,side=side):
+                if clip=='Walk':o.rotation_euler.x+=-.22*max(0,-side*math.sin(t))+.10*side*math.cos(t)
+            animate_part(ankle,flex)
+            arms=[o for o in parts if any(named(o,n) for n in ['arm','forearm','hand','thumb','finger']) and o.location.x*side>0]
             arm=pivot('arm_joint',(.42*side,0,1.22),arms,group)
             def swing(o,clip,t,side=side):
-                o.rotation_euler.x+=(-.35*side*math.sin(t) if clip=='Walk' else .04*math.sin(t))
+                o.rotation_euler.x+=(-1.0+(.13*math.sin(t*2+side) if clip=='Play' else .035*math.sin(t)) if clip in ['Read','Play'] else -.35*side*math.sin(t) if clip=='Walk' else .04*math.sin(t))
                 o.rotation_euler.y+=.025*side*math.sin(t)
             animate_part(arm,swing)
+            forearm=pivot('elbow_joint',(.42*side,0,.97),[o for o in arms if not named(o,'arm')],group)
+            matrix=forearm.matrix_world.copy();forearm.parent=arm;forearm.matrix_world=matrix
+            def elbow(o,clip,t,side=side):
+                o.rotation_euler.x+=(-.32 if clip in ['Read','Play'] else -.13)+(.07*math.sin(t+side) if clip=='Walk' else .025*math.sin(t))
+            animate_part(forearm,elbow)
+        # Shoulders counter-rotate to the stride; the head follows the same rig.
+        torso=pivot('torso_joint',(0,0,0),[o for o in list(group.children) if not o.name.startswith('leg_joint') and not o.name.startswith('dress skirt')],group)
+        def settle(o,clip,t):
+            o.rotation_euler.z+=(.055 if clip=='Walk' else .025)*math.sin(t)
+            o.rotation_euler.y+=(.018 if clip=='Walk' else .012)*math.sin(t)
+            o.rotation_euler.x+=.045 if clip in ['Sit','Read','Play'] else .012*math.sin(t*2)
+            hip=Vector((0,0,.76))
+            o.location+=hip-o.rotation_euler.to_matrix() @ hip
+        animate_part(torso,settle)
+        for skirt in [o for o in group.children if o.name.startswith('dress skirt')]:
+            def drape(o,clip,t):
+                if clip in ['Sit','Read','Play']:
+                    o.scale.z*=.55;o.scale.y*=1.5
+                    o.location.y-=.15;o.location.z+=.10
+                elif clip=='Walk':o.rotation_euler.y+=.025*math.sin(t)
+            animate_part(skirt,drape)
+        def bob(o,clip,t):
+            if clip=='Walk':o.location.z+=.012*(1-math.cos(t*2))
+        animate_part(group,bob)
     else:
         head_parts=[o for o in parts if any(named(o,n) for n in ['head','muzzle','nose','eye','eye_sparkle','ear','inner_ear','spot_ear'])]
         head=pivot('head_joint',(0,-.32,.81),head_parts,group)
@@ -166,7 +201,10 @@ def animate_character(group, human=False, fish=False):
         for obj in parts:
             if named(obj,'paw'):
                 phase=1 if obj.location.x*obj.location.y>0 else -1
-                def pad(o,clip,t,phase=phase):
+                def pad(o,clip,t,phase=phase,front=obj.location.y<0):
+                    if clip=='Play' and front:
+                        o.location.z+=.15+.08*math.sin(t*2+phase)
+                        o.location.y-=.12+.05*math.sin(t*2+phase)
                     if clip=='Walk':
                         o.location.y+=.16*phase*math.sin(t)
                         o.location.z+=.11*max(0,phase*math.sin(t))
@@ -177,9 +215,9 @@ def animate_character(group, human=False, fish=False):
                 animate_part(obj,wag)
     # Eyelids blink together; their tiny scale change is also in the GLB clips.
     for obj in parts:
-        if named(obj,'eye') or named(obj,'eye white') or named(obj,'blue grey iris') or named(obj,'eye sparkle'):
+        if named(obj,'eye') or named(obj,'eye white') or named(obj,'blue grey iris') or named(obj,'eye sparkle') or named(obj,'iris') or named(obj,'pupil'):
             def blink(o,clip,t):
-                if clip=='Idle': o.scale.z*=1-.88*max(0,1-abs(t-4.71)/.30)
+                if (human and clip in ['Idle','Sit','Read','Play']) or (not human and clip=='Idle'): o.scale.z*=1-(.92 if human else .88)*max(0,1-abs(t-4.71)/.30)
             animate_part(obj,blink)
 
 for species in ['dog','cat','rabbit','hamster','gerbil','goldfish']:
@@ -241,12 +279,18 @@ cube('foundation',(0,0,-.18),(10.8,8.5,.36),'cream',clinic,.12)
 for x in range(10):
     for y in range(8):
         cube('floor tile',(x-4.5,y-3.5,.025),(.985,.985,.055),'white' if (x+y)%2==0 else 'cream',clinic,.008)
-cube('back wall',(0,3.96,1.70),(10.5,.18,3.4),'cream',clinic)
-cube('left wall',(-5.14,0,1.70),(.18,8,3.4),'cream',clinic)
-cube('back dado',(0,3.83,.55),(10.4,.12,1.10),'mint',clinic)
-cube('left dado',(-5.01,0,.55),(.12,8,1.10),'mint',clinic)
-cube('back trim',(0,3.70,1.12),(10.4,.12,.09),'white',clinic)
-cube('left trim',(-4.94,0,1.12),(.12,8,.09),'white',clinic)
+cube('back wall',(-2.15,3.96,1.70),(6.2,.18,3.4),'cream',clinic)
+cube('cutaway room partition',(1.825,3.96,.45),(1.75,.18,.9),'cream',clinic)
+cube('room doorway end',(4.775,3.96,.45),(.95,.18,.9),'cream',clinic)
+for x in [2.7,4.3]:cube('exam door frame',(x,3.96,1.3),(.16,.22,2.6),'mint',clinic)
+cube('exam door lintel',(3.5,3.96,2.68),(1.76,.22,.2),'mint',clinic)
+for y in [-2.475,2.475]:cube('left wall',(-5.14,y,.4),(.18,3.05,.8),'cream',clinic)
+cube('connecting doorway lintel',(-5.14,0,2.98),(.18,1.9,.84),'cream',clinic)
+for y in [-.99,.99]:cube('connecting doorpost',(-5.14,y,1.45),(.18,.16,2.9),'mint',clinic)
+for x,w in [(-2.15,6.2),(1.825,1.75),(4.775,.95)]:cube('back dado',(x,3.83,.4),(w,.12,.8),'mint',clinic)
+for y in [-2.475,2.475]:cube('left dado',(-5.01,y,.4),(.12,3.05,.8),'mint',clinic)
+for x,w in [(-2.15,6.2),(1.825,1.75),(4.775,.95)]:cube('back trim',(x,3.70,.84),(w,.12,.09),'white',clinic)
+for y in [-2.475,2.475]:cube('left trim',(-4.94,y,.82),(.12,3.05,.09),'white',clinic)
 # A broad window and framed wall art on the back wall.
 cube('window frame',(-2.55,3.69,2.27),(2.9,.17,1.65),'white',clinic)
 cube('window sky',(-2.55,3.57,2.27),(2.62,.04,1.4),'blue',clinic)
@@ -297,25 +341,69 @@ for y in [-1.98,-1.43,-.86,-.34]:
     ball('toy ball',(-4.40,y,1.9),(.17,.17,.17),'gold',clinic)
 plant(-4.37,3.04,0,clinic); plant(4.35,3.1,0,clinic)
 cube('round rug',(1.70,.40,.075),(2.50,2.00,.06),'mint',clinic,.35)
+for obj in clinic.children:
+    if any(obj.name.startswith(n) for n in ['shop back','shop shelf','treat bag','food tin','toy ball']):obj.location.y-=.65
 export('clinic',clinic)
+
+def sculpt_human_face(group):
+    # Blend cheeks, chin and nose into one continuous, softly sculpted surface.
+    pieces=[o for o in group.children if o.name.split('.')[0] in ['head','cheek','chin','nose','little nose','nose bridge']]
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in pieces:o.select_set(True)
+    bpy.context.view_layer.objects.active=next(o for o in pieces if o.name.split('.')[0]=='head')
+    bpy.ops.object.join()
+    head=bpy.context.object
+    bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+    remesh=head.modifiers.new('Continuous soft face','REMESH');remesh.mode='VOXEL';remesh.voxel_size=.016
+    bpy.ops.object.modifier_apply(modifier=remesh.name)
+    smooth=head.modifiers.new('Soft cheeks','SMOOTH');smooth.factor=1;smooth.iterations=5
+    bpy.ops.object.modifier_apply(modifier=smooth.name)
+    for poly in head.data.polygons:poly.use_smooth=True
+
+def batch_human_details(group):
+    buckets={}
+    for o in list(group.children_recursive):
+        if o.type not in ['MESH','CURVE'] or o.animation_data or o.children:continue
+        if o.name.split('.')[0] in ['head','hand']:continue
+        buckets.setdefault((o.parent,o.data.materials[0].name),[]).append(o)
+    for (parent,mat), objects in buckets.items():
+        bpy.ops.object.select_all(action='DESELECT')
+        for o in objects:o.select_set(True)
+        bpy.context.view_layer.objects.active=objects[0]
+        bpy.ops.object.convert(target='MESH')
+        bpy.ops.object.join()
+        bpy.context.object.name='details_'+mat
 
 for name,coat in [('louise','mint'),('visitor','pink'),('visitor-ponytail','blue'),('visitor-bob','plum')]:
     r=root(name)
+    r['strideLength']=.85
+    skin='louise_skin' if name=='louise' else 'visitor_skin' if name=='visitor-bob' else 'lightfur'
+    hair='louise_hair' if name=='louise' else 'visitor_hair' if name=='visitor-bob' else 'wood'
     for x in [-.17,.17]:
         cube('shoe',(x,-.06,.12),(.26,.40,.20),'dark',r,.08)
-        cube('leg',(x,0,.40),(.19,.24,.53),'blue',r,.07)
-    ball('body',(0,0,.97),(.40,.25,.49),coat,r)
+        ball('leg',(x,0,.52),(.115,.125,.19),'blue',r)
+        ball('shin',(x,0,.27),(.103,.115,.17),'blue',r)
+    ball('body',(0,0,.97),(.36,.24,.43),coat,r,detail=True)
+    ball('neck',(0,0,1.32),(.105,.10,.16),skin,r)
+    for side in [-1,1]:
+        collar=cube('collar',(side*.095,-.205,1.29),(.085,.035,.13),'white' if name=='louise' else coat,r,.018)
+        collar.rotation_euler.y=side*.35
+        ball('ear',(side*.27,-.008,1.56),(.067,.06,.096),skin,r,detail=True)
+        ball('ear fold',(side*.294,-.052,1.56),(.025,.014,.050),skin,r)
+        ball('cheek',(side*.14,-.175,1.49),(.105,.051,.075),skin,r,detail=True)
+    ball('chin',(0,-.108,1.365),(.13,.10,.065),skin,r,detail=True)
     if name=='louise':
         # Her long light-brown hair, pink headband and blue-grey eyes.
         ball('long hair back',(0,.15,1.44),(.32,.21,.53),'louise_hair',r)
-        ball('head',(0,-.025,1.59),(.275,.25,.32),'louise_skin',r)
+        ball('head',(0,-.025,1.59),(.275,.25,.32),'louise_skin',r,detail=True)
         ball('hair crown',(0,.055,1.79),(.30,.255,.20),'louise_hair',r)
         for x in [-.28,.28]: ball('long side hair',(x,.035,1.42),(.093,.145,.43),'louise_hair',r)
         line('pink headband',[(.303*math.cos(t),-.075,1.60+.355*math.sin(t)) for t in [i*math.pi/24 for i in range(25)]],.023,'louise_pink',r)
         for x in [-.095,.095]:
             ball('eye white',(x,-.263,1.61),(.049,.024,.053),'white',r)
             ball('blue grey iris',(x,-.286,1.61),(.028,.012,.035),'louise_eyes',r)
-            ball('eye sparkle',(x-.009,-.298,1.623),(.009,.006,.011),'white',r)
+            ball('pupil',(x,-.298,1.61),(.015,.005,.024),'black',r)
+            ball('eye sparkle',(x-.009,-.304,1.623),(.009,.004,.011),'white',r)
             ball('eyebrow',(x,-.249,1.696),(.055,.015,.012),'louise_hair',r)
         ball('little nose',(0,-.282,1.54),(.029,.034,.030),'louise_skin',r)
         line('smile',[(-.055,-.255,1.467),(0,-.274,1.454),(.055,-.255,1.467)],.009,'pink',r)
@@ -325,7 +413,7 @@ for name,coat in [('louise','mint'),('visitor','pink'),('visitor-ponytail','blue
     else:
         skin='visitor_skin' if name=='visitor-bob' else 'lightfur'
         hair='visitor_hair' if name=='visitor-bob' else 'wood'
-        ball('head',(0,0,1.57),(.27,.25,.31),skin,r)
+        ball('head',(0,0,1.57),(.27,.25,.31),skin,r,detail=True)
         ball('hair',(0,.035,1.76),(.29,.25,.20),hair,r)
         if name=='visitor-ponytail':
             # The ponytail silhouette stays clear from the reception camera.
@@ -341,12 +429,34 @@ for name,coat in [('louise','mint'),('visitor','pink'),('visitor-ponytail','blue
             skirt.scale.y=.73
             for face in skirt.data.polygons: face.use_smooth=True
             cube('dress belt',(0,-.245,.94),(.55,.04,.055),'gold',r,.015)
-        for x in [-.09,.09]: ball('eye',(x,-.24,1.59),(.025,.018,.035),'black',r)
+        for x in [-.095,.095]:
+            ball('eye white',(x,-.235,1.60),(.051,.025,.054),'white',r,detail=True)
+            ball('iris',(x,-.258,1.60),(.029,.013,.035),'louise_eyes' if name=='visitor-ponytail' else 'wood',r)
+            ball('pupil',(x,-.269,1.60),(.016,.006,.025),'black',r)
+            ball('eye sparkle',(x-.009,-.275,1.615),(.009,.004,.011),'white',r)
+            line('eyebrow',[(x-.046,-.236,1.683),(x,-.253,1.697),(x+.046,-.236,1.687)],.012,hair,r)
+            line('upper eyelid',[(x-.047,-.244,1.611),(x,-.257,1.649),(x+.047,-.244,1.611)],.009,skin,r)
+        ball('nose bridge',(0,-.241,1.555),(.025,.031,.067),skin,r,detail=True)
         ball('nose',(0,-.25,1.51),(.032,.035,.035),skin,r)
         line('friendly smile',[(-.055,-.239,1.455),(0,-.255,1.44),(.055,-.239,1.455)],.008,'pink',r)
-    for x in [-.42,.42]: ball('arm',(x,0,.96),(.12,.13,.34),coat,r)
+    for side in [-1,1]:
+        x=side*.42
+        ball('arm',(x,0,1.105),(.115,.125,.205),coat,r)
+        ball('forearm',(x,-.006,.87),(.087,.095,.165),coat if name=='louise' else skin,r)
+        ball('hand',(x,-.022,.705),(.084,.07,.098),skin,r,detail=True)
+        ball('thumb',(x-side*.072,-.056,.724),(.035,.037,.055),skin,r)
+        for finger in range(3):
+            ball('finger',(x+(finger-1)*.034,-.032,.646),(.021,.045,.04),skin,r)
+    # Gentle hair locks and clothing seams give silhouettes definition at town scale.
+    for side in [-1,1]:
+        ball('swept hair lock',(side*.12,-.09,1.805),(.14,.15,.10),hair,r)
+    for z in [.87,1.00,1.13]:ball('coat button',(.035,-.243,z),(.017,.012,.017),'gold',r)
+    if name=='louise':
+        for x in [-.22,.22]:cube('coat pocket',(x,-.226,.89),(.13,.035,.12),'mint',r,.018)
     if name=='louise': cube('badge',(.16,-.245,1.12),(.14,.025,.10),'white',r,.01)
+    sculpt_human_face(r)
     animate_character(r,human=True)
+    batch_human_details(r)
     export(name,r)
 
 table=root('table')

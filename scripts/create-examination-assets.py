@@ -125,7 +125,7 @@ def skeleton(species,broken=False):
     export(r.name,r)
 
 for species in ['dog','cat','rabbit','hamster','gerbil','goldfish']:skeleton(species)
-skeleton('rabbit',True)
+for species in ['rabbit','dog','cat']:skeleton(species,True)
 
 for infected in [False,True]:
     r=root('ear-'+('inflamed' if infected else 'healthy'))
@@ -180,7 +180,7 @@ for family in ['carnivore','rodent']:
         export(r.name,r)
 
 # Every selectable tool is a complete three-dimensional model, including its grip.
-for tool in ['inspect','xray','ear','mouth','listen','water-test','cream','drops','bandage','comb','vaccine','brush','water-care','forceps']:
+for tool in ['inspect','xray','ear','mouth','listen','water-test','cream','drops','bandage','comb','vaccine','brush','water-care','forceps','thermometer','cooling']:
     r=root('tool-'+tool)
     if tool in ['inspect','mouth']:
         radius=.45 if tool=='inspect' else .30
@@ -199,6 +199,15 @@ for tool in ['inspect','xray','ear','mouth','listen','water-test','cream','drops
         else:
             box('viewer handle',(.72,.04,-.22),(.20,.18,.57),'silver',r,.045)
             for i in range(3):ball('status lamp',(-.18+i*.12,-.035,-.435),(.022,)*3,'amber',r)
+    elif tool=='thermometer':
+        box('sensor body',(0,0,-.23),(.28,.16,.72),'white',r,.07)
+        box('temperature display',(0,-.09,-.22),(.19,.025,.23),'glass',r,.02)
+        rod('rounded sensor',(0,0,.12),(0,0,.32),.065,'silver',r)
+        for i in range(3):box('display bar',(-.05+i*.05,-.11,-.22),(.025,.01,.12),'mint',r,0)
+        ball('power button',(0,-.09,-.46),(.04,.02,.04),'mint',r)
+    elif tool=='cooling':
+        box('soft cooling pad',(0,0,-.2),(.58,.14,.82),'mint',r,.07)
+        for z in [-.4,-.2,0]:box('pad quilt',(0,-.08,z),(.48,.018,.025),'white',r,.005)
     elif tool=='listen':
         ring('chestpiece',(0,0,0),.16,.025,'silver',r)
         ball('diaphragm',(0,0,0),(.16,.028,.16),'silver',r)
@@ -229,4 +238,4 @@ for tool in ['inspect','xray','ear','mouth','listen','water-test','cream','drops
     export(r.name,r)
 bpy.context.preferences.filepaths.save_version=0
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT,'assets','blender','examination.blend'),compress=True)
-print('Exported complete skeletal anatomy, ear and mouth interiors, and 14 instruments.')
+print('Exported complete skeletal anatomy, ear and mouth interiors, and 16 instruments.')

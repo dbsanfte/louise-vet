@@ -36,17 +36,19 @@ test('full skeletons cover head, spine, ribs, limbs and tail; the fracture has d
     });
     for (const part of species === 'goldfish'
       ? ['cranium', 'vertebra', 'rib', 'fin']
-      : [
-          'cranium',
-          'vertebra',
-          'rib',
-          'humerus',
-          'radius',
-          'femur',
-          'tibia',
-          'phalange',
-          'tail',
-        ]) {
+      : species === 'bird'
+        ? ['cranium', 'beak', 'spine', 'rib', 'wing', 'leg', 'toe']
+        : [
+            'cranium',
+            'vertebra',
+            'rib',
+            'humerus',
+            'radius',
+            'femur',
+            'tibia',
+            'phalange',
+            'tail',
+          ]) {
       assert.ok(
         names.some((n) => n.includes(part)),
         `${species} includes ${part}`,
@@ -99,4 +101,102 @@ test('clues need a visible finding; heartbeat readings distinguish normal and wo
   assert.ok(ecg(0.4) > 0.9, 'R peak');
   assert.ok(ecg(0.44) < 0, 'S wave');
   assert.ok(Math.abs(ecg(0)) < 0.001, 'baseline between beats');
+});
+
+test('every species gets explicit, usable routine checks, with water and fins for fish', async () => {
+  const { communityVisit, checkInstruction, zonesFor } =
+    await import('../src/game.ts');
+  for (const species of [
+    'dog',
+    'cat',
+    'rabbit',
+    'hamster',
+    'gerbil',
+    'goldfish',
+    'bird',
+  ] as const) {
+    const visit = communityVisit(
+      visits.find((v) => v.species === species)!,
+      'checkup',
+    );
+    assert.equal(visit.checks.length, 2);
+    for (const check of visit.checks) {
+      assert.ok(zonesFor(species).includes(check.zone));
+      assert.ok(
+        checkInstruction(check, species).includes(toolInfo[check.tool].name),
+      );
+      const result = examine(visit, check.tool, check.zone);
+      assert.equal(result.kind, 'finding');
+      assert.ok(result.kind === 'finding' && result.clueIndex >= 0);
+    }
+    if (species === 'goldfish')
+      assert.deepEqual(
+        visit.checks.map((c) => [c.tool, c.zone]),
+        [
+          ['water-test', 'tank'],
+          ['inspect', 'fin'],
+        ],
+      );
+    if (species === 'bird')
+      assert.match(checkInstruction(visit.checks[0], species), /feathers/);
+  }
+});
+
+test('water tools hit the whole visible bowl while optical tools can reach the fish', async () => {
+  const THREE = await import('three');
+  const { addBowlWater, instrumentHit } = await import('../src/fishbowl.ts');
+  const bytes = await readFile(
+    new URL('../public/models/goldfish.glb', import.meta.url),
+  );
+  const gltf = await new GLTFLoader().parseAsync(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length),
+    '',
+  );
+  const fish = gltf.scene;
+  fish.position.y = 1.28;
+  const clean = addBowlWater(fish, false);
+  fish.updateMatrixWorld(true);
+  for (const [x, y, z] of [
+    [-0.55, 1.8, 3],
+    [0.55, 1.8, 3],
+    [0, 4, 0],
+    [3, 1.9, 0.3],
+  ]) {
+    const origin = new THREE.Vector3(x, y, z);
+    const target = new THREE.Vector3(
+      x === 3 ? 0 : x,
+      y === 4 ? 2 : y,
+      z === 3 ? 0 : z,
+    );
+    const hits = new THREE.Raycaster(
+      origin,
+      target.sub(origin).normalize(),
+    ).intersectObject(fish, true);
+    for (const tool of ['water-test', 'water-care'] as const)
+      assert.equal(instrumentHit(hits, tool)?.object.name, 'bowl_water');
+  }
+  const ray = new THREE.Raycaster(
+    new THREE.Vector3(0, 1.93, 4),
+    new THREE.Vector3(0, 0, -1),
+  );
+  const hits = ray.intersectObject(fish, true);
+  assert.equal(instrumentHit(hits, 'water-test')?.object.name, 'bowl_water');
+  const fin = instrumentHit(hits, 'inspect');
+  assert.ok(
+    fin && !fin.object.userData.bowlWater,
+    'transparent water never blocks inspecting the animal',
+  );
+  assert.equal(
+    instrumentHit(
+      new THREE.Raycaster(
+        new THREE.Vector3(3, 2, 4),
+        new THREE.Vector3(0, 0, -1),
+      ).intersectObject(fish, true),
+      'water-test',
+    ),
+    undefined,
+    'points outside the bowl do not give a reading',
+  );
+  clean();
+  assert.equal(fish.getObjectByName('bowl_water'), undefined);
 });

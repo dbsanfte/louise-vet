@@ -3,6 +3,33 @@ export class Audio {
   private context?: AudioContext;
   enabled = false;
   private lastHeartbeat = -1;
+  private lastSiren = -1;
+  siren(now: number, active: boolean) {
+    if (!this.enabled || !active) {
+      this.lastSiren = -1;
+      return;
+    }
+    const beat = Math.floor(now / 700);
+    if (beat === this.lastSiren) return;
+    this.lastSiren = beat;
+    this.context ??= new AudioContext();
+    if (this.context.state !== 'running') void this.context.resume();
+    const oscillator = this.context.createOscillator(),
+      gain = this.context.createGain(),
+      start = this.context.currentTime;
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(beat % 2 ? 620 : 880, start);
+    oscillator.frequency.linearRampToValueAtTime(
+      beat % 2 ? 880 : 620,
+      start + 0.6,
+    );
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.035, start + 0.04);
+    gain.gain.linearRampToValueAtTime(0, start + 0.66);
+    oscillator.connect(gain).connect(this.context.destination);
+    oscillator.start(start);
+    oscillator.stop(start + 0.7);
+  }
   heartbeat(now: number, bpm: number | null) {
     if (!this.enabled || !bpm) {
       this.lastHeartbeat = -1;

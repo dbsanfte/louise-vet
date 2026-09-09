@@ -1,3 +1,5 @@
+import { showPatient } from './browser-helpers';
+import { waitForExamination } from './browser-helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 test.setTimeout(120000);
@@ -6,10 +8,8 @@ async function openPatient(page: Page, name: string) {
   await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
     timeout: 45000,
   });
-  await page
-    .getByRole('button', { name: `See ${name}`, exact: true })
-    .first()
-    .click();
+  await (await showPatient(page, name)).click();
+  await waitForExamination(page);
 }
 async function point(page: Page, zone: string) {
   await page.locator('#world').scrollIntoViewIfNeeded();
@@ -160,6 +160,7 @@ test('stethoscope contact drives a live ECG and audible heartbeats, stopping off
     .getByRole('button', { name: 'See Luna', exact: true })
     .first()
     .click();
+  await waitForExamination(page);
   await page.getByRole('button', { name: 'Stethoscope', exact: true }).click();
   await page
     .getByRole('button', { name: 'Chest on Luna', exact: true })

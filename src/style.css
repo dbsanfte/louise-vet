@@ -1955,10 +1955,16 @@ h1 {
   font-size: 15px;
   color: #536849;
 }
-#app:not([data-mode='reception']):not([data-mode='result']) .workspace {
+#app:not([data-mode='reception']):not([data-mode='result']):not(
+    [data-mode='town']
+  )
+  .workspace {
   padding-bottom: 110px;
 }
-#app:not([data-mode='reception']):not([data-mode='result']) .bottom-bar {
+#app:not([data-mode='reception']):not([data-mode='result']):not(
+    [data-mode='town']
+  )
+  .bottom-bar {
   display: none;
 }
 #app:not([data-mode='reception']) .toast {
@@ -2192,4 +2198,1130 @@ h1 {
 }
 .stage:has(.examination-readout:not([hidden])) .scene-goal {
   visibility: hidden;
+}
+
+/* Discoveries remain beside the scene on desktop and above actions on phones. */
+.clue-summary {
+  /* Only notebook controls and scrollable pages receive pointer input. */
+  pointer-events: none;
+  position: fixed;
+  z-index: 24;
+  right: 30px;
+  bottom: 94px;
+  width: min(45vw, 550px);
+  max-height: min(30vh, 220px);
+  overflow-y: auto;
+  background: #fffdf2;
+  border: 2px solid #bad2ac;
+  border-radius: 16px;
+  padding: 12px 16px;
+  box-shadow: 0 5px 22px #284f3520;
+  color: #395541;
+  font-size: 16px;
+}
+.clue-summary[hidden] {
+  display: none;
+}
+.clue-summary ul {
+  padding-left: 19px;
+  margin: 6px 0 0;
+}
+.clue-summary li + li {
+  margin-top: 6px;
+}
+
+#app[data-mode='town'] .bottom-bar {
+  display: flex;
+}
+#app[data-mode='town'] .workspace {
+  padding-bottom: 20px;
+}
+.town-home {
+  background: #eff3e5;
+  border: 1px solid #c5d4bb;
+  border-radius: 14px;
+  padding: 16px;
+  margin: 14px 0;
+}
+.town-home p {
+  margin: 10px 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.household-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.household-list button {
+  text-align: left;
+}
+#app[data-mode='town'] .scene-controls {
+  flex-wrap: wrap;
+  max-width: calc(100% - 24px);
+}
+#app[data-mode='town'] .scene-controls button {
+  min-width: 36px;
+  min-height: 40px;
+  border: 1px solid #bbcdb2;
+  border-radius: 8px;
+  background: #fffdf2;
+  font: inherit;
+  padding: 5px 9px;
+}
+@media (max-width: 700px) {
+  .clue-summary {
+    left: 10px;
+    right: 10px;
+    bottom: 96px;
+    width: auto;
+    max-height: min(24vh, 200px);
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+  #app[data-mode='examine'] .workspace,
+  #app[data-mode='diagnose'] .workspace {
+    padding-bottom: 240px;
+  }
+  #app[data-mode='town'] .scene-title h2 {
+    font-size: 21px;
+  }
+  #app[data-mode='town'] .scene-controls {
+    top: auto;
+    bottom: 45px;
+  }
+  .bottom-bar .tiny-label {
+    display: none;
+  }
+  .bottom-bar nav {
+    gap: 3px;
+  }
+  .bottom-bar .nav-button {
+    padding: 8px;
+  }
+}
+
+#app[data-mode='town'] .scene-caption {
+  bottom: 78px;
+  max-width: calc(100% - 32px);
+}
+#app[data-mode='town'] .scene-goal:empty {
+  display: none;
+}
+@media (max-width: 700px) {
+  #app[data-mode='town'] .scene-caption {
+    bottom: 100px;
+    font-size: 13px;
+  }
+}
+
+.town-news {
+  background: #fff3d7;
+  border-radius: 14px;
+  padding: 14px;
+  margin: 12px 0;
+}
+.town-news ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+.town-news li {
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 9px 0;
+  border-top: 1px solid #e8d9b6;
+}
+.town-news button {
+  display: block;
+  margin-top: 6px;
+}
+
+.clinic-leisure {
+  margin-top: 1.2rem;
+  padding: 1rem;
+  background: var(--cream, #fff7df);
+  border: 1px solid #d5dfc5;
+  border-radius: 18px;
+}
+.clinic-leisure h3 {
+  margin-top: 0;
+}
+.clinic-leisure ul {
+  padding-left: 1.1rem;
+  line-height: 1.7;
+}
+.clinic-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.clinic-views button[aria-pressed='true'] {
+  background: #d6e6c5;
+  border-color: #6f8e62;
+}
+
+#app[data-mode='reception'] .scene-caption {
+  bottom: 12px;
+  padding: 0 12px;
+}
+.scene-caption .clinic-views {
+  justify-content: center;
+  pointer-events: auto;
+}
+.scene-caption .clinic-views button {
+  width: auto;
+  min-height: 44px;
+  background: #fffaf1f2;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+.scene-caption .clinic-views button[aria-pressed='true'] {
+  background: #d6e6c5;
+}
+
+/* The notebook itself stays in view; only its chosen page scrolls. */
+.clue-summary {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: min(32dvh, 240px);
+  padding: 8px;
+}
+.notebook-tabs {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+  pointer-events: auto;
+  margin-bottom: 6px;
+}
+.notebook-tabs button {
+  flex: 1;
+  min-height: 40px;
+  padding: 6px 8px;
+  font-size: 15px;
+}
+.notebook-tabs button[aria-pressed='true'] {
+  background: #dce9ce;
+  border-color: #6a8c58;
+  color: #314c2b;
+}
+.notebook-page {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+  scrollbar-gutter: stable;
+}
+.notebook-page[hidden] {
+  display: none;
+}
+.clue-summary .findings {
+  margin: 0;
+  padding: 2px 3px 4px 0;
+  max-height: none;
+}
+.clue-summary .findings li {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px;
+  font-size: 16px;
+}
+.clue-summary .findings li strong {
+  font-size: 16px;
+}
+@media (max-width: 700px) {
+  .clue-summary {
+    max-height: min(29dvh, 250px);
+    bottom: 96px;
+    padding: 6px;
+  }
+  .clue-summary .findings li,
+  .clue-summary .findings li strong {
+    font-size: 16px;
+    line-height: 1.45;
+  }
+}
+
+/* Camera controls sit under the room title, clear of the reading notebook. */
+#app:is(
+    [data-mode='examine'],
+    [data-mode='diagnose'],
+    [data-mode='treat'],
+    [data-mode='place-vaccine']
+  )
+  .scene-controls {
+  top: 108px;
+  bottom: auto;
+  left: 24px;
+  right: auto;
+  z-index: 6;
+}
+@media (max-width: 700px) {
+  #app:is(
+      [data-mode='examine'],
+      [data-mode='diagnose'],
+      [data-mode='treat'],
+      [data-mode='place-vaccine']
+    )
+    .scene-controls {
+    top: 100px;
+    left: 12px;
+  }
+}
+
+/* Leave scroll space for controls below the scene on narrow screens. */
+html:has(#clue-summary:not([hidden])) {
+  scroll-padding-bottom: calc(min(32dvh, 240px) + 120px);
+}
+#app:has(#clue-summary:not([hidden])) .sidebar button {
+  scroll-margin-block: 24px;
+}
+@media (max-width: 700px) {
+  #app:has(#clue-summary:not([hidden])) .workspace {
+    padding-bottom: calc(min(29dvh, 250px) + 150px);
+  }
+}
+
+/* Office and town are viewport-sized game screens. Lists use pages, never page scroll. */
+#app:is([data-mode='reception'], [data-mode='town']) {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: 80px minmax(0, 1fr) 64px;
+  overflow: hidden;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .topbar {
+  height: auto;
+  padding-inline: 20px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .workspace {
+  width: 100%;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 12px 20px;
+  gap: 16px;
+  grid-template-columns: 310px minmax(0, 1fr);
+}
+#app:is([data-mode='reception'], [data-mode='town']) .stage {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  min-height: 0;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .world {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .stage-footer {
+  flex-shrink: 0;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .bottom-bar {
+  width: 100%;
+  height: 100%;
+  padding: 8px 20px;
+  position: static;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .sidebar {
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .louise-portrait {
+  width: 48px;
+  height: 48px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .panel-heading h2 {
+  font-size: 23px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .panel-heading br {
+  display: none;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .eyebrow {
+  display: none;
+}
+.office-tabs,
+.office-pages {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.office-tabs button {
+  flex: 1;
+  min-height: 44px;
+  padding: 6px;
+  font-size: 16px;
+}
+.office-tabs button[aria-pressed='true'] {
+  background: #d6e6c5;
+  border-color: #6f8e62;
+}
+.office-pages {
+  justify-content: center;
+  margin-top: 8px;
+}
+.office-pages button {
+  min-width: 44px;
+  min-height: 40px;
+  padding: 4px 12px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .patient-list {
+  overflow: visible;
+  max-height: none;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .patient-card {
+  min-height: 84px;
+  padding: 9px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .patient-card-text > span {
+  font-size: 15px;
+  line-height: 1.3;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .queue-heading {
+  padding-bottom: 6px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .call-next {
+  margin-top: 8px;
+  min-height: 44px;
+  padding: 8px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .shelf-summary {
+  margin: auto 0 0;
+  padding: 5px 0;
+  font-size: 14px;
+  order: 4;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .clinic-leisure {
+  margin: 0;
+  padding: 10px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .clinic-leisure ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .clinic-leisure li {
+  padding: 8px 0;
+  font-size: 16px;
+  line-height: 1.4;
+}
+#clinic-call:empty {
+  display: none;
+}
+#app:is([data-mode='reception'], [data-mode='town']) #clinic-call p {
+  margin: 0;
+  padding: 6px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+#app:is([data-mode='reception'], [data-mode='town']) #clinic-call button {
+  min-height: 36px;
+  padding: 4px 8px;
+  margin: 0 0 0 4px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) [hidden] {
+  display: none !important;
+}
+@media (max-width: 900px) {
+  #app:is([data-mode='reception'], [data-mode='town']) .save-note,
+  #app:is([data-mode='reception'], [data-mode='town']) .tiny-label {
+    display: none;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .scene-goal {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  #app:is([data-mode='reception'], [data-mode='town']) {
+    grid-template-rows: 68px minmax(0, 1fr) 64px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .topbar {
+    padding-inline: 10px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .workspace {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(150px, 1fr) auto;
+    padding: 6px 10px;
+    gap: 8px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .stage {
+    grid-row: 1;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .sidebar {
+    grid-row: 2;
+    gap: 4px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .panel-heading,
+  #app:is([data-mode='reception'], [data-mode='town']) .stage-footer {
+    display: none;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .patient-list {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .patient-card {
+    min-height: 96px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .pet-avatar {
+    display: none;
+  }
+  #app:is([data-mode='reception'], [data-mode='town'])
+    .patient-card.next:after {
+    display: none;
+  }
+  #app:is([data-mode='reception'], [data-mode='town'])
+    .patient-card-text
+    strong {
+    font-size: 18px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town'])
+    .patient-card-text
+    small {
+    font-size: 13px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .queue-heading {
+    display: none;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .office-pages {
+    margin-top: 4px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .call-next {
+    margin-top: 4px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .bottom-bar {
+    padding: 4px 6px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .nav-button {
+    flex-direction: column;
+    gap: 2px;
+    padding: 5px;
+    font-size: 13px;
+    min-height: 48px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .scene-title {
+    top: 8px;
+    left: 10px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .scene-title h2 {
+    display: none;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .scene-caption {
+    bottom: 6px;
+    padding: 0 6px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .clinic-views {
+    gap: 4px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .clinic-views button {
+    min-height: 36px;
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .clinic-leisure ul {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+}
+@media (min-width: 641px) and (max-height: 700px) {
+  #app:is([data-mode='reception'], [data-mode='town']) {
+    grid-template-rows: 64px minmax(0, 1fr) 56px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .panel-heading {
+    display: none;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .workspace {
+    padding-block: 8px;
+  }
+}
+.office-pages button {
+  width: auto;
+  flex: 0 0 52px;
+}
+.office-pages span {
+  white-space: nowrap;
+  min-width: 52px;
+  text-align: center;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .patient-card-text strong {
+  font-size: 18px;
+}
+#app:is([data-mode='reception'], [data-mode='town']) .toast {
+  bottom: 76px;
+  pointer-events: none;
+}
+@media (max-width: 640px) {
+  #app:is([data-mode='reception'], [data-mode='town']) {
+    grid-template-rows: 96px minmax(0, 1fr) 64px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .topbar {
+    min-height: 0;
+    padding-block: 6px;
+    grid-template-rows: 42px 30px;
+    gap: 6px;
+  }
+  #app:is([data-mode='reception'], [data-mode='town']) .stats {
+    align-items: center;
+  }
+}
+
+#app[data-mode='town'] .town-home,
+#app[data-mode='town'] .town-news {
+  margin: 0;
+  padding: 12px;
+}
+#app[data-mode='town'] .town-home p {
+  font-size: 15px;
+  line-height: 1.4;
+  margin: 8px 0;
+}
+#app[data-mode='town'] .household-list {
+  margin-top: 0;
+  gap: 8px;
+}
+#app[data-mode='town'] .household-list button {
+  min-height: 52px;
+  padding: 8px 12px;
+  font-size: 16px;
+}
+#app[data-mode='town'] .stage-footer .secondary {
+  width: auto;
+  min-height: 44px;
+  padding: 6px 14px;
+}
+#app[data-mode='town'] .stage-footer {
+  display: flex;
+  padding: 6px 12px;
+  min-height: 56px;
+}
+#app[data-mode='town'] .scene-controls {
+  top: auto;
+  bottom: 8px;
+  right: 8px;
+  left: 8px;
+  justify-content: center;
+  max-width: none;
+  gap: 4px;
+}
+#app[data-mode='town'] .scene-controls button {
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 15px;
+}
+#app[data-mode='town'] .scene-caption {
+  bottom: 60px;
+  left: 8px;
+  width: calc(100% - 16px);
+  max-width: none;
+  padding: 0;
+}
+#app[data-mode='town'] .orbit-hint {
+  font-size: 13px;
+  max-width: 100%;
+  padding: 5px 10px;
+  line-height: 1.3;
+}
+.flat-neighbours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.flat-neighbours button {
+  width: auto;
+  min-height: 40px;
+  padding: 4px 10px;
+}
+.flat-neighbours button[aria-pressed='true'] {
+  background: #d6e6c5;
+}
+@media (max-width: 640px) {
+  #app[data-mode='town'] .household-list {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  #app[data-mode='town'] .household-list button {
+    min-height: 64px;
+    font-size: 15px;
+    line-height: 1.3;
+    padding: 6px 8px;
+  }
+  #app[data-mode='town'] .scene-controls button {
+    min-width: 34px;
+    min-height: 40px;
+    padding: 4px 6px;
+    font-size: 14px;
+  }
+  #app[data-mode='town'] .town-home,
+  #app[data-mode='town'] .town-news {
+    padding: 8px 10px;
+  }
+  #app[data-mode='town'] .town-home > .secondary {
+    min-height: 40px;
+    padding: 6px;
+  }
+  #app[data-mode='town'] .town-news ul {
+    margin-top: 4px;
+  }
+  #app[data-mode='town'] .town-news li {
+    padding: 4px 0;
+    line-height: 1.4;
+  }
+}
+#app[data-mode='town'] .office-tabs button {
+  font-size: 15px;
+  white-space: nowrap;
+  padding-inline: 4px;
+}
+@media (max-width: 640px) {
+  #app[data-mode='town'] .scene-controls {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  #app[data-mode='town'] .scene-caption {
+    bottom: 100px;
+  }
+  #app[data-mode='town'] .scene-controls button {
+    min-width: 0;
+    white-space: nowrap;
+  }
+}
+
+/* Instrument activities use the browser's modal top layer and fit short screens. */
+.skill-dialog {
+  width: min(500px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 18px;
+  border: 2px solid #d4ddc8;
+  border-radius: 22px;
+  background: #fffdf3;
+  color: #354b3c;
+  box-shadow: 0 16px 70px #20392f55;
+  overflow: auto;
+}
+.skill-dialog::backdrop {
+  background: #243b3659;
+}
+.skill-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.skill-header > div {
+  flex: 1;
+}
+.skill-header h2 {
+  font-size: 21px;
+  line-height: 1.2;
+  margin: 3px 0;
+}
+.skill-header small {
+  font-size: 14px;
+}
+#skill-instructions {
+  font-size: 16px;
+  line-height: 1.4;
+  margin: 12px 0;
+}
+.skill-board {
+  background: #edf2e3;
+  border-radius: 14px;
+  padding: 10px 18px;
+}
+.skill-step {
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  margin: 6px 0 0;
+}
+.skill-controls {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+}
+.skill-controls button {
+  width: 100%;
+  min-height: 44px;
+}
+.skill-slider-label {
+  font-size: 15px;
+  font-weight: 800;
+}
+#skill-position {
+  width: 100%;
+  height: 36px;
+  accent-color: #54774c;
+  touch-action: pan-y;
+}
+.skill-rail {
+  height: 32px;
+  position: relative;
+  background: #d6dfcb;
+  border-radius: 12px;
+  margin: 18px 8px;
+}
+.skill-target {
+  position: absolute;
+  height: 100%;
+  background: repeating-linear-gradient(
+    135deg,
+    #b1cf92 0 7px,
+    #7caa68 7px 10px
+  );
+  border: 2px solid #537544;
+  border-radius: 9px;
+}
+.skill-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 42px;
+  border: 2px solid #54774c;
+  border-radius: 8px;
+  background: #fffdf3;
+  font-size: 28px;
+  line-height: 1;
+}
+.skill-rail.steady .skill-marker {
+  background: #8ac8d7;
+  color: #315d71;
+}
+.skill-rail.steady {
+  touch-action: none;
+  user-select: none;
+}
+.skill-dialog[data-started='true'][data-complete='false'] .skill-rail.steady {
+  cursor: grab;
+}
+.skill-dialog[data-started='true'][data-complete='false']
+  .skill-rail.steady:active {
+  cursor: grabbing;
+}
+.skill-rail.pull {
+  background: linear-gradient(
+    0deg,
+    transparent 40%,
+    #a7794e 40% 60%,
+    transparent 60%
+  );
+}
+.skill-rail.pressure .skill-marker {
+  width: 16px;
+  background: #54774c;
+  color: transparent;
+}
+.skill-patches {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  touch-action: none;
+}
+.skill-patches button {
+  height: 58px;
+  border: 2px solid #d69e8e;
+  border-radius: 42%;
+  background: radial-gradient(#dc9984, #edc7b0);
+  color: #623f35;
+  font-size: 17px;
+}
+.skill-patches button.done {
+  background: #fff9db;
+  border-color: #94ad7c;
+}
+.skill-patches button.done span::after {
+  content: ' ✓';
+}
+.skill-wrap {
+  position: relative;
+  height: 185px;
+  max-width: 280px;
+  margin: auto;
+}
+.skill-wrap button {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #bbceaa;
+  background: #fffdf3;
+  font-size: 17px;
+  font-weight: 800;
+}
+.skill-wrap button.next {
+  outline: 3px dashed #54774c;
+  outline-offset: 2px;
+}
+.skill-wrap button.done {
+  background: #aacc92;
+}
+.skill-paw {
+  position: absolute;
+  inset: 38px 34%;
+  border-radius: 35px;
+  background: repeating-linear-gradient(
+    15deg,
+    #d7bf9a 0 16px,
+    #f0dfba 16px 19px
+  );
+  display: grid;
+  place-items: center;
+}
+.skill-paw svg {
+  width: 42px;
+  height: 42px;
+}
+.skill-fur {
+  display: flex;
+  justify-content: space-around;
+  padding: 10px;
+  background: repeating-linear-gradient(
+    110deg,
+    #d6b17b 0 3px,
+    #edd2a5 3px 11px
+  );
+  border-radius: 20px;
+  color: #704536;
+  font-size: 28px;
+}
+.skill-fur .clean {
+  visibility: hidden;
+}
+.skill-teeth {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.skill-teeth span {
+  background: #e5c988;
+  border: 2px solid #bfaa76;
+  border-radius: 8px 8px 15px 15px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  color: #987947;
+}
+.skill-teeth .clean {
+  background: #fff;
+  color: #82a96b;
+  border-color: #acc599;
+}
+.skill-bowl {
+  position: relative;
+  width: 120px;
+  height: 90px;
+  border: 4px solid #91b8c4;
+  border-top: 0;
+  border-radius: 0 0 44px 44px;
+  overflow: hidden;
+  margin: 0 auto;
+  background: #fff;
+}
+.skill-water {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: #90ccdf;
+}
+.skill-fill-line {
+  position: absolute;
+  bottom: 65%;
+  border-top: 3px dashed #52744f;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+.skill-progress {
+  height: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e0e7d5;
+}
+.skill-progress > span {
+  height: 100%;
+  display: block;
+  background: #82a96b;
+}
+.skill-feedback {
+  min-height: 42px;
+  font-size: 15px;
+  line-height: 1.3;
+  margin: 10px 0;
+}
+.skill-dialog footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.skill-dialog footer button {
+  min-height: 44px;
+  flex: 1;
+}
+.skill-dialog [hidden] {
+  display: none !important;
+}
+@media (max-height: 540px) {
+  .skill-dialog {
+    padding: 10px;
+  }
+  .skill-header h2 {
+    font-size: 18px;
+  }
+  #skill-instructions {
+    font-size: 14px;
+    margin: 6px 0;
+  }
+  .skill-board {
+    padding: 5px 12px;
+  }
+  .skill-wrap {
+    height: 140px;
+  }
+  .skill-patches button {
+    height: 44px;
+  }
+  .skill-bowl {
+    height: 52px;
+  }
+  .skill-rail {
+    margin: 8px;
+    height: 24px;
+  }
+  .skill-controls {
+    margin: 5px 0;
+  }
+  .skill-feedback {
+    min-height: 0;
+    font-size: 13px;
+    margin: 5px 0;
+  }
+}
+@media (max-height: 540px) {
+  .skill-dialog[open] {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 12px;
+  }
+  .skill-header,
+  #skill-instructions,
+  .skill-progress,
+  .skill-feedback,
+  .skill-dialog footer {
+    grid-column: 1 / -1;
+  }
+  .skill-controls {
+    align-content: center;
+  }
+}
+@media (max-height: 420px) {
+  .skill-dialog {
+    padding: 8px;
+  }
+  .skill-dialog[open] {
+    gap: 4px 10px;
+  }
+  .skill-header small,
+  .skill-header .mini-badge {
+    display: none;
+  }
+  .skill-wrap {
+    height: 100px;
+  }
+  .skill-paw {
+    inset: 22px 34%;
+  }
+  .skill-teeth span {
+    height: 32px;
+  }
+  .skill-fur {
+    padding: 0;
+  }
+  .skill-step {
+    font-size: 13px;
+  }
+  .skill-controls {
+    gap: 2px;
+  }
+}
+
+.routine-checks {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 14px;
+}
+.routine-checks button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  font-size: 16px;
+}
+.routine-checks svg {
+  flex: 0 0 20px;
+}
+.routine-checks strong {
+  display: block;
+}
+.routine-checks .check-done,
+.notebook-tabs button.clues-complete {
+  background: #c9e8c0;
+  border-color: #377c3c;
+  color: #205627;
+}
+.notebook-tabs button.clues-complete {
+  box-shadow: inset 0 0 0 1px #377c3c;
+}
+.notebook-tabs .clue-discovered {
+  animation: clue-found 800ms ease-in-out 3;
+  animation-delay: var(--clue-delay, 0ms);
+}
+@keyframes clue-found {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px #377c3c;
+  }
+  50% {
+    background: #f5e9a5;
+    box-shadow: inset 0 0 0 3px #8b7424;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notebook-tabs .clue-discovered {
+    animation: none;
+    outline: 3px solid #8b7424;
+    outline-offset: -4px;
+  }
+}
+
+.emergency-services {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.emergency-services button {
+  flex: 1;
+  min-width: 90px;
+  padding: 8px 6px;
+  font-size: 15px;
+}
+.emergency-status {
+  color: var(--ink);
+  font-weight: 800;
 }

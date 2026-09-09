@@ -37,18 +37,27 @@ test('every displayed examination tool produces a result at a sensible target fo
             ['inspect', 'fin'],
             ['inspect', 'tank'],
           ]
-        : [
-            ['listen', 'chest'],
-            ['ear', 'ear'],
-            ['mouth', 'mouth'],
-            ['xray', 'paw'],
-            ['xray', 'chest'],
-            ['inspect', 'paw'],
-            ['inspect', 'coat'],
-            ['inspect', 'ear'],
-            ['inspect', 'mouth'],
-            ['inspect', 'chest'],
-          ];
+        : visit.species === 'bird'
+          ? [
+              ['listen', 'chest'],
+              ['thermometer', 'coat'],
+              ['xray', 'paw'],
+              ['inspect', 'mouth'],
+              ['inspect', 'coat'],
+              ['inspect', 'paw'],
+            ]
+          : [
+              ['listen', 'chest'],
+              ['ear', 'ear'],
+              ['mouth', 'mouth'],
+              ['xray', 'paw'],
+              ['xray', 'chest'],
+              ['inspect', 'paw'],
+              ['inspect', 'coat'],
+              ['inspect', 'ear'],
+              ['inspect', 'mouth'],
+              ['inspect', 'chest'],
+            ];
     for (const [tool, zone] of probes)
       assert.equal(
         examine(visit, tool, zone).kind,
@@ -85,7 +94,7 @@ test('money, stock, reputation, and upgrades have consistent rewards', () => {
 });
 
 test('sick visits have actionable clues; scheduled vaccines only need placement and care', () => {
-  assert.equal(new Set(visits.map((v) => v.species)).size, 6);
+  assert.equal(new Set(visits.map((v) => v.species)).size, 7);
   for (const v of visits) {
     assert.ok(toolInfo[v.treatment]);
     if (v.treatment === 'vaccine') {
@@ -96,6 +105,11 @@ test('sick visits have actionable clues; scheduled vaccines only need placement 
     }
     assert.equal(v.checks.length, 2);
     assert.ok(v.checks.every((c) => Boolean(toolInfo[c.tool])));
+    if (v.purpose === 'checkup') {
+      assert.equal(v.alternatives.length, 0);
+      assert.deepEqual(v.clinical, {});
+      continue;
+    }
     assert.equal(new Set([v.diagnosis, ...v.alternatives]).size, 3);
     assert.ok(v.checks.some((c) => c.zone === v.zone));
   }

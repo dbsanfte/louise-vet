@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: louise-vet
+  labels:
+    app.kubernetes.io/name: louise-vet
+    pod-security.kubernetes.io/enforce: restricted

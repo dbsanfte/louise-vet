@@ -11,12 +11,13 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # A production rollout must finish rather than be interrupted by another push.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  verify:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,30 +27,66 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      - run: npm run test:unit
       - name: Build and start production container
         run: docker compose up --build --detach --wait --wait-timeout 90
-      - name: Test the served production game
-        run: npm test
         env:
-          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
+          REVISION: ${{ github.sha }}
       - name: Check health and missing assets
         run: |
           test "$(curl --fail --silent http://127.0.0.1:8080/healthz)" = "ok"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/assets/missing.js)" = "404"
       - name: Save the tested image
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        run: docker save vet-game:local -o /tmp/vet-game-image.tar
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          image="ghcr.io/dbsanfte/vet-game:$REVISION"
+          docker tag vet-game:local "$image"
+          docker save "$image" -o /tmp/vet-game-image.tar
       - uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         with:
           name: web-image
           path: /tmp/vet-game-image.tar
           retention-days: 1
+      - name: Stop containers
+        if: always()
+        run: docker compose down
+
+  verify:
+    needs: build
+    runs-on: ubuntu-latest
+    # Each shard tests the same built image, including real-time software WebGL.
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-image
+          path: /tmp
+      - name: Start the shared production image
+        env:
+          WEB_IMAGE: ghcr.io/dbsanfte/vet-game:${{ github.sha }}
+        run: |
+          docker load -i /tmp/vet-game-image.tar
+          docker compose up --no-build --detach --wait --wait-timeout 90 web
+      - name: Test the served game
+        run: npx playwright test --shard=${{ matrix.shard }}/4
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8080
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: browser-test-results
+          name: browser-test-results-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
@@ -86,7 +123,46 @@ jobs:
         run: |
           image="ghcr.io/${REPOSITORY,,}"
           docker load -i /tmp/vet-game-image.tar
-          docker tag vet-game:local "$image:$REVISION"
-          docker tag vet-game:local "$image:latest"
+          docker tag "$image:$REVISION" "$image:latest"
           docker push "$image:$REVISION"
           docker push "$image:latest"
+
+  deploy:
+    needs: publish
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux, X64, louise-vet-deploy]
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://louise.vet/
+    concurrency:
+      group: louise-vet-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-image
+          path: ${{ runner.temp }}/louise-image
+      - name: Deploy the tested image to k3s
+        env:
+          REVISION: ${{ github.sha }}
+          ARCHIVE: ${{ runner.temp }}/louise-image/vet-game-image.tar
+        run: sudo /usr/local/sbin/louise-deploy "$REVISION" < "$ARCHIVE"
+      - name: Remove downloaded archive
+        if: always()
+        run: rm -f "$RUNNER_TEMP/louise-image/vet-game-image.tar"
+
+  live-check:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public HTTPS and deployed revision
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          test "$(curl --fail --silent --show-error --retry 6 --retry-delay 10 https://louise.vet/healthz)" = "ok"
+          curl --fail --silent --show-error https://louise.vet/ | grep -F "Louise's Vet Office"
+          curl --fail --silent --show-error https://louise.vet/version.json | jq -e --arg revision "$REVISION" '.revision == $revision'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' https://louise.vet/assets/missing.js)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{redirect_url}' http://louise.vet/)" = "https://louise.vet/"

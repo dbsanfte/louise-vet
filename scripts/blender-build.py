@@ -39,11 +39,35 @@ def main():
     parser.add_argument('--headless', action='store_true', help='Use local Blender without desktop MCP.')
     scope = parser.add_mutually_exclusive_group()
     scope.add_argument('--examination', action='store_true', help='Build anatomy and instruments only.')
-    scope.add_argument('--all', action='store_true', help='Build characters, clinic, anatomy and instruments.')
+    scope.add_argument('--room', action='store_true', help='Build the connected examination room.')
+    scope.add_argument('--leisure', action='store_true', help='Build modular clinic rooms and amusements.')
+    scope.add_argument('--town', action='store_true', help='Build Hookville scenery only.')
+    scope.add_argument('--park', action='store_true', help='Build the park and ducks.')
+    scope.add_argument('--pets', action='store_true', help='Build articulated pet breeds and avian anatomy.')
+    scope.add_argument('--emergencies', action='store_true', help='Build emergency stations, engine and rescue equipment.')
+    scope.add_argument('--vehicles', action='store_true', help='Build the four ordinary traffic vehicles.')
+    scope.add_argument('--street', action='store_true', help='Build lampposts, hydrants and dog-walk props.')
+    scope.add_argument('--all', action='store_true', help='Build all characters, rooms, town scenery, anatomy and instruments.')
     args = parser.parse_args()
-    scripts = [] if args.examination else [PROJECT / 'scripts/create-blender-assets.py']
+    scripts = [] if args.examination or args.town or args.leisure or args.room or args.pets or args.park or args.emergencies or args.vehicles or args.street else [PROJECT / 'scripts/create-blender-assets.py']
     if args.examination or args.all:
         scripts.append(PROJECT / 'scripts/create-examination-assets.py')
+    if args.town or args.all:
+        scripts.append(PROJECT / 'scripts/create-town-assets.py')
+    if args.leisure or args.all:
+        scripts.append(PROJECT / 'scripts/create-clinic-leisure.py')
+    if args.room or args.all:
+        scripts.append(PROJECT / 'scripts/create-exam-room.py')
+    if args.pets or args.all:
+        scripts.append(PROJECT / 'scripts/create-pet-models.py')
+    if args.park or args.all:
+        scripts.append(PROJECT / 'scripts/create-park-assets.py')
+    if args.emergencies or args.all:
+        scripts.append(PROJECT / 'scripts/create-emergency-assets.py')
+    if args.vehicles or args.all:
+        scripts.append(PROJECT / 'scripts/create-vehicle-assets.py')
+    if args.street or args.all:
+        scripts.append(PROJECT / 'scripts/create-street-assets.py')
     if args.headless:
         for script in scripts:
             subprocess.run(

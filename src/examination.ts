@@ -1,3 +1,4 @@
+import { addBowlWater } from './fishbowl';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clinicalProfile, ecg } from './clinical';
@@ -89,7 +90,10 @@ export class Examination {
       'hamster',
       'gerbil',
       'goldfish',
+      'bird',
       'rabbit-fracture',
+      'dog-fracture',
+      'cat-fracture',
     ].map((s) => 'skeleton-' + s);
     const interiors = [
       'ear-healthy',
@@ -161,6 +165,10 @@ export class Examination {
       if (o instanceof THREE.Mesh) o.material = ghostMaterial;
     });
     this.anatomyScene.add(ghost);
+    const cleanupWater =
+      visit.species === 'goldfish'
+        ? addBowlWater(animal, profile.water === 'cloudy')
+        : () => {};
     const cleanupFur = dressPatient(animal, visit);
     this.patient = animal;
     this.skinIssue = undefined;
@@ -169,6 +177,7 @@ export class Examination {
     });
     this.cleanupPatient = () => {
       cleanupFur();
+      cleanupWater();
       ghostMaterial.dispose();
     };
     this.panel.dataset.patient = visit.name;
@@ -229,7 +238,9 @@ export class Examination {
     this.panel.querySelector<HTMLElement>('[data-action="full-xray"]')!.hidden =
       tool !== 'xray';
     this.trace.hidden = tool !== 'listen';
-    this.readout.hidden = tool !== 'listen';
+    this.readout.hidden = !['listen', 'thermometer', 'water-test'].includes(
+      tool,
+    );
     this.panel.querySelector<HTMLElement>('.heart-sound')!.hidden =
       tool !== 'listen';
     this.panel.dataset.tool = tool;
@@ -303,16 +314,27 @@ export class Examination {
         ? this.contact === 'ear'
         : this.tool === 'mouth'
           ? this.contact === 'mouth'
-          : this.tool === 'listen'
-            ? this.contact === 'chest'
-            : true);
+          : this.tool === 'thermometer'
+            ? this.contact === 'coat'
+            : this.tool === 'water-test'
+              ? this.contact === 'tank'
+              : this.tool === 'listen'
+                ? this.contact === 'chest'
+                : true);
     const labels: Partial<Record<Tool, string>> = {
       xray: 'Drag across the head, spine, ribs and every leg.',
       inspect:
-        'Drag slowly to inspect individual hairs and anything caught in the coat.',
+        this.visit.species === 'goldfish'
+          ? 'Move the magnifier over the fish to look closely at its fins and scales.'
+          : this.visit.species === 'bird'
+            ? 'Look closely at the feathers, beak and feet.'
+            : 'Drag slowly to inspect the fur and anything caught in the coat.',
       ear: 'Hold the lit scope at an ear to look down the canal.',
       mouth: 'Hold the mirror at the mouth to inspect teeth and gums.',
+      thermometer: `Hold the pretend sensor at the ${this.visit.species === 'bird' ? 'feathers' : 'coat'} for a temperature check.`,
       listen: 'Hold the chestpiece against the chest and listen.',
+      'water-test':
+        'Dip the tester anywhere in the bowl water, or choose the Bowl water guide.',
     };
     const message =
       labels[this.tool] ?? 'Hold the tool against the spot in your care plan.';
@@ -336,6 +358,22 @@ export class Examination {
                 : 'tool'
       : 'positioning';
     if (this.panel.dataset.view !== view) this.panel.dataset.view = view;
+    if (this.tool === 'water-test') {
+      this.panel.dataset.view = valid ? 'water' : 'positioning';
+      this.readout.textContent = valid
+        ? profile.water === 'cloudy'
+          ? 'Water needs care · Outside the happy blue zone'
+          : 'Comfortable water · In the happy blue zone'
+        : 'Dip the tester in the bowl water';
+    }
+    if (this.tool === 'thermometer') {
+      const reading = valid
+        ? `${profile.temperature} · Storybook temperature`
+        : `Place the sensor on the ${this.visit.species === 'bird' ? 'feathers' : 'coat'}`;
+      this.panel.dataset.view = valid ? 'temperature' : 'positioning';
+      if (this.readout.textContent !== reading)
+        this.readout.textContent = reading;
+    }
     if (this.tool === 'listen') {
       const bpm = valid ? profile.bpm : null;
       const reading = bpm

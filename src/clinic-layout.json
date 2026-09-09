@@ -1,0 +1,346 @@
+{
+  "rooms": [
+    {
+      "id": "expansion",
+      "name": "Customer lounge",
+      "x": -8,
+      "z": 0,
+      "width": 6,
+      "depth": 8
+    },
+    {
+      "id": "pet-room",
+      "name": "Pet playground",
+      "x": -14,
+      "z": -5,
+      "width": 6,
+      "depth": 14
+    },
+    {
+      "id": "play-annex",
+      "name": "Play garden extension",
+      "x": -8,
+      "z": -8,
+      "width": 6,
+      "depth": 8
+    },
+    {
+      "id": "sun-courtyard",
+      "name": "Sunshine courtyard",
+      "x": -14,
+      "z": -16,
+      "width": 6,
+      "depth": 8
+    }
+  ],
+  "stations": [
+    {
+      "id": "seat-0",
+      "kind": "seat",
+      "x": -3.22,
+      "z": 2.65,
+      "facing": 3.14159,
+      "upgrade": "",
+      "audience": "owner"
+    },
+    {
+      "id": "seat-1",
+      "kind": "seat",
+      "x": -2.51,
+      "z": 2.65,
+      "facing": 3.14159,
+      "upgrade": "",
+      "audience": "owner"
+    },
+    {
+      "id": "seat-2",
+      "kind": "seat",
+      "x": -1.8,
+      "z": 2.65,
+      "facing": 3.14159,
+      "upgrade": "",
+      "audience": "owner"
+    },
+    {
+      "id": "seat-3",
+      "kind": "seat",
+      "x": 2.65,
+      "z": 2.75,
+      "facing": 3.14159,
+      "upgrade": "bench",
+      "audience": "owner"
+    },
+    {
+      "id": "seat-4",
+      "kind": "seat",
+      "x": 3.4,
+      "z": 2.75,
+      "facing": 3.14159,
+      "upgrade": "bench",
+      "audience": "owner"
+    },
+    {
+      "id": "seat-5",
+      "kind": "seat",
+      "x": -9.7,
+      "z": 2.65,
+      "facing": 3.141592653589793,
+      "upgrade": "expansion",
+      "audience": "owner"
+    },
+    {
+      "id": "seat-6",
+      "kind": "seat",
+      "x": -8.1,
+      "z": 2.65,
+      "facing": 3.141592653589793,
+      "upgrade": "expansion",
+      "audience": "owner"
+    },
+    {
+      "id": "seat-7",
+      "kind": "seat",
+      "x": -6.5,
+      "z": 2.65,
+      "facing": 3.141592653589793,
+      "upgrade": "expansion",
+      "audience": "owner"
+    },
+    {
+      "id": "game-0",
+      "kind": "game",
+      "x": -9.2,
+      "z": -2.1,
+      "facing": 1.5708,
+      "upgrade": "table-games",
+      "audience": "owner"
+    },
+    {
+      "id": "game-1",
+      "kind": "game",
+      "x": -7.2,
+      "z": -2.1,
+      "facing": -1.5708,
+      "upgrade": "table-games",
+      "audience": "owner"
+    },
+    {
+      "id": "scratch",
+      "kind": "scratch",
+      "x": -15.5,
+      "z": -2,
+      "facing": 3.14159,
+      "upgrade": "scratch",
+      "audience": "pet",
+      "species": ["cat"],
+      "seconds": 7
+    },
+    {
+      "id": "wheel",
+      "kind": "wheel",
+      "x": -15.5,
+      "z": 1,
+      "facing": 3.14159,
+      "upgrade": "wheel",
+      "audience": "pet",
+      "species": ["hamster", "gerbil"],
+      "seconds": 8
+    },
+    {
+      "id": "carousel",
+      "kind": "carousel",
+      "x": -12.5,
+      "z": -2,
+      "facing": 0,
+      "upgrade": "carousel",
+      "audience": "pet",
+      "species": ["dog", "rabbit"],
+      "seconds": 8
+    },
+    {
+      "id": "toys",
+      "kind": "toys",
+      "x": -12.5,
+      "z": 1,
+      "facing": 0,
+      "upgrade": "pet-room",
+      "audience": "pet",
+      "species": ["dog", "cat", "rabbit"],
+      "seconds": 6
+    },
+    {
+      "id": "coaster",
+      "kind": "coaster",
+      "x": -14.5,
+      "z": -9.5,
+      "facing": 0,
+      "upgrade": "coaster",
+      "audience": "pet",
+      "species": ["dog", "cat", "rabbit"],
+      "seconds": 12
+    },
+    {
+      "id": "ferris",
+      "kind": "ferris",
+      "x": -14.5,
+      "z": -5.3,
+      "facing": 0,
+      "upgrade": "ferris",
+      "audience": "pet",
+      "species": ["dog", "cat", "rabbit"],
+      "seconds": 12
+    },
+    {
+      "id": "standing",
+      "kind": "standing",
+      "x": 2.3,
+      "z": 1.4,
+      "facing": 3.14159,
+      "upgrade": "",
+      "audience": "owner"
+    },
+    {
+      "id": "treat-dispenser",
+      "kind": "treat-dispenser",
+      "x": -9.65,
+      "z": -5.5,
+      "facing": 0,
+      "upgrade": "treat-dispenser",
+      "audience": "pet",
+      "species": ["dog", "cat", "rabbit", "hamster", "gerbil"],
+      "seconds": 7,
+      "queueX": -8.45,
+      "queueZ": -4.85
+    },
+    {
+      "id": "water-dispenser",
+      "kind": "water-dispenser",
+      "x": -6.35,
+      "z": -5.5,
+      "facing": 0,
+      "upgrade": "water-dispenser",
+      "audience": "pet",
+      "species": ["dog", "cat", "rabbit", "hamster", "gerbil", "bird"],
+      "seconds": 7,
+      "queueX": -7.55,
+      "queueZ": -4.85
+    },
+    {
+      "id": "toy-box",
+      "kind": "toy-box",
+      "x": -9.65,
+      "z": -8,
+      "facing": 0,
+      "upgrade": "toy-box",
+      "audience": "pet",
+      "species": ["dog", "rabbit", "hamster", "gerbil"],
+      "seconds": 8,
+      "queueX": -8.45,
+      "queueZ": -7.35
+    },
+    {
+      "id": "yarn",
+      "kind": "yarn",
+      "x": -6.35,
+      "z": -8,
+      "facing": 0,
+      "upgrade": "yarn",
+      "audience": "pet",
+      "species": ["cat"],
+      "seconds": 8,
+      "queueX": -7.55,
+      "queueZ": -7.35
+    },
+    {
+      "id": "aviary",
+      "kind": "aviary",
+      "x": -9.65,
+      "z": -10.5,
+      "facing": 0,
+      "upgrade": "aviary",
+      "audience": "pet",
+      "species": ["bird"],
+      "seconds": 12,
+      "queueX": -8.45,
+      "queueZ": -9.85
+    },
+    {
+      "id": "play-tree",
+      "kind": "play-tree",
+      "x": -6.35,
+      "z": -10.5,
+      "facing": 0,
+      "upgrade": "play-tree",
+      "audience": "pet",
+      "species": ["cat", "bird"],
+      "seconds": 12,
+      "queueX": -7.55,
+      "queueZ": -9.85
+    },
+    {
+      "id": "puzzle-0",
+      "kind": "game",
+      "x": -15.8,
+      "z": -13.6,
+      "facing": 1.5708,
+      "upgrade": "puzzle-table",
+      "audience": "owner"
+    },
+    {
+      "id": "puzzle-1",
+      "kind": "game",
+      "x": -13.8,
+      "z": -13.6,
+      "facing": -1.5708,
+      "upgrade": "puzzle-table",
+      "audience": "owner"
+    },
+    {
+      "id": "bubbles",
+      "kind": "bubbles",
+      "x": -12.8,
+      "z": -16.2,
+      "facing": 0,
+      "upgrade": "bubbles",
+      "audience": "pet",
+      "species": ["dog", "cat", "rabbit"],
+      "seconds": 9,
+      "queueX": -13.7,
+      "queueZ": -15.6
+    },
+    {
+      "id": "cat-nook",
+      "kind": "cat-nook",
+      "x": -15.4,
+      "z": -18.6,
+      "facing": 0,
+      "upgrade": "cat-nook",
+      "audience": "pet",
+      "species": ["cat"],
+      "seconds": 10,
+      "queueX": -13.8,
+      "queueZ": -17.9
+    },
+    {
+      "id": "bird-chimes",
+      "kind": "bird-chimes",
+      "x": -12.65,
+      "z": -18.4,
+      "facing": 0,
+      "upgrade": "bird-chimes",
+      "audience": "pet",
+      "species": ["bird"],
+      "seconds": 12,
+      "queueX": -11.85,
+      "queueZ": -17.5
+    }
+  ],
+  "examination": {
+    "x": 1.5,
+    "z": -7,
+    "width": 7,
+    "depth": 6,
+    "doorX": 3.5,
+    "doorZ": -4
+  }
+}

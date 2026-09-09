@@ -8,6 +8,7 @@ const baseline: Record<Species, number> = {
   hamster: 320,
   gerbil: 300,
   goldfish: 120,
+  bird: 240,
 };
 export function clinicalProfile(visit: Visit) {
   const c = visit.clinical ?? {};
@@ -19,6 +20,7 @@ export function clinicalProfile(visit: Visit) {
     heart: c.heart ?? 'normal',
     bpm: Math.round(baseline[visit.species] * (c.heart === 'fast' ? 1.45 : 1)),
     water: c.water ?? 'clear',
+    temperature: c.fever ? 'Fever' : 'Comfortable',
     dentalFamily: ['dog', 'cat'].includes(visit.species)
       ? 'carnivore'
       : 'rodent',

@@ -1,0 +1,106 @@
+{
+  "entrance": {
+    "x": 22,
+    "z": -6
+  },
+  "hub": {
+    "x": 22,
+    "z": -10
+  },
+  "pond": {
+    "x": 25.2,
+    "z": -7,
+    "radius": 1.25
+  },
+  "benches": [
+    {
+      "x": 17.3,
+      "z": -5,
+      "facing": 3.141592653589793
+    },
+    {
+      "x": 20.5,
+      "z": -5,
+      "facing": 3.141592653589793
+    },
+    {
+      "x": 23.7,
+      "z": -5,
+      "facing": 3.141592653589793
+    },
+    {
+      "x": 17.3,
+      "z": -15,
+      "facing": 0
+    },
+    {
+      "x": 20.5,
+      "z": -15,
+      "facing": 0
+    },
+    {
+      "x": 23.3,
+      "z": -13.9,
+      "facing": 0
+    },
+    {
+      "x": 16.6,
+      "z": -7.5,
+      "facing": 1.5707963267948966
+    },
+    {
+      "x": 16.6,
+      "z": -10.2,
+      "facing": 1.5707963267948966
+    },
+    {
+      "x": 16.6,
+      "z": -12.8,
+      "facing": 1.5707963267948966
+    }
+  ],
+  "stations": [
+    {
+      "id": "fetch",
+      "label": "fetch lawn",
+      "x": 19.1,
+      "z": -7.5,
+      "species": ["dog"]
+    },
+    {
+      "id": "agility",
+      "label": "agility hoops",
+      "x": 24.2,
+      "z": -10,
+      "species": ["dog"]
+    },
+    {
+      "id": "scratch",
+      "label": "climbing log",
+      "x": 19,
+      "z": -10,
+      "species": ["cat"]
+    },
+    {
+      "id": "pounce",
+      "label": "butterfly garden",
+      "x": 23.8,
+      "z": -12.7,
+      "species": ["cat", "rabbit"]
+    },
+    {
+      "id": "tunnel",
+      "label": "small-pet tunnel run",
+      "x": 19,
+      "z": -12.8,
+      "species": ["rabbit", "hamster", "gerbil"]
+    },
+    {
+      "id": "perch",
+      "label": "bird play perch",
+      "x": 25,
+      "z": -11.9,
+      "species": ["bird"]
+    }
+  ]
+}

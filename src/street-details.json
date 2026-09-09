@@ -1,0 +1,140 @@
+[
+  {
+    "id": "lamppost-0",
+    "kind": "lamppost",
+    "x": -12.0,
+    "z": -3.55
+  },
+  {
+    "id": "lamppost-1",
+    "kind": "lamppost",
+    "x": 4.0,
+    "z": 3.55
+  },
+  {
+    "id": "lamppost-2",
+    "kind": "lamppost",
+    "x": 18.0,
+    "z": -3.55
+  },
+  {
+    "id": "lamppost-3",
+    "kind": "lamppost",
+    "x": -30.306,
+    "z": -7.838
+  },
+  {
+    "id": "lamppost-4",
+    "kind": "lamppost",
+    "x": -32.678,
+    "z": -22.987
+  },
+  {
+    "id": "lamppost-5",
+    "kind": "lamppost",
+    "x": -15.676,
+    "z": -22.182
+  },
+  {
+    "id": "lamppost-6",
+    "kind": "lamppost",
+    "x": -1.007,
+    "z": -29.235
+  },
+  {
+    "id": "lamppost-7",
+    "kind": "lamppost",
+    "x": 12.394,
+    "z": -19.835
+  },
+  {
+    "id": "lamppost-8",
+    "kind": "lamppost",
+    "x": 28.748,
+    "z": -19.797
+  },
+  {
+    "id": "lamppost-9",
+    "kind": "lamppost",
+    "x": 27.514,
+    "z": -5.19
+  },
+  {
+    "id": "lamppost-10",
+    "kind": "lamppost",
+    "x": -28.98,
+    "z": 5.862
+  },
+  {
+    "id": "lamppost-11",
+    "kind": "lamppost",
+    "x": -32.971,
+    "z": 20.842
+  },
+  {
+    "id": "lamppost-12",
+    "kind": "lamppost",
+    "x": -16.651,
+    "z": 22.79
+  },
+  {
+    "id": "lamppost-13",
+    "kind": "lamppost",
+    "x": -2.12,
+    "z": 30.021
+  },
+  {
+    "id": "lamppost-14",
+    "kind": "lamppost",
+    "x": 11.09,
+    "z": 19.64
+  },
+  {
+    "id": "lamppost-15",
+    "kind": "lamppost",
+    "x": 28.727,
+    "z": 20.855
+  },
+  {
+    "id": "lamppost-16",
+    "kind": "lamppost",
+    "x": 28.711,
+    "z": 5.774
+  },
+  {
+    "id": "hydrant-0-3",
+    "kind": "hydrant",
+    "x": -18.0,
+    "z": 3.5
+  },
+  {
+    "id": "hydrant-0-7",
+    "kind": "hydrant",
+    "x": 12.0,
+    "z": -3.5
+  },
+  {
+    "id": "hydrant-1-15",
+    "kind": "hydrant",
+    "x": -26.862,
+    "z": -26.995
+  },
+  {
+    "id": "hydrant-1-38",
+    "kind": "hydrant",
+    "x": 17.888,
+    "z": -25.603
+  },
+  {
+    "id": "hydrant-2-15",
+    "kind": "hydrant",
+    "x": -22.241,
+    "z": 20.974
+  },
+  {
+    "id": "hydrant-2-38",
+    "kind": "hydrant",
+    "x": 17.077,
+    "z": 18.232
+  }
+]

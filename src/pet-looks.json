@@ -1,0 +1,110 @@
+{
+  "looks": [
+    {
+      "id": "dog-golden",
+      "species": "dog",
+      "breed": "Golden retriever",
+      "coat": [0.76, 0.47, 0.22],
+      "accent": [0.95, 0.78, 0.48],
+      "style": "retriever"
+    },
+    {
+      "id": "dog-terrier",
+      "species": "dog",
+      "breed": "Wire-haired terrier",
+      "coat": [0.67, 0.55, 0.4],
+      "accent": [0.92, 0.86, 0.72],
+      "style": "terrier"
+    },
+    {
+      "id": "dog-spaniel",
+      "species": "dog",
+      "breed": "Chestnut spaniel",
+      "coat": [0.38, 0.15, 0.07],
+      "accent": [0.96, 0.89, 0.75],
+      "style": "spaniel"
+    },
+    {
+      "id": "dog-collie",
+      "species": "dog",
+      "breed": "Border collie",
+      "coat": [0.055, 0.065, 0.075],
+      "accent": [0.94, 0.94, 0.88],
+      "style": "collie"
+    },
+    {
+      "id": "cat-silver",
+      "species": "cat",
+      "breed": "Silver British shorthair",
+      "coat": [0.47, 0.53, 0.56],
+      "accent": [0.16, 0.2, 0.24],
+      "style": "tabby"
+    },
+    {
+      "id": "cat-ginger",
+      "species": "cat",
+      "breed": "Ginger Maine Coon",
+      "coat": [0.88, 0.43, 0.14],
+      "accent": [0.48, 0.2, 0.055],
+      "style": "tabby"
+    },
+    {
+      "id": "cat-tuxedo",
+      "species": "cat",
+      "breed": "Tuxedo shorthair",
+      "coat": [0.055, 0.07, 0.085],
+      "accent": [0.96, 0.94, 0.88],
+      "style": "tuxedo"
+    },
+    {
+      "id": "cat-siamese",
+      "species": "cat",
+      "breed": "Siamese",
+      "coat": [0.84, 0.74, 0.59],
+      "accent": [0.2, 0.12, 0.1],
+      "style": "siamese"
+    },
+    {
+      "id": "bird-budgie",
+      "species": "bird",
+      "breed": "Blue budgie",
+      "coat": [0.15, 0.57, 0.78],
+      "accent": [0.87, 0.95, 0.94],
+      "style": "budgie"
+    },
+    {
+      "id": "bird-cockatiel",
+      "species": "bird",
+      "breed": "Grey cockatiel",
+      "coat": [0.47, 0.51, 0.55],
+      "accent": [0.98, 0.84, 0.27],
+      "style": "cockatiel"
+    },
+    {
+      "id": "bird-canary",
+      "species": "bird",
+      "breed": "Golden canary",
+      "coat": [0.98, 0.76, 0.12],
+      "accent": [1.0, 0.91, 0.42],
+      "style": "canary"
+    }
+  ],
+  "pets": {
+    "Luna": "dog-golden",
+    "Hazel": "dog-golden",
+    "Scout": "dog-terrier",
+    "Maple": "dog-spaniel",
+    "Daisy": "dog-collie",
+    "Teddy": "dog-spaniel",
+    "Waffles": "dog-terrier",
+    "Milo": "cat-silver",
+    "Cleo": "cat-tuxedo",
+    "Poppy": "cat-siamese",
+    "Biscuit": "cat-ginger",
+    "Mochi": "cat-siamese",
+    "Ziggy": "cat-tuxedo",
+    "Pico": "bird-budgie",
+    "Pepper": "bird-cockatiel",
+    "Melody": "bird-canary"
+  }
+}
