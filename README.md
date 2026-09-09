@@ -1,13 +1,49 @@
 # Louise's Vet Office
 
-A cosy browser game made for Louise, ages 7 and up. Welcome neighbours into a
-2.5D clinic, examine their pets in 3D, put clues together, and give gentle care.
-Earn happy hearts and coins to grow the office.
+**[Play Louise's Vet Office at louise.vet](https://louise.vet/)**
 
-The first playable slice includes six pet species, eleven authored visits,
-interactive 3D examination tools, diagnosis choices, instrument-specific care activities,
-retail treats, twelve shop items, saved progress, and optional original sounds.
-Louise has a personalised illustrated portrait and a Blender character.
+A cosy browser game made for Louise and designed for animal lovers aged **7 and
+up**. Step into Louise's shoes as the neighbourhood vet in Hookville: meet the
+families, help their pets feel better, and turn a little clinic into a welcoming
+place for the whole town. Play straight in your browser, with no installation or
+account needed.
+
+## A little clinic, a whole town of adventures
+
+- **Meet pets with personality.** Care for dogs, cats, birds, rabbits, hamsters,
+  gerbils and goldfish, with named owners and a variety of breeds and colours.
+- **Be a pet detective.** Rotate around animals in 3D, listen to heartbeats,
+  examine ears, look at X-rays and piece together clues. Routine checkups and
+  vaccinations have their own guided visits, and fish get special water checks.
+- **Practise a gentle touch.** Wrap bandages, spread cream, brush fur and try
+  other hands-on care activities, each suited to its tool. Friendly prompts help
+  players try again when something doesn't go to plan.
+- **Watch Hookville come alive.** Follow families from their homes to the clinic
+  and back, explore a park with ducks and pet activities, and watch police and
+  firefighters reunite lost pets with their owners. Sunshine, brief showers and
+  rescue stories bring variety to town life.
+- **Build a clinic to be proud of.** Earn happy hearts and in-game coins through
+  caring for animals. Spend those coins on rooms, equipment, decorations and
+  waiting-room comforts, or create a pet playground with climbing trees, an
+  aviary, a tiny rollercoaster and a Ferris wheel.
+
+## For parents
+
+The game invites children to notice clues, make caring choices and plan how to
+spend their rewards. Large, rounded text and clear prompts support reading;
+sound is optional, and care activities allow retries without hurting the pet.
+Younger players may enjoy reading the visit stories with an adult.
+
+The tone is gentle and cartoon-like. Some stories include lost pets, non-graphic
+road accidents or house fires with rescue scenes; every pet recovers, with no
+blood or animal deaths. The care is simplified storybook play, rather than
+instructions for treating real animals.
+
+Progress saves automatically in the current browser. Use the same browser and
+device to continue your clinic; clearing site data removes that saved progress.
+There is no account or cloud save.
+
+## About the project
 
 TypeScript, Vite, and Three.js run the game. Original Blender models are exported
 as GLB; Nginx serves the finished static build. There is no game server or account
