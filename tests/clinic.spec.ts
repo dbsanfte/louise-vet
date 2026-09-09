@@ -129,12 +129,14 @@ test('all authored visits are playable and every pet can receive care', async ({
     testInfo.project.name !== 'desktop',
     'Full case coverage runs once; the core loop also runs on mobile.',
   );
-  test.setTimeout(480000);
   const {
     authoredVisits: visits,
     toolInfo,
     zoneNames,
   } = await import('../src/game');
+  // Each visit includes real town travel, clinic escort and instrument activity.
+  // Keep the same per-visit allowance as the individual integration tests.
+  test.setTimeout(visits.length * 90000);
   // This sweep verifies authored conditions. Random accidents have their own
   // journey/care tests and must not replace Maple's fever during the long run.
   const { TownSimulation } = await import('../src/town-simulation');
@@ -241,7 +243,10 @@ test('all authored visits are playable and every pet can receive care', async ({
       );
       await expect(page.getByRole('meter')).toBeVisible();
       await expect(page.getByTestId('coins')).toHaveText(coinsBefore!);
-      await page.getByRole('button', { name: 'Stop visit' }).click();
+      await page
+        .locator('.skill-dialog')
+        .getByRole('button', { name: 'Stop visit' })
+        .click();
       await expect(page.locator('#app')).toHaveAttribute(
         'data-mode',
         'reception',
