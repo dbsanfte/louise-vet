@@ -20,6 +20,7 @@ import { Town, type TownPick } from './town';
 import { TownSimulation } from './town-simulation';
 import { clinicPlan, townToLocal } from './clinic-leisure';
 import { layout, localToTown, examRoom } from './town-map';
+import type { ClinicInfo } from './clinic-identity';
 
 const assetNames = [
   'clinic',
@@ -66,6 +67,14 @@ export class World {
 
   onTownPick: (id: TownPick) => void = () => {};
   onClinicMove: () => void = () => {};
+  onClinicPick: (info?: ClinicInfo) => void = () => {};
+  private clinicHover?: { clientX: number; clientY: number };
+  private clinicSelection?: THREE.Object3D;
+  private clinicPressTarget?: THREE.Object3D;
+  private clinicInfoKey = '';
+  private clinicPickAt = 0;
+  private clinicPointers = new Set<number>();
+  private clinicDragged = false;
   private reception = new THREE.Group();
   private treatment = new THREE.Group();
   private decoration = new THREE.Group();
@@ -224,7 +233,10 @@ export class World {
     this.clinicControls.addEventListener('change', () => {
       this.needsRender = true;
     });
-    this.clinicControls.addEventListener('start', () => this.onClinicMove());
+    this.clinicControls.addEventListener('start', () => {
+      this.clearClinicPick();
+      this.onClinicMove();
+    });
     this.townControls = new OrbitControls(
       this.townCamera,
       this.renderer.domElement,
@@ -243,7 +255,20 @@ export class World {
     this.reception.add(this.decoration);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(container);
+    window.addEventListener('blur', () => {
+      this.clinicPointers.clear();
+      this.clinicDragged = true;
+      this.clearClinicPick();
+    });
     this.renderer.domElement.addEventListener('pointerdown', (e) => {
+      if (this.mode === 'reception') {
+        this.clearClinicPick();
+        if (!this.clinicPointers.size) this.clinicDragged = false;
+        this.clinicPointers.add(e.pointerId);
+        if (this.clinicPointers.size > 1) this.clinicDragged = true;
+        else if (e.button === 0 && e.isPrimary)
+          this.clinicPressTarget = this.clinicTargetAt(e);
+      }
       if (this.mode === 'town') {
         this.followedFamily = undefined;
         this.onTownPick(undefined);
@@ -261,16 +286,50 @@ export class World {
     this.renderer.domElement.addEventListener('pointermove', (e) => {
       if (this.mode === 'town') {
         if (e.pointerType === 'mouse' && !e.buttons) this.pickTown(e);
+      } else if (this.mode === 'reception') {
+        if (
+          this.clinicPointers.size &&
+          Math.hypot(
+            e.clientX - this.pointerStart.x,
+            e.clientY - this.pointerStart.y,
+          ) >= 8
+        )
+          this.clinicDragged = true;
+        if (e.pointerType === 'mouse' && !e.buttons) {
+          this.clinicHover = { clientX: e.clientX, clientY: e.clientY };
+          this.pickClinic(this.clinicHover);
+        }
       } else this.moveInstrument(e);
     });
     this.renderer.domElement.addEventListener('pointerleave', (e) => {
       if (this.mode === 'town' && e.pointerType === 'mouse')
         this.onTownPick(undefined);
+      if (this.mode === 'reception' && e.pointerType === 'mouse')
+        this.clearClinicPick();
     });
-    this.renderer.domElement.addEventListener('pointercancel', () => {
+    this.renderer.domElement.addEventListener('pointercancel', (e) => {
       this.examining = false;
+      this.clinicPointers.delete(e.pointerId);
+      this.clinicDragged = true;
+      this.clearClinicPick();
     });
     this.renderer.domElement.addEventListener('pointerup', (e) => {
+      const clinicPress = this.clinicPointers.delete(e.pointerId);
+      if (this.mode === 'reception') {
+        if (
+          clinicPress &&
+          !this.clinicDragged &&
+          e.button === 0 &&
+          e.isPrimary
+        ) {
+          // A moving rider may have left this pixel since the finger went down.
+          // Commit the original surface only after ruling out an orbit gesture.
+          this.clinicSelection = this.clinicPressTarget;
+          this.publishClinicInfo();
+        }
+        this.clinicPressTarget = undefined;
+        return;
+      }
       if (this.mode === 'town') {
         if (
           Math.hypot(
@@ -340,6 +399,10 @@ export class World {
     const louise = this.clone('louise');
     this.louise = louise;
     louise.userData.townLabel = 'Louise · Vet';
+    louise.userData.clinicInfo = {
+      name: 'Louise',
+      description: 'Your friendly vet',
+    };
     louise.position.set(-1.3, 0, -2.75);
     this.reception.add(louise);
     this.louiseAnimation = new Character(louise);
@@ -453,6 +516,7 @@ export class World {
     }
   }
   focusClinic(view: string) {
+    this.clearClinicPick();
     const centre =
       view === 'lounge' || view === 'annex'
         ? -8
@@ -503,6 +567,7 @@ export class World {
   }
 
   panClinicCamera(x: number, y: number) {
+    this.clearClinicPick();
     const away = this.ortho.position.clone().sub(this.clinicControls.target);
     away.y = 0;
     away.normalize();
@@ -516,6 +581,7 @@ export class World {
   }
 
   zoomClinic(amount: number) {
+    this.clearClinicPick();
     this.ortho.zoom = THREE.MathUtils.clamp(
       this.ortho.zoom / amount,
       this.clinicControls.minZoom,
@@ -528,6 +594,7 @@ export class World {
   }
 
   async showTown() {
+    this.clearClinicPick();
     if (!this.town && !this.townLoading) {
       const town = new Town(
         (name) => this.clone(name as Asset),
@@ -571,6 +638,39 @@ export class World {
       this.townCamera,
     );
     this.onTownPick(this.town.pick(this.raycaster));
+  }
+  private pickClinic(point: { clientX: number; clientY: number }) {
+    this.clinicSelection = this.clinicTargetAt(point);
+    this.publishClinicInfo();
+  }
+  private clinicTargetAt(point: { clientX: number; clientY: number }) {
+    if (!this.loaded || !this.town || this.mode !== 'reception') return;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.scene.updateMatrixWorld(true);
+    this.raycaster.setFromCamera(
+      new THREE.Vector2(
+        ((point.clientX - rect.left) / rect.width) * 2 - 1,
+        1 - ((point.clientY - rect.top) / rect.height) * 2,
+      ),
+      this.ortho,
+    );
+    return this.town.pickClinic(this.raycaster, this.reception);
+  }
+  private publishClinicInfo() {
+    const info = this.clinicSelection
+      ? this.town?.describeClinic(this.clinicSelection)
+      : undefined;
+    const key = JSON.stringify(info) ?? '';
+    if (key !== this.clinicInfoKey) {
+      this.clinicInfoKey = key;
+      this.onClinicPick(info);
+    }
+  }
+  clearClinicPick() {
+    this.clinicHover = undefined;
+    this.clinicSelection = undefined;
+    this.clinicPressTarget = undefined;
+    this.publishClinicInfo();
   }
   focusHome(id: number) {
     this.followedFamily = undefined;
@@ -649,6 +749,7 @@ export class World {
     this.townControls.update();
   }
   showReception() {
+    this.clearClinicPick();
     this.examination.select(null, false);
     this.examining = false;
     this.hoverZone = null;
@@ -667,6 +768,7 @@ export class World {
     this.resize();
   }
   showTreatment(visit: Visit) {
+    this.clearClinicPick();
     const species = visit.species;
     this.patientAnimation?.dispose();
     if (this.animal) this.treatment.remove(this.animal);
@@ -840,6 +942,11 @@ export class World {
     if (!this.loaded) return;
     if (this.mode === 'reception') this.clinicControls.update();
     this.town?.update(dt, this.mode !== 'treatment');
+    if (this.mode === 'reception' && time - this.clinicPickAt > 200) {
+      this.clinicPickAt = time;
+      if (this.clinicHover) this.pickClinic(this.clinicHover);
+      else if (this.clinicSelection) this.publishClinicInfo();
+    }
     const wet = this.mode === 'town' ? this.simulation.weather.wetness : 0;
     this.sunlight.intensity = 2 - wet * 1.35;
     this.sunlight.color.set(0xffe6c0).lerp(new THREE.Color(0xd0ddea), wet);

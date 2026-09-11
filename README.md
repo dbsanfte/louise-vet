@@ -99,6 +99,12 @@ Hookville also fits the window: **Homes** pages through the household directory,
 
 The office fits the browser window: bottom navigation stays visible, with two patients per page and a **While you wait** tab for paged activities. The larger playground stays inside the clinic grounds and offers a purchasable **Pet rollercoaster** and **Pet Ferris wheel**. Pets queue and ride in moving cars/cabins; a called rider finishes its lap before getting out.
 
+Hover or tap people, pets and attractions in the clinic to see their names.
+Pets using an attraction also share how they feel about it, from excitement on
+the rollercoaster to a cosy snooze in the cat nook. The information appears in
+the sidebar without moving the controls; close it or move the camera to return
+to the patient list.
+
 Owners check in once on arrival, then stay at their waiting seat or game table until called. Buy books for seated reading and a
 board-game table for the lounge. The playground includes a toy corner; add a
 scratching post, exercise wheel, or merry-go-round to watch suitable pets queue

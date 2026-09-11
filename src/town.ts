@@ -20,6 +20,7 @@ import { enrichmentPose, isEnrichment } from './clinic-enrichment';
 import { walkRoute } from './movement';
 import type { UpgradeId } from './game';
 import { layout, garden, localToTown, distance } from './town-map';
+import { attractionFeeling, type ClinicInfo } from './clinic-identity';
 
 export type TownPick = number | { label: string } | undefined;
 
@@ -217,6 +218,11 @@ export class Town {
         });
       const owner = this.cloneCharacter(h.pets[0].ownerModel);
       owner.userData.ownerName = h.owner;
+      owner.userData.clinicHousehold = h.id;
+      owner.userData.clinicInfo = {
+        name: h.owner,
+        description: `${h.pets.map((p) => p.name).join(' & ')}’s owner`,
+      };
       owner.userData.townLabel = `${h.owner} · ${h.pets.map((p) => p.name).join(' & ')}’s owner`;
       owner.scale.setScalar(0.602);
       const ownerAnimation = new Character(owner, h.id * 0.31);
@@ -229,6 +235,11 @@ export class Town {
       const pets = h.pets.map((visit, i) => {
         const model = this.cloneCharacter(petAsset(visit));
         model.userData.petName = visit.name;
+        model.userData.clinicInfo = {
+          name: visit.name,
+          description: `${h.owner}’s ${visit.species}`,
+        };
+        model.userData.clinicHousehold = h.id;
         model.userData.townLabel = `${visit.name} · ${h.owner}’s ${visit.species}`;
         model.scale.setScalar(0.4);
         const animation = new Character(model, i * 0.31);
@@ -327,6 +338,46 @@ export class Town {
     return object?.userData.townLabel
       ? { label: object.userData.townLabel }
       : object?.userData.homeId;
+  }
+  pickClinic(raycaster: THREE.Raycaster, clinic: THREE.Object3D) {
+    const actors = this.residents.flatMap((r, i) =>
+      this.simulation.households[i].inClinic
+        ? [r.owner, ...r.pets.map((p) => p.model)]
+        : [],
+    );
+    // Include walls, seats and ride geometry in the same depth test. Only the
+    // closest visible surface identifies something; no picking through a wall.
+    const hit = raycaster
+      .intersectObjects([clinic, this.furniture.group, ...actors], true)
+      .find((h) => this.isVisible(h.object));
+    let object: THREE.Object3D | null = hit?.object ?? null;
+    while (object && !object.userData.clinicInfo) object = object.parent;
+    return object ?? undefined;
+  }
+  describeClinic(object: THREE.Object3D): ClinicInfo | undefined {
+    if (!this.isVisible(object)) return undefined;
+    const info = object.userData.clinicInfo as ClinicInfo | undefined;
+    if (!info) return undefined;
+    const household =
+      this.simulation.households[object.userData.clinicHousehold];
+    if (!household) return info;
+    if (!household.inClinic) return undefined;
+    const ticket =
+      household.ticket === undefined
+        ? undefined
+        : this.simulation.tickets.get(household.ticket);
+    return {
+      ...info,
+      feeling:
+        ticket?.pet === info.name
+          ? attractionFeeling(this.simulation.leisure.pets.get(ticket.id))
+          : undefined,
+    };
+  }
+  private isVisible(object: THREE.Object3D) {
+    for (let o: THREE.Object3D | null = object; o; o = o.parent)
+      if (!o.visible) return false;
+    return true;
   }
   recordOwnerPaths() {
     this.residents.forEach((r, i) =>

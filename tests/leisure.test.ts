@@ -1,4 +1,8 @@
 import { callToRoom } from './clinic-helpers.ts';
+import {
+  clinicAttractions,
+  attractionFeeling,
+} from '../src/clinic-identity.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TownSimulation } from '../src/town-simulation.ts';
@@ -28,6 +32,35 @@ const owned = upgrades
 const tick = (s: TownSimulation, t: number) => {
   for (let i = 0; i < t * 10; i++) s.update(0.1);
 };
+test('every pet attraction has a name and a reaction only during an active turn', () => {
+  const s = setup();
+  tick(s, 30);
+  const activity = [...s.leisure.pets.values()][0];
+  assert.ok(activity);
+  const before = s.snapshot();
+  for (const station of clinicPlan.stations.filter(
+    (s) => s.audience === 'pet',
+  )) {
+    assert.ok(clinicAttractions[station.id]?.name, station.id);
+    assert.ok(
+      attractionFeeling({ ...activity, station: station.id, phase: 'use' }),
+      station.id,
+    );
+    for (const phase of ['walk', 'queue', 'board', 'return', 'rest'] as const)
+      assert.equal(
+        attractionFeeling({ ...activity, station: station.id, phase }),
+        undefined,
+      );
+  }
+  assert.equal(attractionFeeling(undefined), undefined);
+  assert.deepEqual(
+    s.snapshot(),
+    before,
+    'looking does not change turns, saves or rewards',
+  );
+  assert.match(clinicAttractions['cat-nook'].feeling, /Cosy/);
+  assert.match(clinicAttractions['water-dispenser'].feeling, /Refreshed/);
+});
 function setup(
   names = ['Luna', 'Milo', 'Peanut', 'Sunny', 'Hazel', 'Cleo', 'Pip', 'Daisy'],
 ) {

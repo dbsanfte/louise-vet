@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clinicPlan, type ClinicLeisure } from './clinic-leisure';
 import { layout } from './town-map';
 import type { UpgradeId } from './game';
+import { clinicFixtureNames } from './clinic-identity';
 export class ClinicFurniture {
   readonly group = new THREE.Group();
   private assets = new Map<string, THREE.Group>();
@@ -72,6 +73,11 @@ export class ClinicFurniture {
       inverse = false,
     ) => {
       const model = this.assets.get(name)!.clone(true);
+      if (clinicFixtureNames[name])
+        model.userData.clinicInfo = {
+          name: clinicFixtureNames[name],
+          description: 'Clinic attraction',
+        };
       model.position.set(x, 0, z);
       this.group.add(model);
       this.fixtures.push({ model, upgrade, inverse });

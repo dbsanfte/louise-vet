@@ -2605,6 +2605,53 @@ html:has(#clue-summary:not([hidden])) {
   gap: 8px;
   align-items: center;
 }
+.clinic-list-slot {
+  position: relative;
+}
+.clinic-list-slot.inspecting > :is(.patient-list, ul) {
+  visibility: hidden;
+}
+.clinic-inspection {
+  position: absolute;
+  inset: 0;
+  padding: 8px 10px;
+  border: 2px solid #a8c18f;
+  border-radius: 14px;
+  background: #f4f8e9;
+  color: #354b3c;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.clinic-inspection .icon-button {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 24px;
+}
+.inspection-name,
+.inspection-description {
+  padding-right: 30px;
+}
+.inspection-name {
+  font-size: 18px;
+  line-height: 1.15;
+}
+.inspection-description {
+  font-size: 14px;
+  line-height: 1.2;
+}
+.inspection-feeling {
+  margin: 3px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.2;
+}
 .office-tabs button {
   flex: 1;
   min-height: 44px;
