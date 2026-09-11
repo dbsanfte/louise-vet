@@ -35,6 +35,11 @@ commit-tagged and `latest` images to private GHCR, then send the **same tested i
 artifact** to the dedicated `louise-vet-eqvm` runner. Its `louise-vet-deploy` label
 selects the deployment job. The `production` GitHub environment accepts `main` only.
 
+The repository is `dbsanfte/louise-vet`; the container package remains
+`ghcr.io/dbsanfte/vet-game`. Build, browser verification, publication and the
+installed helper all use that stable image name. Renaming the repository must
+not silently change the published image name or the archive's image reference.
+
 The runner runs as the separate `louise-runner` Unix account, without Docker group
 membership or general sudo/cluster credentials. Its sole sudo entry invokes the
 root-owned `/usr/local/sbin/louise-deploy`. That helper accepts a full commit SHA

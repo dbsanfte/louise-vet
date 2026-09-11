@@ -224,13 +224,15 @@ browser and HTTP smoke tests against it. Failed browser runs upload diagnostics.
 After a successful `main` run, it publishes that exact tested image to:
 
 ```text
-ghcr.io/<owner>/<repository>:<full-commit-sha>
-ghcr.io/<owner>/<repository>:latest
+ghcr.io/dbsanfte/vet-game:<full-commit-sha>
+ghcr.io/dbsanfte/vet-game:latest
 ```
 
 Publishing uses the repository's `GITHUB_TOKEN` with `packages: write`; no separate
 registry secret is needed. The repository is
-[dbsanfte/vet-game](https://github.com/dbsanfte/vet-game).
+[dbsanfte/louise-vet](https://github.com/dbsanfte/louise-vet). The container package
+keeps its existing `vet-game` name across repository renames, matching the build,
+browser-test image and installed server deployment helper.
 
 Successful main runs also deploy to **https://louise.vet/** using the dedicated
 `louise-vet-eqvm` runner on the Ubuntu server. Four browser-test shards check the

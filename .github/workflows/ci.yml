@@ -118,10 +118,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish the exact tested image
         env:
-          REPOSITORY: ${{ github.repository }}
           REVISION: ${{ github.sha }}
         run: |
-          image="ghcr.io/${REPOSITORY,,}"
+          # Keep the package name shared by build, verification and the server
+          # helper stable when the GitHub repository is renamed.
+          image="ghcr.io/dbsanfte/vet-game"
           docker load -i /tmp/vet-game-image.tar
           docker tag "$image:$REVISION" "$image:latest"
           docker push "$image:$REVISION"
