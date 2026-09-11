@@ -78,6 +78,10 @@ through its doorway, wait inside, leave after care and return home. Pets along
 for company follow their owner inside and wait nearby, including when the
 patient is a smaller pet and the accompanying animal is a dog. Use
 **Follow [owner]** in a home's panel to find someone on their journey.
+If the clinic is full, families waiting outside eventually say they will come
+back later and continue their day. Their care needs stay saved; they retry later
+when there is room. Families already inside keep their places, with no penalty
+for taking your time over care.
 Families travel to the clinic for scheduled care, fevers, and occasional
 recoverable road accidents, then head home after treatment. **Around Hookville**
 shows recent happenings; **Find [owner]** locates the family. Healthy checkups
@@ -101,7 +105,9 @@ The office fits the browser window: bottom navigation stays visible, with two pa
 
 Hover or tap people, pets and attractions in the clinic for a little bubble
 above their head, following them as they move. It disappears after five seconds
-and leaves the patient menu visible. Pets and owners also share short thoughts
+and leaves the patient menu visible. Names are bold and messages easy to read.
+People speak in bubbles pointing to their mouths; pets think in fluffy clouds
+and only make animal noises when replying. Pets and owners also share reactions
 while playing, eating, walking and taking part in Hookville's rescue stories.
 Every named pet and owner has at least five individual message variants for
 each action or feeling.

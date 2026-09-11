@@ -109,11 +109,42 @@ test('head bubbles identify people, companions and every attraction without repl
     'Louise',
     'Amelia',
     'Luna',
+    'Milo',
     'Scout',
     'Sunny',
     ...Object.values(clinicFixtureNames),
   ]) {
     await pointAt(page, name, touch);
+    const pet = visits.find((p) => p.name === name);
+    const kind = pet
+      ? 'thought'
+      : ['Louise', 'Amelia'].includes(name)
+        ? 'speech'
+        : 'label';
+    await expect(bubble(page)).toHaveAttribute('data-kind', kind);
+    await expect(bubble(page).locator('.bubble-name')).toHaveCSS(
+      'font-weight',
+      '800',
+    );
+    if (kind !== 'label')
+      await expect(bubble(page).locator('.bubble-feeling')).toHaveCSS(
+        'font-weight',
+        '400',
+      );
+    if (kind === 'thought') {
+      await expect(bubble(page).locator('.bubble-cloud')).toBeVisible();
+      await expect(bubble(page).locator('.bubble-link path')).toBeHidden();
+      await expect(bubble(page).locator('.bubble-link circle')).toHaveCount(3);
+    }
+    if (name === 'Amelia' || name === 'Luna') {
+      await page.screenshot({ path: info.outputPath(`${kind}-bubble.png`) });
+      const anchors = await bubble(page).evaluate((b) => ({
+        head: Number((b as HTMLElement).dataset.anchorY),
+        tip: Number((b as HTMLElement).dataset.tipY),
+      }));
+      if (kind === 'speech') expect(anchors.tip).toBeGreaterThan(anchors.head);
+      else expect(anchors.tip).toEqual(anchors.head);
+    }
     expect(await page.locator('.patient-list').boundingBox()).toEqual(menu);
   }
   await expect(page.locator('#clinic-call')).toHaveAttribute(
@@ -308,5 +339,50 @@ test('Hookville rescue feelings appear automatically above the actual owners and
     await page.screenshot({
       path: info.outputPath(`town-bubble-${name}-${phase}.png`),
     });
+    if (phase === 'handover' && speaker === family.owner) {
+      await expect(speech.locator('.bubble-name')).toHaveText(name, {
+        timeout: 10000,
+      });
+      await expect(speech).toHaveAttribute('data-kind', 'speech');
+      const { petReply } = await import('../src/pet-replies');
+      expect(
+        petReply(visits.find((p) => p.name === name)!)!.messages,
+      ).toContain(await speech.locator('.bubble-feeling').textContent());
+      await page.screenshot({ path: info.outputPath('pet-sound-reply.png') });
+    }
   }
+});
+
+test('a family leaving a busy clinic explains its departure in a following speech bubble', async ({
+  page,
+}, info) => {
+  const { crowdedClinic } = await import('./fixtures/entrance-state');
+  await open(page);
+  await page.getByRole('button', { name: 'Hookville', exact: true }).click();
+  const s = crowdedClinic();
+  let leaving = s.households.find((h) => h.retryCareAt !== undefined);
+  for (let i = 0; i < 1400 && !leaving; i++) {
+    s.update(0.1);
+    leaving = s.households.find((h) => h.retryCareAt !== undefined);
+  }
+  expect(leaving).toBeTruthy();
+  const owner = leaving!.owner;
+  await page.evaluate(
+    ({ snapshot, owner }) => window.clinicTownSnapshot(snapshot, owner),
+    { snapshot: s.snapshot(), owner },
+  );
+  const speech = page.locator('.world-bubble[data-source="reaction"]:visible');
+  await expect(speech.locator('.bubble-name')).toHaveText(owner, {
+    timeout: 8000,
+  });
+  await expect(speech).toHaveAttribute('data-kind', 'speech');
+  await expect(speech.locator('.bubble-feeling')).toContainText(
+    'come back later',
+  );
+  const before = await speech.getAttribute('data-anchor-x');
+  await page.evaluate(() => window.clinicAdvance(3));
+  await expect
+    .poll(() => speech.getAttribute('data-anchor-x'))
+    .not.toBe(before);
+  await page.screenshot({ path: info.outputPath('busy-clinic-departure.png') });
 });

@@ -4,6 +4,7 @@ import type { Species } from './game.ts';
 export type ClinicInfo = {
   name: string;
   description: string;
+  bubble?: 'speech' | 'thought' | 'label';
   feeling?: string;
   messages?: string[];
 };

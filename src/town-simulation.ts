@@ -43,13 +43,13 @@ export interface VisitTicket {
   id: number;
   pet: string;
   reason: VisitReason;
-  status: 'travelling' | 'waiting' | 'examining' | 'returning';
+  status: 'travelling' | 'waiting' | 'examining' | 'returning' | 'deferred';
   origin: Point;
   createdAt: number;
 }
 export interface TownEvent {
   pet: string;
-  kind: VisitReason | 'arrived' | 'home';
+  kind: VisitReason | 'arrived' | 'home' | 'deferred';
   at: number;
 }
 export interface RoadIncident {
@@ -77,6 +77,8 @@ export interface Household {
   inClinic: boolean;
   ticket?: number;
   nextCare: number;
+  retryCareAt?: number;
+  busyUntil?: number;
   careCycle: number;
   nextPet: number;
   companions: string[];
@@ -172,6 +174,8 @@ export class TownSimulation {
     if (dogBreak) return dogBreak;
     const emergency = this.emergencies.status(h.id);
     if (emergency) return emergency;
+    if (h.busyUntil !== undefined && this.time < h.busyUntil)
+      return 'The clinic is busy · we will come back later';
     if (h.routine === 'clinic-exit')
       return 'Leaving Louise’s clinic · heading home';
     if (h.routine === 'clinic-enter') return 'Walking in from the street';
@@ -192,8 +196,21 @@ export class TownSimulation {
       chat: 'Chatting with a neighbour',
     }[h.routine];
   }
+  private outingPets(h: Household) {
+    const t = this.tickets.get(h.ticket!);
+    const resting =
+      t?.status === 'deferred' && !['checkup', 'vaccination'].includes(t.reason)
+        ? [
+            t.pet,
+            ...this.emergencies.pending
+              .filter((c) => c.household === h.id)
+              .map((c) => c.pet),
+          ]
+        : [];
+    return h.pets.filter((p) => !resting.includes(p.name)).map((p) => p.name);
+  }
   private leave(h: Household) {
-    h.companions = h.pets.map((p) => p.name);
+    h.companions = this.outingPets(h);
     h.returning = false;
     h.route = routeBetween(h.position, layout.nodes[layout.park]);
     h.routine = 'walk';
@@ -250,6 +267,7 @@ export class TownSimulation {
       'post-fire': 'is safe after a fire and needs a smoke and skin check',
       arrived: 'has arrived at Louise’s office',
       home: 'is safely home after care',
+      deferred: 'will visit later because the clinic is busy',
     }[event.kind];
     return `${event.pet} ${action}.`;
   }
@@ -268,12 +286,13 @@ export class TownSimulation {
     this.record(pet.name, reason);
     return ticket;
   }
+  private get incomingCare() {
+    return [...this.tickets.values()].filter((t) =>
+      ['travelling', 'waiting', 'examining'].includes(t.status),
+    ).length;
+  }
   requestVisit(petName: string, reason: VisitReason) {
-    if (
-      [...this.tickets.values()].filter((t) => t.status !== 'returning')
-        .length >= this.capacity
-    )
-      return false;
+    if (this.incomingCare >= this.capacity) return false;
     const pet = this.roster.find((p) => p.name === petName);
     const h = this.households.find((h) => h.owner === pet?.owner);
     if (
@@ -435,6 +454,58 @@ export class TownSimulation {
     if (this.incident?.ticket === t.id) this.incident.phase = 'at-clinic';
     this.record(t.pet, 'arrived');
   }
+  private deferVisit(h: Household) {
+    const t = this.tickets.get(h.ticket!)!;
+    t.status = 'deferred';
+    h.retryCareAt = this.time + 180 + h.id * 3 + this.random() * 66;
+    h.busyUntil = this.time + 12;
+    this.entrance.release(h.id);
+    // Keep the original patient, reason and any companion rescue care. No
+    // treatment/reward has happened; only their place outside is released.
+    const destination = ['checkup', 'vaccination'].includes(t.reason)
+      ? layout.nodes[layout.park]
+      : garden(layout.lots[h.lot]);
+    h.returning = !['checkup', 'vaccination'].includes(t.reason);
+    h.route = [
+      { x: h.position.x, z: -2.55 },
+      ...clinicStreetRoute({ x: h.position.x, z: -2.55 }, destination),
+    ];
+    h.routine = 'walk';
+    this.record(t.pet, 'deferred');
+  }
+  private retryVisits() {
+    // Oldest due first. A full clinic does not send deferred families back to
+    // the pavement; they continue their day until a place can be reserved.
+    for (const h of [...this.households].sort(
+      (a, b) => (a.retryCareAt ?? Infinity) - (b.retryCareAt ?? Infinity),
+    )) {
+      if (this.incomingCare >= this.capacity) break;
+      if (
+        h.retryCareAt === undefined ||
+        this.time < h.retryCareAt ||
+        h.routine !== 'garden' ||
+        this.emergencies.locked(h.id)
+      )
+        continue;
+      const t = this.tickets.get(h.ticket!)!;
+      t.status = 'travelling';
+      h.retryCareAt = undefined;
+      h.busyUntil = undefined;
+      h.companions = [
+        ...new Set([
+          t.pet,
+          ...h.companions,
+          ...this.emergencies.pending
+            .filter((c) => c.household === h.id)
+            .map((c) => c.pet),
+        ]),
+      ];
+      h.routine = 'clinic-gather';
+      h.remaining = 2;
+      h.route = [];
+      this.revision++;
+    }
+  }
   private arriveHome(h: Household) {
     const t = this.tickets.get(h.ticket!);
     if (t) {
@@ -550,6 +621,8 @@ export class TownSimulation {
         inClinic: h.inClinic,
         ticket: h.ticket,
         nextCare: h.nextCare,
+        retryCareAt: h.retryCareAt,
+        busyUntil: h.busyUntil,
         careCycle: h.careCycle,
         nextPet: h.nextPet,
         companions: [...h.companions],
@@ -647,9 +720,13 @@ export class TownSimulation {
           tickets.has(t.id) ||
           owners.has(pet.owner) ||
           !reasons.includes(t.reason) ||
-          !['travelling', 'waiting', 'examining', 'returning'].includes(
-            t.status,
-          ) ||
+          ![
+            'travelling',
+            'waiting',
+            'examining',
+            'returning',
+            'deferred',
+          ].includes(t.status) ||
           !validPoint(t.origin) ||
           !number(t.createdAt, 0, data.time) ||
           (t.reason === 'accident' && !['dog', 'cat'].includes(pet.species)) ||
@@ -684,6 +761,8 @@ export class TownSimulation {
           !number(h.chatCooldown, 0, 60) ||
           !number(h.facing, -Math.PI * 2, Math.PI * 2) ||
           !number(h.nextCare) ||
+          (h.retryCareAt !== undefined && !number(h.retryCareAt)) ||
+          (h.busyUntil !== undefined && !number(h.busyUntil)) ||
           !integer(h.careCycle) ||
           !integer(h.nextPet) ||
           !Array.isArray(h.companions) ||
@@ -697,6 +776,11 @@ export class TownSimulation {
         if (
           (h.ticket !== undefined &&
             (!t || !this.households[i].pets.some((p) => p.name === t.pet))) ||
+          (t?.status === 'deferred') !== (h.retryCareAt !== undefined) ||
+          (t?.status === 'deferred' &&
+            !['garden', 'gather', 'walk', 'park', 'chat'].includes(
+              h.routine,
+            )) ||
           h.inClinic !==
             Boolean(
               t &&
@@ -730,7 +814,7 @@ export class TownSimulation {
         !data.events.every(
           (e) =>
             this.roster.some((p) => p.name === e.pet) &&
-            [...reasons, 'arrived', 'home'].includes(e.kind) &&
+            [...reasons, 'arrived', 'home', 'deferred'].includes(e.kind) &&
             number(e.at, 0, data.time),
         )
       )
@@ -833,11 +917,16 @@ export class TownSimulation {
           this.queue.unshift(t.id);
         }
       data.households.forEach((h, i) =>
-        Object.assign(this.households[i], h, {
-          position: { ...h.position },
-          route: h.route.map((p) => ({ ...p })),
-          companions: [...h.companions],
-        }),
+        Object.assign(
+          this.households[i],
+          { retryCareAt: undefined, busyUntil: undefined },
+          h,
+          {
+            position: { ...h.position },
+            route: h.route.map((p) => ({ ...p })),
+            companions: [...h.companions],
+          },
+        ),
       );
       data.cars.forEach((c, i) => Object.assign(this.cars[i], c));
       this.events = data.events.map((e) => ({ ...e }));
@@ -892,6 +981,7 @@ export class TownSimulation {
       this.tickets,
     );
     if (this.clinicOpen) {
+      this.retryVisits();
       this.arrivalRemaining = Math.max(0, this.arrivalRemaining - step);
       if (
         this.arrivalRemaining <= 0 &&
@@ -946,6 +1036,10 @@ export class TownSimulation {
       h.chatCooldown = Math.max(0, h.chatCooldown - step);
       if (h.routine === 'clinic-wait') {
         this.admit(h);
+        if (!h.inClinic) {
+          h.remaining = Math.max(0, h.remaining - step);
+          if (h.remaining <= 0) this.deferVisit(h);
+        }
         continue;
       }
       if (h.routine === 'incident') {
@@ -999,7 +1093,7 @@ export class TownSimulation {
         h.remaining -= step;
         if (h.remaining > 0) continue;
         if (h.routine === 'garden') {
-          h.companions = h.pets.map((p) => p.name);
+          h.companions = this.outingPets(h);
           h.routine = 'gather';
           h.remaining = 3;
         } else if (h.routine === 'gather') this.leave(h);
@@ -1024,6 +1118,7 @@ export class TownSimulation {
         }
         if (h.routine === 'clinic-walk') {
           h.routine = 'clinic-wait';
+          h.remaining = 60 + (h.id % 5) * 4 + this.random() * 12;
           h.facing = -Math.PI / 2;
           this.admit(h);
           continue;

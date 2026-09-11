@@ -22,6 +22,7 @@ import type { UpgradeId } from './game';
 import { layout, garden, localToTown, distance } from './town-map';
 import type { ClinicInfo } from './clinic-identity';
 import { characterFeeling } from './character-feelings';
+import { petReply } from './pet-replies';
 import { messagesFor } from './character-voices';
 import type { BubbleCandidate } from './speech-bubbles';
 
@@ -325,13 +326,11 @@ export class Town {
       this.simulation.households[object.userData.clinicHousehold];
     if (!household) return info;
     if (!household.inClinic) return undefined;
-    const feeling = characterFeeling(
-      this.simulation,
-      household,
-      household.pets.find((p) => p.name === info.name),
-    );
+    const pet = household.pets.find((p) => p.name === info.name);
+    const feeling = characterFeeling(this.simulation, household, pet);
     return {
       ...info,
+      bubble: pet ? 'thought' : 'speech',
       feeling: feeling.text,
       messages: messagesFor(info.name, feeling.text, feeling.priority >= 3),
     };
@@ -355,13 +354,31 @@ export class Town {
                 : 'Zzz… lovely dreams.';
           }
           const name = pet?.name ?? h.owner;
+          const reply =
+            pet &&
+            !target.userData.sleeping &&
+            ((h.companions.includes(pet.name) &&
+              (['gather', 'clinic-gather', 'walk', 'chat'].includes(
+                h.routine,
+              ) ||
+                (h.inClinic &&
+                  ['desk', 'ready'].includes(
+                    this.simulation.leisure.owners.get(h.id)?.phase ?? '',
+                  )))) ||
+              (this.simulation.emergencies.active?.phase === 'handover' &&
+                feeling.priority === 4))
+              ? petReply(pet)
+              : undefined;
           return {
             target,
             key: feeling.key,
             priority: feeling.priority,
+            reply,
+            replyTo: reply ? r.owner : undefined,
             info: {
               name,
               description: '',
+              bubble: pet ? ('thought' as const) : ('speech' as const),
               feeling: feeling.text,
               messages: messagesFor(name, feeling.text, feeling.priority >= 3),
             },

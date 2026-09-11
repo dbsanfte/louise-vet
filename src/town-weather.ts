@@ -80,7 +80,7 @@ export class TownWeather {
         if (
           this.phase !== 'rain' ||
           blocked(h.id) ||
-          h.ticket !== undefined ||
+          (h.ticket !== undefined && h.retryCareAt === undefined) ||
           h.inClinic ||
           h.routine !== 'walk' ||
           onRoad(h.position) ||
@@ -188,7 +188,7 @@ export class TownWeather {
         if (
           !h ||
           !Number.isInteger(a.household) ||
-          h.ticket !== undefined ||
+          (h.ticket !== undefined && h.retryCareAt === undefined) ||
           h.inClinic ||
           h.routine !== 'walk' ||
           !h.pets.some((p) => p.name === a.pet && p.species === 'cat') ||

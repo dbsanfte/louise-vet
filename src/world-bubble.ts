@@ -9,7 +9,13 @@ export class WorldBubble {
   private box = new THREE.Box3();
   private point = new THREE.Vector3();
   private base = new THREE.Vector3();
-  private anchors = new WeakMap<THREE.Object3D, THREE.Vector3>();
+  private anchors = new WeakMap<
+    THREE.Object3D,
+    {
+      head: { object: THREE.Object3D; point: THREE.Vector3 };
+      mouth: { object: THREE.Object3D; point: THREE.Vector3 };
+    }
+  >();
   private content = '';
   private candidates: BubbleCandidate<THREE.Object3D>[] = [];
   private checkedAt = -Infinity;
@@ -19,8 +25,9 @@ export class WorldBubble {
     this.element.hidden = true;
     this.element.setAttribute('role', 'status');
     this.element.setAttribute('aria-label', 'Character information');
-    this.element.innerHTML =
-      '<strong class="bubble-name"></strong><span class="bubble-description"></span><span class="bubble-feeling"></span>';
+    this.element.innerHTML = `<svg class="bubble-cloud" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M12 80 C0 81 -1 58 6 48 C-2 32 6 14 19 17 C22 1 37 -2 47 7 C58 -3 76 1 79 15 C94 9 104 30 95 43 C106 56 101 77 89 80 C88 96 70 103 59 94 C47 105 31 101 27 92 C16 98 8 91 12 80 Z"/></svg>
+      <svg class="bubble-link" aria-hidden="true"><path/><circle r="4.5"/><circle r="3"/><circle r="1.7"/></svg>
+      <strong class="bubble-name"></strong><span class="bubble-description"></span><span class="bubble-feeling"></span>`;
     container.append(this.element);
   }
   clear() {
@@ -30,25 +37,45 @@ export class WorldBubble {
   inspect(target: THREE.Object3D, info: ClinicInfo) {
     this.director.inspect(target, info, performance.now());
   }
-  private project(target: THREE.Object3D, camera: THREE.Camera) {
+  private project(
+    target: THREE.Object3D,
+    camera: THREE.Camera,
+    kind: 'head' | 'mouth' = 'head',
+  ) {
     for (let p: THREE.Object3D | null = target; p; p = p.parent)
       if (!p.visible) return undefined;
-    let anchor = this.anchors.get(target);
-    if (!anchor) {
+    let anchors = this.anchors.get(target);
+    if (!anchors) {
       target.updateWorldMatrix(true, true);
-      let head: THREE.Object3D | undefined;
+      let head: THREE.Object3D | undefined, mouth: THREE.Object3D | undefined;
       target.traverse((part) => {
         if (!head && part.name.startsWith('head_joint')) head = part;
+        if (!mouth && /smile|mouth|beak/.test(part.name)) mouth = part;
       });
-      this.box.setFromObject(head ?? target);
+      const above = head ?? target;
+      this.box.setFromObject(above);
       if (this.box.isEmpty()) this.box.setFromObject(target);
-      anchor = this.box.getCenter(new THREE.Vector3());
-      anchor.y = this.box.max.y + 0.18;
-      target.worldToLocal(anchor);
-      this.anchors.set(target, anchor);
+      const top = this.box.getCenter(new THREE.Vector3());
+      top.y = this.box.max.y + 0.08;
+      const lips = this.box.getCenter(new THREE.Vector3());
+      lips.y -= (this.box.max.y - this.box.min.y) * 0.22;
+      if (mouth) {
+        this.box.setFromObject(mouth);
+        if (this.box.isEmpty()) mouth.getWorldPosition(lips);
+        else this.box.getCenter(lips);
+      }
+      anchors = {
+        head: { object: above, point: above.worldToLocal(top) },
+        mouth: {
+          object: mouth ?? above,
+          point: (mouth ?? above).worldToLocal(lips),
+        },
+      };
+      this.anchors.set(target, anchors);
     }
-    this.point.copy(anchor);
-    target.localToWorld(this.point);
+    const anchor = anchors[kind];
+    this.point.copy(anchor.point);
+    anchor.object.localToWorld(this.point);
     this.point.project(camera);
     if (this.point.y > 1) {
       // A visible torso/ride can have its top cropped by a short viewport.
@@ -116,6 +143,12 @@ export class WorldBubble {
         field.hidden = !value;
       }
     }
+    const kind = info.bubble ?? (info.feeling ? 'speech' : 'label');
+    this.element.dataset.kind = kind;
+    this.element.setAttribute(
+      'aria-label',
+      `${info.name}${kind === 'thought' ? ' thinks' : kind === 'speech' ? ' says' : ' information'}`,
+    );
     this.element.hidden = false;
     this.element.dataset.source = bubble.source;
     const width = this.element.offsetWidth,
@@ -124,13 +157,34 @@ export class WorldBubble {
       6 + width / 2,
       Math.min(this.container.clientWidth - width / 2 - 6, position.x),
     );
-    const y = Math.max(4, position.y - height - 12);
+    const y = Math.max(4, position.y - height - 25);
     this.element.style.left = `${x}px`;
     this.element.style.top = `${y}px`;
-    this.element.style.setProperty(
-      '--bubble-tail',
-      `${Math.max(12, Math.min(width - 12, position.x - x + width / 2))}px`,
-    );
+    const tip =
+      kind === 'speech'
+        ? this.project(bubble.target, camera, 'mouth')
+        : position;
+    const link = this.element.querySelector<SVGSVGElement>('.bubble-link')!;
+    const tx = tip ? tip.x - x + width / 2 : 0,
+      ty = tip ? tip.y - y : 0;
+    // On a very short/cropped viewport the bubble may occupy the head's pixel;
+    // do not draw a pointer back through the text.
+    link.style.display =
+      kind === 'label' || !tip || ty < height + 4 ? 'none' : '';
+    const attach = Math.max(20, Math.min(width - 20, tx - 14));
+    link
+      .querySelector('path')!
+      .setAttribute(
+        'd',
+        `M ${attach - 7} ${height - 2} L ${tx} ${ty} L ${attach + 8} ${height - 2}`,
+      );
+    link.querySelectorAll('circle').forEach((circle, i) => {
+      const t = (i + 1) / 3.4;
+      circle.setAttribute('cx', String(attach + (tx - attach) * t));
+      circle.setAttribute('cy', String(height + 3 + (ty - height - 3) * t));
+    });
+    this.element.dataset.tipX = String(tip?.x ?? position.x);
+    this.element.dataset.tipY = String(tip?.y ?? position.y);
     this.element.dataset.anchorX = String(position.x);
     this.element.dataset.anchorY = String(position.y);
   }

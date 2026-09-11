@@ -80,6 +80,18 @@ export function characterFeeling(
     return say('chasing', 'Oops! I got a bit too bouncy!', 3);
   if (e?.chaser === h.id && !pet && e.chase)
     return say('calling-chaser', 'Come back! Gentle play, please.', 3);
+  if (
+    h.busyUntil !== undefined &&
+    s.time < h.busyUntil &&
+    (!pet || h.companions.includes(pet.name))
+  )
+    return say(
+      'clinic-busy',
+      pet
+        ? 'A little break with my family.'
+        : 'Hmm, it is very busy. We will come back later.',
+      4,
+    );
   const shelter = s.weather.active.get(h.id);
   if (
     shelter &&
@@ -185,6 +197,14 @@ export function characterFeeling(
       2,
     );
   }
+  if (h.retryCareAt !== undefined && h.routine === 'garden')
+    return say(
+      'care-later',
+      pet
+        ? 'A cosy rest before seeing Louise.'
+        : 'We will try Louise again a little later.',
+      2,
+    );
   // Companions left at home must not claim to be walking or visiting the vet.
   const routine =
     pet && !h.companions.includes(pet.name) ? 'garden' : h.routine;

@@ -175,3 +175,94 @@ test('all household routines give both people and pets contextual lines', () => 
   h.companions = ['Luna'];
   assert.equal(characterFeeling(s, h, pet('Scout')).text, 'Home sweet home!');
 });
+
+test('animal replies are individual sound-only speech; fish remain silent', async () => {
+  const { petReply } = await import('../src/pet-replies.ts');
+  const sounds = {
+    dog: /^(woof|ruff|arf|bark|yip)$/i,
+    cat: /^(meow|mrrp|mew|purr)$/i,
+    bird: /^(chirp|tweet|chirrup)$/i,
+    rabbit: /^(snuff|snff)$/i,
+    hamster: /^(squeak|eep)$/i,
+    gerbil: /^(peep|squeak)$/i,
+    goldfish: /^$/,
+  };
+  const all = new Set<string>();
+  for (const pet of visits) {
+    const reply = petReply(pet);
+    if (pet.species === 'goldfish') {
+      assert.equal(reply, undefined);
+      continue;
+    }
+    assert.equal(reply?.bubble, 'speech');
+    assert.equal(reply?.messages?.length, 5);
+    for (const line of reply!.messages!) {
+      assert.ok(!all.has(line), `unique voice: ${line}`);
+      all.add(line);
+      assert.ok(
+        line.match(/[a-z]+/gi)!.every((word) => sounds[pet.species].test(word)),
+        `${pet.name}: ${line}`,
+      );
+    }
+  }
+});
+
+test('pet sound replies follow their owner; inspection and changed actions cancel stale replies', () => {
+  const owner = {
+    target: 'Amelia',
+    key: 'gather',
+    priority: 2,
+    info: {
+      name: 'Amelia',
+      description: '',
+      bubble: 'speech' as const,
+      feeling: 'Ready for a walk?',
+    },
+  };
+  const pet = {
+    target: 'Luna',
+    key: 'gather',
+    priority: 2,
+    info: {
+      name: 'Luna',
+      description: '',
+      bubble: 'thought' as const,
+      feeling: 'Walkies!',
+    },
+    replyTo: 'Amelia',
+    reply: {
+      name: 'Luna',
+      description: '',
+      bubble: 'speech' as const,
+      feeling: 'Woof, ruff!',
+    },
+  };
+  const b = new BubbleDirector<string>();
+  b.update(0, [owner, pet]);
+  assert.equal(b.current?.target, 'Amelia');
+  b.update(5000, [owner, pet]);
+  b.update(7100, [owner, pet]);
+  assert.equal(b.current?.target, 'Luna');
+  assert.equal(b.current?.info.bubble, 'speech');
+  assert.equal(b.current?.info.feeling, 'Woof, ruff!');
+  b.clear(8000);
+  b.update(11000, [
+    { ...owner, key: 'chat' },
+    { ...pet, key: 'chat' },
+  ]);
+  b.update(16000, [
+    { ...owner, key: 'chat' },
+    { ...pet, key: 'chat' },
+  ]);
+  b.inspect('Luna', pet.info, 16100);
+  assert.equal(b.current?.info.bubble, 'thought');
+  b.update(21200, [
+    { ...owner, key: 'walk' },
+    { ...pet, key: 'walk', reply: undefined },
+  ]);
+  b.update(23500, [
+    { ...owner, key: 'walk' },
+    { ...pet, key: 'walk', reply: undefined },
+  ]);
+  assert.notEqual(b.current?.info.feeling, 'Woof, ruff!');
+});

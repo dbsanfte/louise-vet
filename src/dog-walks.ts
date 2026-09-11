@@ -68,7 +68,7 @@ export class DogWalks {
     if (
       this.locked(h.id) ||
       h.inClinic ||
-      h.ticket !== undefined ||
+      (h.ticket !== undefined && h.retryCareAt === undefined) ||
       h.routine !== 'walk' ||
       !h.companions.includes(pet) ||
       dog?.species !== 'dog' ||
@@ -130,7 +130,7 @@ export class DogWalks {
       let walk = this.walks.get(h.id);
       if (
         h.inClinic ||
-        h.ticket !== undefined ||
+        (h.ticket !== undefined && h.retryCareAt === undefined) ||
         !['walk', 'park', 'chat'].includes(h.routine)
       ) {
         this.walks.delete(h.id);
@@ -150,7 +150,7 @@ export class DogWalks {
         if (
           blocked(h.id) ||
           h.inClinic ||
-          h.ticket !== undefined ||
+          (h.ticket !== undefined && h.retryCareAt === undefined) ||
           h.routine !== 'walk' ||
           onRoad(h.position) ||
           !outsideClinic(h.position)
@@ -329,7 +329,7 @@ export class DogWalks {
         if (
           !h ||
           h.inClinic ||
-          h.ticket !== undefined ||
+          (h.ticket !== undefined && h.retryCareAt === undefined) ||
           h.routine !== 'walk' ||
           !h.companions.includes(b.pet) ||
           dog?.species !== 'dog' ||
