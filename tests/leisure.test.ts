@@ -58,8 +58,8 @@ test('every pet attraction has a name and a reaction only during an active turn'
     before,
     'looking does not change turns, saves or rewards',
   );
-  assert.match(clinicAttractions['cat-nook'].feeling, /Cosy/);
-  assert.match(clinicAttractions['water-dispenser'].feeling, /Refreshed/);
+  assert.match(clinicAttractions['cat-nook'].feeling, /cosy/);
+  assert.match(clinicAttractions['water-dispenser'].feeling, /cool drink/);
 });
 function setup(
   names = ['Luna', 'Milo', 'Peanut', 'Sunny', 'Hazel', 'Cleo', 'Pip', 'Daisy'],

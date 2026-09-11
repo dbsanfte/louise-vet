@@ -1,9 +1,11 @@
 import type { PetActivity } from './clinic-leisure.ts';
+import type { Species } from './game.ts';
 
 export type ClinicInfo = {
   name: string;
   description: string;
   feeling?: string;
+  messages?: string[];
 };
 export const clinicAttractions: Record<
   string,
@@ -11,54 +13,54 @@ export const clinicAttractions: Record<
 > = {
   scratch: {
     name: 'Scratching post',
-    feeling: 'Content — that scratch feels lovely!',
+    feeling: 'Ooh, lovely scratch!',
   },
   wheel: {
     name: 'Exercise wheel',
-    feeling: 'Energetic — happy to stretch those legs!',
+    feeling: 'Little legs, go go go!',
   },
-  carousel: { name: 'Merry-go-round', feeling: 'Delighted — round and round!' },
-  toys: { name: 'Toy corner', feeling: 'Playful — so many toys to explore!' },
+  carousel: { name: 'Merry-go-round', feeling: 'Whee! Round we go!' },
+  toys: { name: 'Toy corner', feeling: 'Ooh! My favourite toy!' },
   coaster: {
     name: 'Pet rollercoaster',
-    feeling: 'Excited — whee, a little hill!',
+    feeling: 'Wheee! Here comes the hill!',
   },
   ferris: {
     name: 'Pet Ferris wheel',
-    feeling: 'Curious — what a lovely view!',
+    feeling: 'Wow! I can see my house!',
   },
   'treat-dispenser': {
     name: 'Treat dispenser',
-    feeling: 'Delighted — a tasty little treat!',
+    feeling: 'Mmm, yummy!',
   },
   'water-dispenser': {
     name: 'Water dispenser',
-    feeling: 'Refreshed — a lovely cool drink!',
+    feeling: 'Ahh! A cool drink!',
   },
-  bubbles: { name: 'Bubble chase', feeling: 'Playful — pop! Another bubble!' },
+  bubbles: { name: 'Bubble chase', feeling: 'Pop! Got that bubble!' },
   'cat-nook': {
     name: 'Cosy cat nook',
-    feeling: 'Cosy — ready for a little snooze.',
+    feeling: 'So cosy… purrr…',
   },
   'bird-chimes': {
     name: 'Bird chime arch',
-    feeling: 'Curious — listening to the tinkling chimes.',
+    feeling: 'Chirp! What a pretty tune!',
   },
   'toy-box': {
     name: 'Bouncy toy box',
-    feeling: 'Bouncy — chasing the rolling ball!',
+    feeling: 'Come back, bouncy ball!',
   },
   yarn: {
     name: 'Yarn-ball corner',
-    feeling: 'Playful — that yarn won’t sit still!',
+    feeling: 'Pounce! Silly wiggly yarn!',
   },
   aviary: {
     name: 'Bird aviary',
-    feeling: 'Cheerful — room to stretch those wings!',
+    feeling: 'Flap, flap! Lovely space!',
   },
   'play-tree': {
     name: 'Friendly play tree',
-    feeling: 'Relaxed — a peaceful place above the room.',
+    feeling: 'My lovely leafy lookout!',
   },
 };
 export const clinicFixtureNames: Record<string, string> = {
@@ -71,8 +73,19 @@ export const clinicFixtureNames: Record<string, string> = {
 };
 
 /** A description of the current turn, never a new mood score or saved trait. */
-export function attractionFeeling(activity?: PetActivity) {
+export const foodFeelings: Record<Species, string> = {
+  dog: 'Yum! Crunchy doggy treats!',
+  cat: 'Purrr… tasty kitty nibbles!',
+  bird: 'Chirp! Lovely little seeds!',
+  rabbit: 'Nibble, nibble! Yummy greens!',
+  hamster: 'Mmm! A snack for my cheeks!',
+  gerbil: 'Crunch! Tasty little grains!',
+  goldfish: 'Bloop! Delicious fish flakes!',
+};
+export function attractionFeeling(activity?: PetActivity, species?: Species) {
   return activity?.phase === 'use'
-    ? clinicAttractions[activity.station]?.feeling
+    ? activity.station === 'treat-dispenser' && species
+      ? foodFeelings[species]
+      : clinicAttractions[activity.station]?.feeling
     : undefined;
 }

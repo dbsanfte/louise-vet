@@ -1,8 +1,4 @@
-import { clinicAttractions, type ClinicInfo } from './clinic-identity';
-import {
-  clinicInspectionSlot,
-  renderClinicInspection,
-} from './clinic-inspection';
+import { clinicAttractions } from './clinic-identity';
 import { stations } from './emergency-map';
 import { CareSkill, isCareTool } from './care-skill';
 import { CareSkillView } from './care-skill-view';
@@ -101,7 +97,6 @@ app.innerHTML = `
   <footer class="bottom-bar"><nav aria-label="Clinic navigation"><button class="nav-button active" data-action="reception">${icon('home')}<span>My clinic</span></button><button class="nav-button" data-action="town">${icon('home')}<span>Hookville</span></button><button class="nav-button" data-action="shop">${icon('bag')}<span>Clinic shop</span><span class="tiny-label">UPGRADES</span></button><button class="nav-button" data-action="casebook">${icon('book')}<span>Care notebook</span></button></nav><span id="save-note" class="save-note">${icon('check')} Progress saved on this browser</span></footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div><div id="modal-root"></div><div id="skill-root"></div>`;
 
-let clinicInfo: ClinicInfo | undefined;
 const byId = (id: string) => document.getElementById(id)!;
 function announce(text: string) {
   byId('toast').textContent = text;
@@ -151,7 +146,7 @@ function renderReception() {
     <div class="panel-heading louise-welcome"><img class="louise-portrait" src="/images/louise-portrait.png" alt="Louise in her mint vet coat and pink headband" width="76" height="76" /><div><p class="eyebrow">MADE JUST FOR YOU</p><h2>Welcome, <br />Louise.</h2></div></div>
     <nav class="office-tabs" aria-label="Waiting room information"><button class="secondary" data-action="office-tab" data-tab="patients" aria-pressed="${officeTab === 'patients'}">Patients · ${queue.length}</button><button class="secondary" data-action="office-tab" data-tab="activities" aria-pressed="${officeTab === 'activities'}">While you wait</button></nav>
     <div id="clinic-call" aria-live="polite"></div><section class="office-patients" ${officeTab !== 'patients' ? 'hidden' : ''}><div class="queue-heading"><h3>In the waiting room</h3><span class="count">${queue.length}</span></div>
-    <div class="clinic-list-slot"><div class="patient-list">${
+    <div class="patient-list">${
       queue
         .map((id, i) => {
           const p = visitFor(id);
@@ -159,7 +154,7 @@ function renderReception() {
         })
         .join('') ||
       '<div class="empty-queue">A quiet little moment.<br />A new visitor will be here soon.</div>'
-    }</div>${clinicInspectionSlot}</div>
+    }</div>
     <nav class="office-pages" aria-label="Patient pages"><button class="secondary" data-action="patient-page" data-step="-1" ${patientPage === 0 ? 'disabled' : ''} aria-label="Previous patients">←</button><span>${patientPage + 1} / ${Math.max(1, Math.ceil(queue.length / 2))}</span><button class="secondary" data-action="patient-page" data-step="1" ${patientPage >= Math.ceil(queue.length / 2) - 1 ? 'disabled' : ''} aria-label="Next patients">→</button></nav>
     ${queue.length ? button(`See ${visitFor(queue[0]).name} ${icon('arrow')}`, 'next', 'primary call-next', !ready) : button('Welcome a visitor', 'invite', 'primary call-next', !ready)}
     </section><div class="shelf-summary"><span>${icon('jar')} Treats on the shelf</span><strong>${progress.stock}</strong></div>`;
@@ -299,7 +294,7 @@ function renderLeisure() {
       '<strong>A cosy place to wait</strong><p>Add books, games and rides in the clinic shop.</p>',
     );
   activityPage = Math.min(activityPage, Math.ceil(activities.length / 2) - 1);
-  const content = `<h3>While you wait</h3><div class="clinic-list-slot"><ul>${activities.map((entry, i) => `<li ${Math.floor(i / 2) !== activityPage ? 'hidden' : ''}>${entry}</li>`).join('')}</ul>${clinicInspectionSlot}</div><nav class="office-pages" aria-label="Activity pages"><button class="secondary" data-action="activity-page" data-step="-1" ${activityPage === 0 ? 'disabled' : ''} aria-label="Previous activities">←</button><span>${activityPage + 1} / ${Math.ceil(activities.length / 2)}</span><button class="secondary" data-action="activity-page" data-step="1" ${activityPage >= Math.ceil(activities.length / 2) - 1 ? 'disabled' : ''} aria-label="Next activities">→</button></nav>`;
+  const content = `<h3>While you wait</h3><ul>${activities.map((entry, i) => `<li ${Math.floor(i / 2) !== activityPage ? 'hidden' : ''}>${entry}</li>`).join('')}</ul><nav class="office-pages" aria-label="Activity pages"><button class="secondary" data-action="activity-page" data-step="-1" ${activityPage === 0 ? 'disabled' : ''} aria-label="Previous activities">←</button><span>${activityPage + 1} / ${Math.ceil(activities.length / 2)}</span><button class="secondary" data-action="activity-page" data-step="1" ${activityPage >= Math.ceil(activities.length / 2) - 1 ? 'disabled' : ''} aria-label="Next activities">→</button></nav>`;
   if (panel.dataset.content !== content) {
     const focused = panel.contains(document.activeElement)
       ? (document.activeElement as HTMLElement)?.dataset.step
@@ -311,7 +306,6 @@ function renderLeisure() {
         .querySelector<HTMLButtonElement>(`[data-step="${focused}"]`)
         ?.focus({ preventScroll: true });
   }
-  renderClinicInspection(byId('sidebar'), clinicInfo);
 }
 let pointedResident: string | undefined;
 function showHome(id: number | undefined) {
@@ -594,7 +588,7 @@ function renderModal() {
       [
         'rotate',
         'Take a look around',
-        'In the clinic or Hookville, drag to look around and use the arrows to move. Scroll or pinch to zoom. Right-drag on a computer, or move two fingers on a phone, to pan. The room buttons jump straight to your favourite places. Hover or tap friends and attractions for names and pet reactions.',
+        'In the clinic or Hookville, drag to look around and use the arrows to move. Scroll or pinch to zoom. Right-drag on a computer, or move two fingers on a phone, to pan. The room buttons jump straight to your favourite places. Hover or tap clinic friends and attractions for a little bubble above their head. It follows them for five seconds. Friends also share their thoughts as they play and explore!',
       ],
       [
         'search',
@@ -890,10 +884,6 @@ app.addEventListener('click', (event) => {
       });
     return;
   }
-  if (action === 'close-inspection') {
-    world.clearClinicPick();
-    return;
-  }
   if (action === 'cancel-call' && pendingPatient !== null) {
     simulation.cancelCall(pendingPatient);
     pendingPatient = null;
@@ -1124,7 +1114,7 @@ document.querySelector('.brand')!.addEventListener('click', (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && mode === 'reception' && !modal && clinicInfo)
+  if (e.key === 'Escape' && mode === 'reception' && !modal)
     world.clearClinicPick();
   if (
     (mode === 'town' || mode === 'reception') &&
@@ -1197,10 +1187,6 @@ try {
   world.onTownPick = (pick) => {
     pointedResident = typeof pick === 'object' ? pick.label : undefined;
     showHome(typeof pick === 'number' ? pick : undefined);
-  };
-  world.onClinicPick = (info) => {
-    clinicInfo = mode === 'reception' && !modal ? info : undefined;
-    renderClinicInspection(byId('sidebar'), clinicInfo);
   };
   world.onClinicMove = () => {
     if (mode !== 'reception' || clinicView === 'free') return;

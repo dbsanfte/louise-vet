@@ -20,7 +20,10 @@ import { enrichmentPose, isEnrichment } from './clinic-enrichment';
 import { walkRoute } from './movement';
 import type { UpgradeId } from './game';
 import { layout, garden, localToTown, distance } from './town-map';
-import { attractionFeeling, type ClinicInfo } from './clinic-identity';
+import type { ClinicInfo } from './clinic-identity';
+import { characterFeeling } from './character-feelings';
+import { messagesFor } from './character-voices';
+import type { BubbleCandidate } from './speech-bubbles';
 
 export type TownPick = number | { label: string } | undefined;
 
@@ -42,11 +45,9 @@ export class Town {
       model: THREE.Group;
       animation: Character;
       visit: Visit;
-      bubble: THREE.Sprite;
       placed: boolean;
       perch?: THREE.Group;
     }[];
-    bubble: THREE.Sprite;
   }[] = [];
   private contactShadows?: THREE.InstancedMesh;
   private shadowPose = new THREE.Object3D();
@@ -69,8 +70,6 @@ export class Town {
     new THREE.RingGeometry(0.8, 1, 32),
     new THREE.MeshBasicMaterial({ color: 0xf7c76e, side: THREE.DoubleSide }),
   );
-  private bubbleTexture: THREE.CanvasTexture;
-  private sleepTexture: THREE.CanvasTexture;
   constructor(
     private cloneCharacter: (name: string) => THREE.Group,
     readonly simulation: TownSimulation,
@@ -86,28 +85,6 @@ export class Town {
         return model;
       };
     }
-    const makeBubble = (label: string) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 128;
-      canvas.height = 80;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = '#fffdf1';
-      ctx.beginPath();
-      ctx.roundRect(4, 4, 120, 58, 25);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(35, 55);
-      ctx.lineTo(32, 78);
-      ctx.lineTo(60, 55);
-      ctx.fill();
-      ctx.fillStyle = '#36584c';
-      ctx.font = 'bold 40px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(label, 64, 39);
-      return new THREE.CanvasTexture(canvas);
-    };
-    this.bubbleTexture = makeBubble('...');
-    this.sleepTexture = makeBubble('Z z');
     this.incidentMarker.rotation.x = -Math.PI / 2;
     this.incidentMarker.visible = false;
     this.group.add(this.incidentMarker);
@@ -243,14 +220,6 @@ export class Town {
         model.userData.townLabel = `${visit.name} · ${h.owner}’s ${visit.species}`;
         model.scale.setScalar(0.4);
         const animation = new Character(model, i * 0.31);
-        const bubble = new THREE.Sprite(
-          new THREE.SpriteMaterial({
-            map: this.sleepTexture,
-            depthTest: false,
-          }),
-        );
-        bubble.scale.set(0.85, 0.55, 1);
-        bubble.visible = false;
         let perch: THREE.Group | undefined;
         if (visit.species === 'bird') {
           perch = new THREE.Group();
@@ -276,21 +245,15 @@ export class Town {
           perch.add(pole, bar, base);
           this.group.add(perch);
         }
-        this.group.add(model, bubble);
-        return { model, animation, visit, bubble, placed: false, perch };
+        this.group.add(model);
+        return { model, animation, visit, placed: false, perch };
       });
-      const bubble = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: this.bubbleTexture, depthTest: false }),
-      );
-      bubble.scale.set(1.5, 0.95, 1);
-      bubble.visible = false;
-      this.group.add(bubble);
       const trail = new OwnerTrail(
         h.inClinic && h.routine === 'clinic-wait'
           ? { x: h.position.x - 0.28, z: h.position.z + 0.12 }
           : h.position,
       );
-      this.residents.push({ owner, ownerAnimation, book, pets, bubble, trail });
+      this.residents.push({ owner, ownerAnimation, book, pets, trail });
     }
     if (this.softwareGraphics) {
       this.contactShadows = new THREE.InstancedMesh(
@@ -362,17 +325,49 @@ export class Town {
       this.simulation.households[object.userData.clinicHousehold];
     if (!household) return info;
     if (!household.inClinic) return undefined;
-    const ticket =
-      household.ticket === undefined
-        ? undefined
-        : this.simulation.tickets.get(household.ticket);
+    const feeling = characterFeeling(
+      this.simulation,
+      household,
+      household.pets.find((p) => p.name === info.name),
+    );
     return {
       ...info,
-      feeling:
-        ticket?.pet === info.name
-          ? attractionFeeling(this.simulation.leisure.pets.get(ticket.id))
-          : undefined,
+      feeling: feeling.text,
+      messages: messagesFor(info.name, feeling.text, feeling.priority >= 3),
     };
+  }
+  reactions(inside: boolean): BubbleCandidate<THREE.Object3D>[] {
+    return this.residents.flatMap((r, i) => {
+      const h = this.simulation.households[i];
+      if (inside !== h.inClinic) return [];
+      return [
+        { target: r.owner, pet: undefined },
+        ...r.pets.map((p) => ({ target: p.model, pet: p.visit })),
+      ]
+        .filter(({ target }) => this.isVisible(target))
+        .map(({ target, pet }) => {
+          const feeling = characterFeeling(this.simulation, h, pet);
+          if (pet && target.userData.sleeping && feeling.priority < 2) {
+            feeling.key = 'sleep';
+            feeling.text =
+              pet.species === 'cat'
+                ? 'Purrr… cosy dreams.'
+                : 'Zzz… lovely dreams.';
+          }
+          const name = pet?.name ?? h.owner;
+          return {
+            target,
+            key: feeling.key,
+            priority: feeling.priority,
+            info: {
+              name,
+              description: '',
+              feeling: feeling.text,
+              messages: messagesFor(name, feeling.text, feeling.priority >= 3),
+            },
+          };
+        });
+    });
   }
   private isVisible(object: THREE.Object3D) {
     for (let o: THREE.Object3D | null = object; o; o = o.parent)
@@ -468,11 +463,6 @@ export class Town {
             o.position.add(before.sub(hip.applyQuaternion(o.quaternion)));
           }
         });
-      r.bubble.visible =
-        (['chat', 'incident'].includes(h.routine) ||
-          this.simulation.park.chatting(h.id, t)) &&
-        !h.inClinic;
-      r.bubble.position.set(h.position.x, 3.2, h.position.z);
       r.pets.forEach((p, index) => {
         const wasPlaced = p.placed;
         const previous = { x: p.model.position.x, z: p.model.position.z };
@@ -768,7 +758,6 @@ export class Town {
               if (landing) p.animation.setMotion('Fly');
             }
           }
-          p.bubble.visible = false;
           if (p.perch) p.perch.visible = false;
           p.model.userData.parkActivity = parkPet.station ?? parkPet.phase;
         } else delete p.model.userData.parkActivity;
@@ -871,15 +860,6 @@ export class Town {
             )
               o.rotation.z += 0.9;
           });
-        p.bubble.visible =
-          !rescue &&
-          !parkPet &&
-          sleeping &&
-          p.model.visible &&
-          (!h.inClinic || play?.station === 'cat-nook');
-        p.bubble.position
-          .copy(p.model.position)
-          .add(new THREE.Vector3(0, 1.2, 0));
       });
     });
     this.streetScenery?.update(

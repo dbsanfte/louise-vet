@@ -33,11 +33,11 @@ void import('../../src/main');
 declare global {
   interface Window {
     clinicTarget: (name: string) => { x: number; y: number };
-    clinicInfoPreview: (info?: ClinicInfo) => void;
     clinicFinishTurn: (name: string) => void;
     clinicInspectNamed: (name: string) => ClinicInfo | undefined;
     clinicHideNamed: (name: string) => void;
     clinicAdvance: (seconds: number) => void;
+    clinicTownSnapshot: (snapshot: unknown, name: string) => void;
   }
 }
 function named(name: string) {
@@ -48,8 +48,17 @@ function named(name: string) {
   if (!target) throw Error('Missing clinic object: ' + name);
   return target;
 }
-window.clinicInfoPreview = (info) => world.onClinicPick(info);
 window.clinicInspectNamed = (name) => world.town!.describeClinic(named(name));
+window.clinicTownSnapshot = (snapshot, name) => {
+  if (!world.town!.simulation.restore(snapshot))
+    throw Error('Invalid town bubble snapshot');
+  world.town!.update(0.1, true);
+  const target = named(name);
+  const position = target.getWorldPosition(new Vector3());
+  world.focusEmergency({ x: position.x, z: position.z });
+  world.clearClinicPick();
+  world.draw(performance.now() + 300, 0);
+};
 window.clinicHideNamed = (name) => {
   named(name).visible = false;
 };
@@ -99,6 +108,19 @@ window.clinicTarget = (name) => {
     camera.updateProjectionMatrix();
     controls.update();
     camera.updateMatrixWorld(true);
+    if (rect.height < 260) {
+      // On a short phone the room controls occupy the lower scene. Pan the
+      // subject into the open upper strip, as a player can with two fingers.
+      const pan = new Vector3(
+        0,
+        (-0.28 * (camera.top - camera.bottom)) / camera.zoom,
+        0,
+      ).applyQuaternion(camera.quaternion);
+      camera.position.add(pan);
+      controls.target.add(pan);
+      controls.update();
+      camera.updateMatrixWorld(true);
+    }
     world.renderer.getContext().finish();
     world.draw(performance.now() + 300, 0.01);
     world.renderer.getContext().finish();

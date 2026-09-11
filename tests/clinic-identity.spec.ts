@@ -3,6 +3,8 @@ import { build } from 'vite';
 import { TownSimulation } from '../src/town-simulation';
 import { visits, upgrades } from '../src/game';
 import { clinicAttractions, clinicFixtureNames } from '../src/clinic-identity';
+import { messagesFor } from '../src/character-voices';
+import { characterFeeling } from '../src/character-feelings';
 const owned = upgrades.filter((u) => u.id !== 'stock').map((u) => u.id);
 let script = '';
 test.setTimeout(120000);
@@ -86,19 +88,23 @@ async function open(page: Page, ride = false) {
     timeout: 45000,
   });
 }
-const card = (page: Page) => page.locator('.clinic-inspection:visible');
+const bubble = (page: Page) =>
+  page.locator('.world-bubble[data-source="inspect"]:visible');
 async function pointAt(page: Page, name: string, touch: boolean) {
   const point = await page.evaluate((name) => window.clinicTarget(name), name);
   if (touch) await page.touchscreen.tap(point.x, point.y);
   else await page.mouse.move(point.x, point.y);
-  await expect(card(page).locator('.inspection-name')).toHaveText(name);
+  await expect(bubble(page).locator('.bubble-name')).toHaveText(name);
+  await expect(page.locator('.patient-list')).toBeVisible();
+  await expect(page.locator('.world-bubble')).toHaveCount(1);
   return point;
 }
-test('clinic people, pets and attractions identify their visible models without calling a patient', async ({
+test('head bubbles identify people, companions and every attraction without replacing the patient menu', async ({
   page,
 }, info) => {
   await open(page);
   const touch = info.project.name === 'mobile';
+  const menu = await page.locator('.patient-list').boundingBox();
   for (const name of [
     'Louise',
     'Amelia',
@@ -106,28 +112,23 @@ test('clinic people, pets and attractions identify their visible models without 
     'Scout',
     'Sunny',
     ...Object.values(clinicFixtureNames),
-  ])
+  ]) {
     await pointAt(page, name, touch);
+    expect(await page.locator('.patient-list').boundingBox()).toEqual(menu);
+  }
   await expect(page.locator('#clinic-call')).toHaveAttribute(
     'data-stage',
     'idle',
   );
   await expect(page.locator('.call-next')).toBeVisible();
-  await page.screenshot({
-    path: info.outputPath('clinic-attraction-name.png'),
-  });
-  if (touch)
-    await card(page).getByRole('button', { name: 'Close clinic info' }).tap();
-  else await page.keyboard.press('Escape');
-  await expect(card(page)).toHaveCount(0);
-  await expect(page.locator('.patient-list')).toBeVisible();
-  const hiddenPoint = await pointAt(page, 'Books and magazines', touch);
+  await page.screenshot({ path: info.outputPath('attraction-bubble.png') });
+  const hidden = await pointAt(page, 'Books and magazines', touch);
   await page.evaluate(() => window.clinicHideNamed('Books and magazines'));
-  if (touch) await page.touchscreen.tap(hiddenPoint.x, hiddenPoint.y);
-  else await page.mouse.move(hiddenPoint.x, hiddenPoint.y);
+  if (touch) await page.touchscreen.tap(hidden.x, hidden.y);
+  else await page.mouse.move(hidden.x, hidden.y);
   await expect(
-    card(page)
-      .locator('.inspection-name')
+    bubble(page)
+      .locator('.bubble-name')
       .filter({ hasText: 'Books and magazines' }),
   ).toHaveCount(0);
   const point = await pointAt(page, 'Louise', touch);
@@ -156,9 +157,9 @@ test('clinic people, pets and attractions identify their visible models without 
     await page.mouse.move(point.x, point.y, { steps: 5 });
     await page.mouse.up();
   }
-  await expect(card(page)).toHaveCount(0);
+  await expect(bubble(page)).toHaveCount(0);
 });
-test('a riding pet shares its current feeling, companions stay distinct, and short layouts keep controls clear', async ({
+test('one bubble follows its rider, changes feeling when the turn ends, and leaves short-screen controls visible', async ({
   page,
 }, info) => {
   await open(page, true);
@@ -170,71 +171,142 @@ test('a riding pet shares its current feeling, companions stay distinct, and sho
       type: 'touchStart',
       touchPoints: [{ ...point, id: 0 }],
     });
-    // The coaster has moved by release: the tap must retain the pet that was
-    // beneath the finger initially, not switch to the empty track underneath.
     await page.evaluate(() => window.clinicAdvance(2));
     await cdp.send('Input.dispatchTouchEvent', {
       type: 'touchEnd',
       touchPoints: [],
     });
     await cdp.detach();
-    await expect(card(page).locator('.inspection-name')).toHaveText('Luna');
+    await expect(bubble(page).locator('.bubble-name')).toHaveText('Luna');
   } else await pointAt(page, 'Luna', false);
-  await expect(card(page).locator('.inspection-feeling')).toHaveText(
+  await expect(bubble(page).locator('.bubble-feeling')).toContainText(
     clinicAttractions.coaster.feeling,
   );
-  expect(
-    await page.evaluate(() => window.clinicInspectNamed('Scout')),
-  ).toMatchObject({ name: 'Scout', description: 'Amelia’s dog' });
+  const before = await bubble(page).getAttribute('data-anchor-x');
+  await page.evaluate(() => window.clinicAdvance(1));
+  await expect(bubble(page)).not.toHaveAttribute('data-anchor-x', before!);
   expect(
     (await page.evaluate(() => window.clinicInspectNamed('Scout')))?.feeling,
-  ).toBeUndefined();
-  await page.screenshot({ path: info.outputPath('happy-coaster-pet.png') });
+  ).not.toContain('Wheee');
+  await page.screenshot({ path: info.outputPath('moving-pet-bubble.png') });
   await page.evaluate(() => window.clinicFinishTurn('Luna'));
-  await expect(
-    page.locator('.clinic-inspection:visible .inspection-feeling:visible'),
-  ).toHaveCount(0);
-  // Exercise the real UI callback with each reaction on a very short viewport.
-  // Geometric picking above is independent of this layout/content coverage.
+  await expect(bubble(page).locator('.bubble-feeling')).not.toContainText(
+    'Wheee',
+  );
   for (const size of [
     { width: 360, height: 640 },
     { width: 1280, height: 650 },
   ]) {
     await page.setViewportSize(size);
-    for (const attraction of Object.values(clinicAttractions)) {
-      await page.evaluate(
-        (feeling) =>
-          window.clinicInfoPreview({
-            name: 'Luna',
-            description: 'Amelia’s dog',
-            feeling,
-          }),
-        attraction.feeling,
-      );
-      const problems = await page.evaluate(() => {
-        const card = document.querySelector<HTMLElement>(
-          '.office-patients .clinic-inspection',
-        )!;
-        const bounds = card.getBoundingClientRect();
-        return {
-          overflow: document.documentElement.scrollHeight - innerHeight,
-          clipped: [...card.children]
-            .filter((e) => {
-              const r = e.getBoundingClientRect();
-              return (
-                r.top < bounds.top ||
-                r.bottom > bounds.bottom ||
-                r.left < bounds.left ||
-                r.right > bounds.right
-              );
-            })
-            .map((e) => e.className),
-        };
-      });
-      expect(problems).toEqual({ overflow: 0, clipped: [] });
-    }
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    await pointAt(page, 'Amelia', touch);
+    const problems = await page.evaluate(() => {
+      const b = document.querySelector<HTMLElement>('.world-bubble')!,
+        r = b.getBoundingClientRect();
+      const world = document.querySelector('#world')!.getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollHeight - innerHeight,
+        inside:
+          r.top >= world.top &&
+          r.bottom <= world.bottom &&
+          r.left >= world.left &&
+          r.right <= world.right,
+        interactive: getComputedStyle(b).pointerEvents,
+      };
+    });
+    expect(problems).toEqual({
+      overflow: 0,
+      inside: true,
+      interactive: 'none',
+    });
+    await expect(page.locator('.patient-list')).toBeVisible();
+    await expect(page.locator('.call-next')).toBeVisible();
     await page.screenshot({
-      path: info.outputPath(`clinic-info-${size.width}.png`),
+      path: info.outputPath(`bubble-${size.width}.png`),
+    });
+  }
+});
+test('messages vary, replace each other immediately, and expire after five seconds even under the mouse', async ({
+  page,
+}, info) => {
+  await open(page, true);
+  const touch = info.project.name === 'mobile';
+  const spoken: string[] = [];
+  for (let i = 0; i < 5; i++) {
+    await pointAt(page, 'Luna', touch);
+    spoken.push((await bubble(page).locator('.bubble-feeling').textContent())!);
+  }
+  expect(new Set(spoken).size).toBe(5);
+  await pointAt(page, 'Amelia', touch);
+  await expect(page.locator('.world-bubble:visible')).toHaveCount(1);
+  await expect(bubble(page).locator('.bubble-name')).toHaveText('Amelia');
+  await expect(bubble(page)).toHaveCount(0, { timeout: 6500 });
+  await expect(page.locator('.patient-list')).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(bubble(page)).toHaveCount(0);
+  await pointAt(page, 'Louise', touch);
+  await page.getByRole('button', { name: /Clinic shop/ }).click();
+  await expect(page.locator('.world-bubble:visible')).toHaveCount(0);
+});
+
+test('Hookville rescue feelings appear automatically above the actual owners and pets', async ({
+  page,
+}, info) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Hookville', exact: true }).click();
+  for (const [name, kind, phase] of [
+    ['Milo', 'lost', 'climb'],
+    ['Pico', 'lost', 'handover'],
+    ['Luna', 'fire', 'exit-house'],
+  ] as const) {
+    const s = new TownSimulation(visits, () => 0.5);
+    s.households.forEach((h) => {
+      h.remaining = 290;
+      h.nextCare = 9999;
+    });
+    const h = s.households.find((h) => h.pets.some((p) => p.name === name))!;
+    expect(s.emergencies.start(kind, h, s.households, 0, () => 0.5)).toBe(true);
+    if (kind === 'lost') s.emergencies.active!.pets = [name];
+    for (
+      let i = 0;
+      i < 4500 &&
+      !(
+        s.emergencies.active?.phase === phase &&
+        s.emergencies.active.elapsed > 1
+      );
+      i++
+    )
+      s.update(0.1);
+    expect(s.emergencies.active?.phase).toBe(phase);
+    await page.evaluate(
+      ({ snapshot, name }) => window.clinicTownSnapshot(snapshot, name),
+      { snapshot: s.snapshot(), name },
+    );
+    const speech = page.locator(
+      '.world-bubble[data-source="reaction"]:visible',
+    );
+    await expect(speech).toBeVisible({ timeout: 10000 });
+    const speaker = (await speech.locator('.bubble-name').textContent())!;
+    const family = s.households.find(
+      (h) => h.owner === speaker || h.pets.some((p) => p.name === speaker),
+    )!;
+    const feeling = characterFeeling(
+      s,
+      family,
+      family.pets.find((p) => p.name === speaker),
+    );
+    expect(feeling.priority).toBe(4);
+    expect(messagesFor(speaker, feeling.text, true)).toContain(
+      await speech.locator('.bubble-feeling').textContent(),
+    );
+    await expect(page.locator('.world-bubble:visible')).toHaveCount(1);
+    await page.screenshot({
+      path: info.outputPath(`town-bubble-${name}-${phase}.png`),
     });
   }
 });

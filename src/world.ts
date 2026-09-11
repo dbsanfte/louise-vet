@@ -20,7 +20,8 @@ import { Town, type TownPick } from './town';
 import { TownSimulation } from './town-simulation';
 import { clinicPlan, townToLocal } from './clinic-leisure';
 import { layout, localToTown, examRoom } from './town-map';
-import type { ClinicInfo } from './clinic-identity';
+import { WorldBubble } from './world-bubble';
+import { messagesFor } from './character-voices';
 
 const assetNames = [
   'clinic',
@@ -67,12 +68,10 @@ export class World {
 
   onTownPick: (id: TownPick) => void = () => {};
   onClinicMove: () => void = () => {};
-  onClinicPick: (info?: ClinicInfo) => void = () => {};
-  private clinicHover?: { clientX: number; clientY: number };
+  private bubble: WorldBubble;
+  private clinicHoverTarget?: THREE.Object3D;
   private clinicSelection?: THREE.Object3D;
   private clinicPressTarget?: THREE.Object3D;
-  private clinicInfoKey = '';
-  private clinicPickAt = 0;
   private clinicPointers = new Set<number>();
   private clinicDragged = false;
   private reception = new THREE.Group();
@@ -146,6 +145,7 @@ export class World {
     );
     this.renderer.domElement.setAttribute('role', 'img');
     container.prepend(this.renderer.domElement);
+    this.bubble = new WorldBubble(container);
     this.scene.background = new THREE.Color('#e9e8d9');
     this.scene.add(new THREE.HemisphereLight(0xfff9e7, 0x788778, 1.0));
     const light = new THREE.DirectionalLight(0xffe6c0, 2.0);
@@ -296,8 +296,7 @@ export class World {
         )
           this.clinicDragged = true;
         if (e.pointerType === 'mouse' && !e.buttons) {
-          this.clinicHover = { clientX: e.clientX, clientY: e.clientY };
-          this.pickClinic(this.clinicHover);
+          this.pickClinic(e);
         }
       } else this.moveInstrument(e);
     });
@@ -305,7 +304,7 @@ export class World {
       if (this.mode === 'town' && e.pointerType === 'mouse')
         this.onTownPick(undefined);
       if (this.mode === 'reception' && e.pointerType === 'mouse')
-        this.clearClinicPick();
+        this.clinicHoverTarget = undefined;
     });
     this.renderer.domElement.addEventListener('pointercancel', (e) => {
       this.examining = false;
@@ -402,6 +401,8 @@ export class World {
     louise.userData.clinicInfo = {
       name: 'Louise',
       description: 'Your friendly vet',
+      feeling: 'Hello, little friend!',
+      messages: messagesFor('Louise', 'Hello, little friend!'),
     };
     louise.position.set(-1.3, 0, -2.75);
     this.reception.add(louise);
@@ -640,8 +641,13 @@ export class World {
     this.onTownPick(this.town.pick(this.raycaster));
   }
   private pickClinic(point: { clientX: number; clientY: number }) {
-    this.clinicSelection = this.clinicTargetAt(point);
-    this.publishClinicInfo();
+    const target = this.clinicTargetAt(point);
+    if (target === this.clinicHoverTarget) return;
+    this.clinicHoverTarget = target;
+    if (target) {
+      this.clinicSelection = target;
+      this.publishClinicInfo();
+    }
   }
   private clinicTargetAt(point: { clientX: number; clientY: number }) {
     if (!this.loaded || !this.town || this.mode !== 'reception') return;
@@ -660,17 +666,15 @@ export class World {
     const info = this.clinicSelection
       ? this.town?.describeClinic(this.clinicSelection)
       : undefined;
-    const key = JSON.stringify(info) ?? '';
-    if (key !== this.clinicInfoKey) {
-      this.clinicInfoKey = key;
-      this.onClinicPick(info);
-    }
+    if (info && this.clinicSelection)
+      this.bubble.inspect(this.clinicSelection, info);
+    else this.bubble.clear();
   }
   clearClinicPick() {
-    this.clinicHover = undefined;
+    this.clinicHoverTarget = undefined;
     this.clinicSelection = undefined;
     this.clinicPressTarget = undefined;
-    this.publishClinicInfo();
+    this.bubble.clear();
   }
   focusHome(id: number) {
     this.followedFamily = undefined;
@@ -942,11 +946,6 @@ export class World {
     if (!this.loaded) return;
     if (this.mode === 'reception') this.clinicControls.update();
     this.town?.update(dt, this.mode !== 'treatment');
-    if (this.mode === 'reception' && time - this.clinicPickAt > 200) {
-      this.clinicPickAt = time;
-      if (this.clinicHover) this.pickClinic(this.clinicHover);
-      else if (this.clinicSelection) this.publishClinicInfo();
-    }
     const wet = this.mode === 'town' ? this.simulation.weather.wetness : 0;
     this.sunlight.intensity = 2 - wet * 1.35;
     this.sunlight.color.set(0xffe6c0).lerp(new THREE.Color(0xd0ddea), wet);
@@ -1023,6 +1022,15 @@ export class World {
       this.pick(this.hoverZone);
     }
     this.controls.update();
+    if (this.mode === 'reception' || this.mode === 'town') {
+      const camera = this.mode === 'town' ? this.townCamera : this.ortho;
+      camera.updateMatrixWorld(true);
+      this.bubble.update(
+        camera,
+        () => this.town?.reactions(this.mode === 'reception') ?? [],
+        (target) => this.town?.describeClinic(target),
+      );
+    }
     // Software WebGL keeps the same clips, at a lighter display cadence.
     // Camera changes redraw immediately; hardware graphics animate every frame.
     if (

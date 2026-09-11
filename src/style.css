@@ -2605,52 +2605,56 @@ html:has(#clue-summary:not([hidden])) {
   gap: 8px;
   align-items: center;
 }
-.clinic-list-slot {
-  position: relative;
-}
-.clinic-list-slot.inspecting > :is(.patient-list, ul) {
-  visibility: hidden;
-}
-.clinic-inspection {
+/* Informational bubbles never intercept a tap, drag or patient-menu click. */
+.world-bubble {
   position: absolute;
-  inset: 0;
-  padding: 8px 10px;
-  border: 2px solid #a8c18f;
-  border-radius: 14px;
-  background: #f4f8e9;
+  z-index: 4;
+  pointer-events: none;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(230px, calc(100% - 12px));
+  padding: 8px 11px;
+  border: 2px solid #9bb787;
+  border-radius: 16px;
+  background: #fffdf2;
+  box-shadow: 0 3px 9px #354b3c25;
   color: #354b3c;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-}
-.clinic-inspection .icon-button {
-  position: absolute;
-  right: 4px;
-  top: 4px;
-  width: 36px;
-  height: 36px;
-  min-height: 36px;
-  padding: 0;
-  font-size: 24px;
-}
-.inspection-name,
-.inspection-description {
-  padding-right: 30px;
-}
-.inspection-name {
-  font-size: 18px;
-  line-height: 1.15;
-}
-.inspection-description {
-  font-size: 14px;
-  line-height: 1.2;
-}
-.inspection-feeling {
-  margin: 3px 0 0;
+  text-align: center;
   font-size: 15px;
-  font-weight: 800;
   line-height: 1.2;
+}
+.world-bubble[hidden] {
+  display: none;
+}
+.world-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: var(--bubble-tail, 50%);
+  border: 8px solid transparent;
+  border-top-color: #9bb787;
+  transform: translateX(-50%);
+}
+.world-bubble > * {
+  display: block;
+}
+.world-bubble > [hidden] {
+  display: none;
+}
+.bubble-name {
+  font-size: 17px;
+}
+.bubble-description {
+  font-size: 13px;
+  margin-top: 2px;
+}
+.bubble-feeling {
+  font-weight: 800;
+  margin-top: 3px;
+}
+#scene-controls,
+#scene-caption {
+  z-index: 3;
 }
 .office-tabs button {
   flex: 1;
