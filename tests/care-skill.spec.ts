@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { build } from 'vite';
 import { careSkills, type CareTool } from '../src/care-skill';
+import { bandagePattern } from '../src/bandage-pattern';
 import { completeCareSkill } from './browser-helpers';
 let script = '';
 test.beforeAll(async () => {
@@ -75,6 +76,10 @@ test('all care activities support real controls and fit short windows', async ({
           .map((e) => e.textContent || e.ariaLabel),
       );
       expect(bad, tool).toEqual([]);
+      if (tool === 'bandage')
+        await page.screenshot({
+          path: info.outputPath(`bandage-ready-${size.height}.png`),
+        });
     }
     await page.setViewportSize({ width: 360, height: 640 });
     await completeCareSkill(page);
@@ -101,11 +106,30 @@ test('care dialogs trap focus, explain mistakes, cancel and stop without complet
   await page.addScriptTag({ content: script });
   await page.evaluate(() => window.openCare('bandage'));
   await page.getByRole('button', { name: 'Start when ready' }).click();
-  await page.getByRole('button', { name: 'Wrap step 4' }).click();
+  const board = page.locator('.skill-wrap');
+  const box = (await board.boundingBox())!;
+  await page.mouse.move(
+    box.x + box.width * bandagePattern[0].x,
+    box.y + box.height * bandagePattern[0].y,
+  );
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.9);
+  await page.mouse.up();
   await expect(page.locator('.skill-feedback')).toContainText(
-    'next numbered arrow',
+    'stay on the dotted ribbon',
   );
   await expect(page.locator('[data-skill-finish]')).toBeDisabled();
+  for (const size of [
+    { width: 360, height: 640 },
+    { width: 740, height: 360 },
+  ]) {
+    await page.setViewportSize(size);
+    expect(
+      await page
+        .locator('.skill-dialog')
+        .evaluate((d) => d.scrollHeight - d.clientHeight),
+    ).toBeLessThanOrEqual(1);
+  }
   await page.keyboard.press('Escape');
   await expect(page.locator('#outcome')).toHaveText('Cancelled');
   await page.evaluate(() => window.openCare('vaccine'));
@@ -207,4 +231,117 @@ test('the ice pack follows mouse and touch dragging and can finish cooling', asy
   await finish.click();
   await expect(page.locator('#outcome')).toHaveText('Care completed');
   await session?.detach();
+});
+
+test('bandage tracing follows mouse, touch and keyboard, with safe recovery and no click shortcuts', async ({
+  page,
+  baseURL,
+}, info) => {
+  const index = await (await page.request.get(baseURL!)).text();
+  const css = index.match(/href="([^"]+\.css)"/)![1];
+  await page.route('**/skill-test.html', (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: `<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="${css}"><body></body>`,
+    }),
+  );
+  await page.route('**/assets/**', async (route) =>
+    route.fulfill({ response: await route.fetch() }),
+  );
+  await page.goto('/skill-test.html');
+  await page.addScriptTag({ content: script });
+  await page.evaluate(() => window.openCare('bandage'));
+  const board = page.getByRole('group', { name: 'Bandage wrapping pattern' });
+  const finish = page.locator('[data-skill-finish]');
+  const meter = page.getByRole('meter');
+  const session =
+    info.project.name === 'mobile'
+      ? await page.context().newCDPSession(page)
+      : null;
+  const pointer = async (phase: 'start' | 'move' | 'end', index: number) => {
+    const box = (await board.boundingBox())!,
+      point = bandagePattern[index];
+    const p = {
+      x: box.x + point.x * box.width,
+      y: box.y + point.y * box.height,
+    };
+    if (session)
+      await session.send('Input.dispatchTouchEvent', {
+        type:
+          phase === 'start'
+            ? 'touchStart'
+            : phase === 'move'
+              ? 'touchMove'
+              : 'touchEnd',
+        touchPoints: phase === 'end' ? [] : [{ ...p, id: 0 }],
+      });
+    else if (phase === 'start') {
+      await page.mouse.move(p.x, p.y);
+      await page.mouse.down();
+    } else if (phase === 'move') await page.mouse.move(p.x, p.y);
+    else await page.mouse.up();
+  };
+  await pointer('start', 0);
+  await pointer('move', 16);
+  await pointer('end', 16);
+  await expect(meter).toHaveAttribute('aria-valuenow', '0');
+  await page.getByRole('button', { name: 'Start when ready' }).click();
+  for (const i of [0, 16, 32, 48, 64, 80, 96]) {
+    await pointer('start', i);
+    await pointer('end', i);
+  }
+  await expect(meter).toHaveAttribute('aria-valuenow', '0');
+  const beforeDrag = (await board.boundingBox())!;
+  await pointer('start', 0);
+  expect((await board.boundingBox())!.y).toBeCloseTo(beforeDrag.y, 1);
+  for (let i = 1; i <= 24; i++) await pointer('move', i);
+  // A shortcut to a later coil loses only the unfinished section.
+  await pointer('move', 80);
+  await pointer('end', 80);
+  await expect(page.locator('.skill-feedback')).toContainText(
+    'finished sections are safe',
+  );
+  await expect(meter).toHaveAttribute('aria-valuenow', '17');
+  await expect(finish).toBeDisabled();
+  await pointer('start', 16);
+  for (let i = 17; i <= 48; i++) await pointer('move', i);
+  await pointer('end', 48);
+  await expect(meter).toHaveAttribute('aria-valuenow', '50');
+  await page.screenshot({ path: info.outputPath('bandage-half-wrapped.png') });
+  await page.mouse.move(1, 1);
+  await expect(meter).toHaveAttribute('aria-valuenow', '50');
+  await pointer('start', 48);
+  for (let i = 49; i <= 96; i++) await pointer('move', i);
+  await pointer('end', 96);
+  await expect(finish).toBeEnabled();
+  await finish.click();
+  await expect(page.locator('#outcome')).toHaveText('Care completed');
+  await session?.detach();
+
+  // The arrow alternative moves the same roll in two dimensions and must trace
+  // the same ribbon. It is not a second set of numbered completion buttons.
+  await page.evaluate(() => window.openCare('bandage'));
+  await page.getByRole('button', { name: 'Start when ready' }).click();
+  await expect(board).toBeFocused();
+  let cursor = { ...bandagePattern[0] };
+  for (const point of bandagePattern.slice(1)) {
+    for (const axis of ['x', 'y'] as const) {
+      while (Math.abs(point[axis] - cursor[axis]) > 0.011) {
+        const forward = point[axis] > cursor[axis];
+        await board.press(
+          axis === 'x'
+            ? forward
+              ? 'ArrowRight'
+              : 'ArrowLeft'
+            : forward
+              ? 'ArrowDown'
+              : 'ArrowUp',
+        );
+        cursor[axis] += forward ? 0.02 : -0.02;
+      }
+    }
+  }
+  await expect(finish).toBeEnabled();
+  await finish.click();
+  await expect(page.locator('#outcome')).toHaveText('Care completed');
 });

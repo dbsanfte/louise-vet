@@ -41,6 +41,7 @@ test('the furnished room is visible and Louise leads the family there before clo
   await page.getByRole('button', { name: 'Exam room', exact: true }).click();
   await page.screenshot({ path: info.outputPath('furnished-room.png') });
   await page.locator('[data-action="next"]').click();
+  await expect(page.locator('.call-next')).toBeHidden();
   await expect(page.locator('#clinic-call')).toHaveAttribute(
     'data-stage',
     'lead',
@@ -69,6 +70,7 @@ test('the furnished room is visible and Louise leads the family there before clo
   await expect(page.locator('.findings')).toContainText('ear looks clear');
   await page.getByRole('button', { name: /Stop visit/ }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-mode', 'reception');
+  await expect(page.locator('.call-next')).toBeVisible();
   expect(errors).toEqual([]);
 });
 test('cancelling an escort keeps the family waiting and vaccination still skips diagnosis', async ({
@@ -76,6 +78,7 @@ test('cancelling an escort keeps the family waiting and vaccination still skips 
 }) => {
   await open(page, 'Hazel');
   await page.locator('[data-action="next"]').click();
+  await expect(page.locator('.call-next')).toBeHidden();
   await expect(page.locator('#clinic-call')).toHaveAttribute(
     'data-stage',
     'lead',
@@ -88,7 +91,9 @@ test('cancelling an escort keeps the family waiting and vaccination still skips 
   );
   await expect(page.locator('#app')).toHaveAttribute('data-mode', 'reception');
   await expect(page.getByTestId('coins')).toHaveText('120');
+  await expect(page.locator('.call-next')).toBeVisible();
   await page.locator('[data-action="next"]').click();
+  await expect(page.locator('.call-next')).toBeHidden();
   await waitForExamination(page);
   await expect(page.locator('#app')).toHaveAttribute(
     'data-mode',

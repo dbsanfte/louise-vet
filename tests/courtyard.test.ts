@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Box3, Raycaster, Vector3 } from 'three';
 import {
   visits,
   upgrades,
@@ -16,6 +19,55 @@ import {
   segmentDistance,
 } from '../src/town-map.ts';
 import { callToRoom } from './clinic-helpers.ts';
+test('the outdoor courtyard has a lawn, bounded pickets and a clear connecting gate', async () => {
+  const bytes = await readFile(
+    new URL('../public/models/clinic/sun-courtyard.glb', import.meta.url),
+  );
+  const { scene } = await new GLTFLoader().parseAsync(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    '',
+  );
+  scene.updateMatrixWorld(true);
+  const lawn = scene.getObjectByName('CourtyardLawn')!,
+    fence = scene.getObjectByName('CourtyardFence')!;
+  assert.ok(lawn && fence);
+  const bounds = new Box3().setFromObject(fence);
+  assert.ok(bounds.min.x >= -3 && bounds.max.x <= 3);
+  assert.ok(bounds.min.z >= -4 && bounds.max.z <= 4);
+  assert.ok(bounds.max.y > 0.9 && bounds.max.y < 1);
+  const ground = new Raycaster(
+    new Vector3(0, 2, 0),
+    new Vector3(0, -1, 0),
+  ).intersectObject(lawn, true);
+  assert.ok(
+    Math.abs(ground[0].point.y - 0.06) < 0.001,
+    'grass meets the existing walking height',
+  );
+  for (const [x, z] of [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ])
+    assert.ok(
+      new Raycaster(
+        new Vector3(0, 0.3, 0),
+        new Vector3(x, 0, z),
+      ).intersectObject(fence, true).length,
+      'fence bounds each side',
+    );
+  const gate = new Raycaster(
+    new Vector3(2.05, 0.3, 3.3),
+    new Vector3(0, 0, 1),
+    0,
+    1.4,
+  );
+  assert.equal(
+    gate.intersectObject(fence, true).length,
+    0,
+    'owners and pets can use the playground aisle',
+  );
+});
 test('courtyard purchases charge once, require space, and preserve eight-patient capacity', () => {
   const p = loadProgress();
   p.coins = 5000;

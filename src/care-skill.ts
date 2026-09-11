@@ -1,4 +1,11 @@
 import type { Tool, Zone } from './game.ts';
+import {
+  bandageEnd,
+  bandageFraction,
+  bandagePoint,
+  projectBandage,
+  type TracePoint,
+} from './bandage-pattern.ts';
 export const careSkills = {
   cream: {
     kind: 'spread',
@@ -9,7 +16,7 @@ export const careSkills = {
   bandage: {
     kind: 'wrap',
     title: 'Wrap a cosy bandage',
-    hint: 'Follow the numbered arrows around the paw, one soft wrap at a time.',
+    hint: 'Drag the roll along the dotted ribbon through numbers 1–7. Make three wraps. Lift to pause; arrow keys work too.',
     action: 'Wrap bandage',
   },
   comb: {
@@ -73,6 +80,9 @@ export class CareSkill {
   misses = 0;
   accuracyLoss = 0;
   covered = new Set<number>();
+  wrapProgress = 0;
+  wrapPosition = bandagePoint(0);
+  wrapping = false;
   message = 'Read the instructions, then start when you are ready.';
   private outside = false;
   private flow = 0;
@@ -95,7 +105,10 @@ export class CareSkill {
     if (this.spec.kind === 'pour') this.value = 0.1;
   }
   get tolerance() {
-    return this.assisted ? 0.18 : 0.12;
+    return this.assisted ? 0.14 : 0.09;
+  }
+  get wrapTolerance() {
+    return this.assisted ? 0.07 : 0.05;
   }
   get target() {
     if (this.spec.kind === 'aim')
@@ -103,7 +116,7 @@ export class CareSkill {
     if (this.spec.kind === 'pull')
       return [0.25, 0.5, 0.8][Math.min(this.stage, 2)];
     if (this.spec.kind === 'steady')
-      return 0.5 + Math.sin(this.elapsed * 0.8) * 0.22;
+      return 0.5 + Math.sin(this.elapsed * 1.05) * 0.28;
     return this.spec.kind === 'pour' ? 0.65 : 0.5;
   }
   get progress() {
@@ -112,6 +125,7 @@ export class CareSkill {
       case 'spread':
         return this.covered.size / 6;
       case 'wrap':
+        return bandageFraction(this.wrapProgress);
       case 'comb':
       case 'brush':
         return this.stage / 6;
@@ -119,7 +133,7 @@ export class CareSkill {
       case 'pull':
         return this.stage / 3;
       case 'steady':
-        return this.stable / 2.5;
+        return this.stable / 4;
       default:
         return this.value;
     }
@@ -127,7 +141,10 @@ export class CareSkill {
   start() {
     if (!this.started) {
       this.started = true;
-      this.message = this.spec.hint;
+      this.message =
+        this.spec.kind === 'wrap'
+          ? 'Start at the bandage roll. Follow the next number.'
+          : this.spec.hint;
     }
   }
   private miss(message: string) {
@@ -137,7 +154,76 @@ export class CareSkill {
   private finish() {
     this.complete = true;
     this.holding = false;
+    this.wrapping = false;
     this.message = 'Lovely, gentle work! Finish care when you are ready.';
+  }
+  beginWrap(point: TracePoint) {
+    if (
+      this.spec.kind !== 'wrap' ||
+      !this.started ||
+      this.complete ||
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y)
+    )
+      return false;
+    const roll = bandagePoint(this.wrapProgress);
+    if (Math.hypot(point.x - roll.x, point.y - roll.y) > 0.1) {
+      this.message =
+        'Start at the bandage roll, then follow the dotted ribbon.';
+      return false;
+    }
+    this.wrapPosition = roll;
+    this.wrapping = true;
+    this.message = 'Follow the ribbon to the next number. Take your time.';
+    return true;
+  }
+  traceWrap(point: TracePoint) {
+    if (
+      !this.wrapping ||
+      this.complete ||
+      !Number.isFinite(point.x) ||
+      !Number.isFinite(point.y)
+    )
+      return;
+    const from = this.wrapPosition;
+    // Check the whole stroke, including between sparse pointer events. Cutting
+    // across the paw or teleporting to a later number cannot complete a wrap.
+    const steps = Math.min(
+      300,
+      Math.max(
+        1,
+        Math.ceil(Math.hypot(point.x - from.x, point.y - from.y) / 0.008),
+      ),
+    );
+    for (let i = 1; i <= steps; i++) {
+      const sample = {
+        x: from.x + ((point.x - from.x) * i) / steps,
+        y: from.y + ((point.y - from.y) * i) / steps,
+      };
+      const projected = projectBandage(sample, this.wrapProgress);
+      if (projected.distance > this.wrapTolerance) {
+        this.wrapProgress = Math.floor(this.wrapProgress / 16) * 16;
+        this.stage = this.wrapProgress / 16;
+        this.releaseWrap();
+        this.miss(
+          'Oops, stay on the dotted ribbon. Try from the roll again; finished sections are safe.',
+        );
+        return;
+      }
+      this.wrapProgress = projected.progress;
+      this.stage = Math.floor(this.wrapProgress / 16);
+    }
+    this.wrapPosition = point;
+    if (this.wrapProgress >= bandageEnd - 0.01) {
+      this.wrapProgress = bandageEnd;
+      this.stage = 6;
+      this.wrapPosition = bandagePoint(bandageEnd);
+      this.finish();
+    }
+  }
+  releaseWrap() {
+    this.wrapping = false;
+    this.wrapPosition = bandagePoint(this.wrapProgress);
   }
   input(value: number) {
     if (!this.started || this.complete || !Number.isFinite(value)) return;
@@ -176,13 +262,7 @@ export class CareSkill {
         if (this.covered.size === 6) this.finish();
         break;
       case 'wrap':
-        if (cell !== this.stage) {
-          this.miss('Follow the next numbered arrow. The wrap can wait.');
-          return;
-        }
-        this.stage++;
-        if (this.stage === 6) this.finish();
-        else this.message = `Now wrap around to number ${this.stage + 1}.`;
+        // Wrapping needs an actual traced stroke, never individual clicks.
         break;
       case 'aim':
         if (Math.abs(this.value - this.target) > this.tolerance) {
@@ -233,7 +313,7 @@ export class CareSkill {
     this.elapsed += dt;
     const kind = this.spec.kind;
     if (kind === 'pressure' && this.holding) {
-      this.value += dt * 0.23;
+      this.value += dt * 0.29;
       if (this.value > 0.9) {
         this.value = 0;
         this.holding = false;
@@ -243,7 +323,7 @@ export class CareSkill {
       }
     }
     if (kind === 'pour') {
-      this.flow = this.holding ? 0.24 : Math.max(0, this.flow - dt * 0.8);
+      this.flow = this.holding ? 0.28 : Math.max(0, this.flow - dt * 0.8);
       this.value += this.flow * dt;
       if (this.value > this.target + this.tolerance) {
         this.value = 0.1;
@@ -269,7 +349,7 @@ export class CareSkill {
       if (linedUp) {
         this.outside = false;
         this.stable += dt;
-        if (this.stable >= (kind === 'pull' ? 0.65 : 2.5)) {
+        if (this.stable >= (kind === 'pull' ? 0.85 : 4)) {
           if (kind === 'steady') this.finish();
           else {
             this.stage++;

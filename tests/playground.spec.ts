@@ -66,7 +66,7 @@ test('office controls stay inside short, full clinics without page scrolling', a
       )
         bad.push('document scrolls');
       for (const el of document.querySelectorAll<HTMLElement>(
-        '#app > .topbar button, #stats > .stat, .shelf-summary, #sidebar button, .clinic-views button, .bottom-bar button',
+        '#app > .topbar button, #stats > .stat, .shelf-summary, #sidebar button, .clinic-views button, #scene-controls button, .bottom-bar button',
       )) {
         if (!el.checkVisibility()) continue;
         const r = el.getBoundingClientRect();
@@ -115,8 +115,10 @@ test('office controls stay inside short, full clinics without page scrolling', a
   });
   await (await showPatient(page, 'Luna')).click();
   await expect(page.locator('[data-action="cancel-call"]')).toBeVisible();
+  await expect(page.locator('.call-next')).toBeHidden();
   await fits();
   await page.getByRole('button', { name: 'Cancel call', exact: true }).click();
+  await expect(page.locator('.call-next')).toBeVisible();
   await page.getByRole('button', { name: /Clinic shop/ }).click();
   await expect(page.locator('[data-upgrade="coaster"]')).toHaveText(
     /In your clinic/,

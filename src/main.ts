@@ -169,7 +169,9 @@ function renderReception() {
   renderClinicTitle();
   byId('scene-goal').innerHTML =
     `<span class="goal-icon">${icon('star')}</span><div><small>TODAY’S LITTLE GOAL</small><strong>Help 3 animal friends</strong><div class="goal-dots">${[0, 1, 2].map((i) => `<span class="${progress.treated % 3 > i ? 'done' : ''}">${progress.treated % 3 > i ? icon('check') : ''}</span>`).join('')}</div></div>`;
-  byId('scene-controls').innerHTML = '';
+  const cameraControls = `<button data-action="clinic-left" aria-label="Pan clinic left">←</button><button data-action="clinic-right" aria-label="Pan clinic right">→</button><button data-action="clinic-up" aria-label="Pan clinic up">↑</button><button data-action="clinic-down" aria-label="Pan clinic down">↓</button><button data-action="clinic-in" aria-label="Zoom into clinic">+</button><button data-action="clinic-out" aria-label="Zoom out of clinic">−</button>`;
+  if (byId('scene-controls').innerHTML !== cameraControls)
+    byId('scene-controls').innerHTML = cameraControls;
   byId('zones').innerHTML = '';
   byId('precision').innerHTML = '';
   if (replaceSidebar)
@@ -184,38 +186,42 @@ function renderReception() {
 function renderClinicTitle() {
   const focused = (document.activeElement as HTMLElement)?.dataset.view;
   const label =
-    clinicView === 'exam'
-      ? 'EXAMINATION ROOM'
-      : clinicView === 'escort'
-        ? 'FOLLOW LOUISE'
-        : clinicView === 'courtyard'
-          ? 'Sunshine courtyard'
-          : clinicView === 'annex'
-            ? 'PLAY GARDEN'
-            : clinicView === 'play'
-              ? 'PET PLAYGROUND'
-              : clinicView === 'lounge'
-                ? 'CUSTOMER LOUNGE'
-                : clinicView === 'all'
-                  ? 'YOUR GROWING CLINIC'
-                  : 'RECEPTION';
+    clinicView === 'free'
+      ? 'YOUR CLINIC'
+      : clinicView === 'exam'
+        ? 'EXAMINATION ROOM'
+        : clinicView === 'escort'
+          ? 'FOLLOW LOUISE'
+          : clinicView === 'courtyard'
+            ? 'Sunshine courtyard'
+            : clinicView === 'annex'
+              ? 'PLAY GARDEN'
+              : clinicView === 'play'
+                ? 'PET PLAYGROUND'
+                : clinicView === 'lounge'
+                  ? 'CUSTOMER LOUNGE'
+                  : clinicView === 'all'
+                    ? 'YOUR GROWING CLINIC'
+                    : 'RECEPTION';
   const heading =
-    clinicView === 'exam'
-      ? 'A calm place for gentle care'
-      : clinicView === 'escort'
-        ? 'Let’s go to the examination room'
-        : clinicView === 'courtyard'
-          ? 'Bubbles, birds and cosy corners'
-          : clinicView === 'annex'
-            ? 'Wings, whiskers and little adventures'
-            : clinicView === 'play'
-              ? 'Little adventures while we wait'
-              : clinicView === 'lounge'
-                ? 'Make yourself comfortable'
-                : 'Your happy little clinic';
+    clinicView === 'free'
+      ? 'Take a look around'
+      : clinicView === 'exam'
+        ? 'A calm place for gentle care'
+        : clinicView === 'escort'
+          ? 'Let’s go to the examination room'
+          : clinicView === 'courtyard'
+            ? 'Bubbles, birds and cosy corners'
+            : clinicView === 'annex'
+              ? 'Wings, whiskers and little adventures'
+              : clinicView === 'play'
+                ? 'Little adventures while we wait'
+                : clinicView === 'lounge'
+                  ? 'Make yourself comfortable'
+                  : 'Your happy little clinic';
   byId('scene-title').innerHTML =
     `<span class="room-pill"><i></i> ${label}</span><h2>${heading}</h2>`;
-  const caption = `<nav class="clinic-views" aria-label="Clinic rooms">${[['reception', 'Reception'], ['exam', 'Exam room'], ...(progress.upgrades.includes('expansion') ? [['lounge', 'Customer lounge']] : []), ...(progress.upgrades.includes('pet-room') ? [['play', 'Pet playground']] : []), ...(progress.upgrades.includes('play-annex') ? [['annex', 'Play garden']] : []), ...(progress.upgrades.includes('sun-courtyard') ? [['courtyard', 'Courtyard']] : []), ['all', 'Whole clinic']].map(([id, name]) => `<button class="secondary" data-action="clinic-view" data-view="${id}" aria-pressed="${clinicView === id}">${name}</button>`).join('')}</nav>`;
+  const caption = `<nav class="clinic-views" aria-label="Clinic rooms">${[['reception', 'Reception'], ['exam', 'Exam room'], ...(progress.upgrades.includes('expansion') ? [['lounge', 'Customer lounge']] : []), ...(progress.upgrades.includes('pet-room') ? [['play', 'Pet playground']] : []), ...(progress.upgrades.includes('play-annex') ? [['annex', 'Play garden']] : []), ...(progress.upgrades.includes('sun-courtyard') ? [['courtyard', 'Courtyard']] : []), ['all', 'Whole clinic']].map(([id, name]) => `<button class="secondary" data-action="clinic-view" data-view="${id}" aria-label="${name}" aria-pressed="${clinicView === id}"><span class="room-name-full">${name}</span><span class="room-name-short" aria-hidden="true">${({ lounge: 'Lounge', play: 'Playground', all: 'All rooms' } as Record<string, string>)[id] ?? name}</span></button>`).join('')}</nav>`;
   if (byId('scene-caption').innerHTML !== caption)
     byId('scene-caption').innerHTML = caption;
   if (focused)
@@ -226,6 +232,8 @@ function renderClinicTitle() {
 function renderLeisure() {
   const panel = document.getElementById('clinic-leisure');
   if (!panel || !world) return;
+  const callNext = document.querySelector<HTMLButtonElement>('.call-next');
+  if (callNext) callNext.hidden = pendingPatient !== null;
   const call = document.getElementById('clinic-call');
   const escortStage =
     simulation.escort.ticket === pendingPatient
@@ -593,6 +601,11 @@ function renderModal() {
         'Choose an animal in the waiting room. Read what their person has noticed.',
       ],
       [
+        'rotate',
+        'Take a look around',
+        'In the clinic or Hookville, drag to look around and use the arrows to move. Scroll or pinch to zoom. Right-drag on a computer, or move two fingers on a phone, to pan. The room buttons jump straight to your favourite places.',
+      ],
+      [
         'search',
         'Be a little detective',
         'For a poorly pet, choose tools and tap body markers to collect two key clues. Drag to rotate; scroll or pinch to zoom.',
@@ -899,6 +912,16 @@ app.addEventListener('click', (event) => {
     renderLeisure();
     return;
   }
+  if (action?.startsWith('clinic-') && mode === 'reception') {
+    if (action === 'clinic-in') world.zoomClinic(0.8);
+    else if (action === 'clinic-out') world.zoomClinic(1.25);
+    else
+      world.panClinicCamera(
+        action === 'clinic-left' ? -1 : action === 'clinic-right' ? 1 : 0,
+        action === 'clinic-up' ? -1 : action === 'clinic-down' ? 1 : 0,
+      );
+    return;
+  }
   if (action === 'follow-family' && mode === 'town') {
     const h = simulation.households[Number(target.dataset.id)];
     if (h.inClinic && h.routine !== 'clinic-exit') {
@@ -1105,7 +1128,7 @@ document.querySelector('.brand')!.addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (
-    mode === 'town' &&
+    (mode === 'town' || mode === 'reception') &&
     ready &&
     !modal &&
     !e.altKey &&
@@ -1127,7 +1150,8 @@ document.addEventListener('keydown', (e) => {
     const delta = direction[e.key];
     if (delta) {
       e.preventDefault();
-      world.panTownCamera(...delta);
+      if (mode === 'town') world.panTownCamera(...delta);
+      else world.panClinicCamera(delta[0] / 4, delta[1] / 4);
       return;
     }
   }
@@ -1174,6 +1198,11 @@ try {
   world.onTownPick = (pick) => {
     pointedResident = typeof pick === 'object' ? pick.label : undefined;
     showHome(typeof pick === 'number' ? pick : undefined);
+  };
+  world.onClinicMove = () => {
+    if (mode !== 'reception' || clinicView === 'free') return;
+    clinicView = 'free';
+    renderClinicTitle();
   };
   let last = performance.now();
   function frame(now: number) {

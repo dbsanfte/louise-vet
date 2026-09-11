@@ -308,3 +308,63 @@ window.inspectPolish = async (snapshot, upgrades, view) => {
     if (p.phase === 'use') activities.push(p.station);
   return { surfaces: [...surfaces], glossy, rain, sheltering, activities };
 };
+
+declare global {
+  interface Window {
+    clinicCamera: (
+      action?:
+        'state' | 'pan' | 'zoom' | 'courtyard' | 'reception' | 'town' | 'exam',
+      x?: number,
+      y?: number,
+    ) => Promise<{
+      target: number[];
+      position: number[];
+      centre: number[];
+      radius: number;
+      zoom: number;
+      angle: number;
+      enabled: boolean;
+      courtyard: string[];
+      texturedLawn: boolean;
+    }>;
+  }
+}
+window.clinicCamera = async (action = 'state', x = 0, y = 0) => {
+  await ready;
+  if (action === 'pan') world.panClinicCamera(x, y);
+  if (action === 'zoom') world.zoomClinic(x);
+  if (action === 'courtyard') world.focusClinic('courtyard');
+  if (action === 'reception') world.showReception();
+  if (action === 'town') await world.showTown();
+  if (action === 'exam') world.showTreatment(visits[0]);
+  world.draw(performance.now(), 0.1);
+  const inspected = world as unknown as {
+    ortho: import('three').OrthographicCamera;
+    clinicControls: import('three/addons/controls/OrbitControls.js').OrbitControls;
+  };
+  const { ortho, clinicControls } = inspected;
+  const courtyard: string[] = [];
+  let texturedLawn = false;
+  world.scene.traverse((o) => {
+    if (o.userData.courtyardSurface)
+      courtyard.push(o.userData.courtyardSurface);
+    if (o.userData.courtyardSurface === 'grass')
+      o.traverse((part) => {
+        const material = (part as import('three').Mesh).material as
+          import('three').MeshStandardMaterial | undefined;
+        if (material?.map && material.userData.surface === 'grass')
+          texturedLawn = true;
+      });
+  });
+  return {
+    target: clinicControls.target.toArray(),
+    position: ortho.position.toArray(),
+    centre: clinicControls.cursor.toArray(),
+    radius: clinicControls.maxTargetRadius,
+    zoom: ortho.zoom,
+    angle: clinicControls.getAzimuthalAngle(),
+    enabled: clinicControls.enabled,
+    courtyard,
+    texturedLawn,
+  };
+};

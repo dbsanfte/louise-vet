@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { bandagePattern } from '../src/bandage-pattern';
 /** Wait for the visible recall and escorted walk, not a faster test-only entry. */
 export async function waitForExamination(page: Page) {
   await expect(page.locator('#app')).toHaveAttribute(
@@ -73,7 +74,17 @@ export async function completeCareSkill(page: Page) {
   const start = dialog.locator('[data-skill-start]');
   if (await start.isVisible()) await start.click();
   const kind = await dialog.getAttribute('data-skill');
-  if (kind === 'spread' || kind === 'wrap')
+  if (kind === 'wrap') {
+    const board = (await dialog.locator('.skill-wrap').boundingBox())!;
+    for (const [i, point] of bandagePattern.entries()) {
+      await page.mouse.move(
+        board.x + point.x * board.width,
+        board.y + point.y * board.height,
+      );
+      if (i === 0) await page.mouse.down();
+    }
+    await page.mouse.up();
+  } else if (kind === 'spread')
     for (let i = 0; i < 6; i++)
       await dialog.locator(`[data-cell="${i}"]`).click();
   else if (kind === 'comb' || kind === 'brush')

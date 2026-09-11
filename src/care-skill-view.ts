@@ -1,4 +1,5 @@
 import { CareSkill } from './care-skill';
+import { bandagePattern, type TracePoint } from './bandage-pattern';
 import { toolInfo } from './game';
 import { icon } from './icons';
 /** Small DOM activities stay responsive while the 3D patient waits safely. */
@@ -6,6 +7,7 @@ export class CareSkillView {
   readonly dialog = document.createElement('dialog');
   private painted = false;
   private padPointer: number | null = null;
+  private wrapPointer: number | null = null;
   private lastMessage = '';
   constructor(
     readonly skill: CareSkill,
@@ -22,13 +24,7 @@ export class CareSkillView {
       kind === 'spread'
         ? `<div class="skill-patches">${Array.from({ length: 6 }, (_, i) => `<button data-cell="${i}" aria-label="Cream patch ${i + 1}"><span>${i + 1}</span></button>`).join('')}</div>`
         : kind === 'wrap'
-          ? `<div class="skill-wrap"><div class="skill-paw">${icon('paw')}</div>${Array.from(
-              { length: 6 },
-              (_, i) => {
-                const a = (i * Math.PI) / 3 - Math.PI / 2;
-                return `<button data-cell="${i}" style="left:${50 + 37 * Math.cos(a)}%;top:${50 + 36 * Math.sin(a)}%" aria-label="Wrap step ${i + 1}">${i + 1}</button>`;
-              },
-            ).join('')}</div>`
+          ? this.wrapBoard()
           : '';
     const marks =
       kind === 'comb' || (kind === 'brush' && skill.surface === 'fur')
@@ -83,7 +79,7 @@ export class CareSkillView {
         this.refresh();
         this.dialog
           .querySelector<HTMLElement>(
-            '#skill-position, [data-skill-action], [data-cell]',
+            '#skill-position, [data-skill-action], [data-cell], .skill-wrap',
           )
           ?.focus();
       });
@@ -120,6 +116,66 @@ export class CareSkillView {
           if ((e as PointerEvent).pointerId === this.padPointer)
             this.releasePad();
         });
+    }
+    if (kind === 'wrap') {
+      const board = this.dialog.querySelector<HTMLElement>('.skill-wrap')!;
+      let offset: TracePoint = { x: 0, y: 0 };
+      const position = (e: PointerEvent) => {
+        const bounds = board.getBoundingClientRect();
+        return {
+          x: (e.clientX - bounds.left) / bounds.width,
+          y: (e.clientY - bounds.top) / bounds.height,
+        };
+      };
+      board.addEventListener('pointerdown', (e) => {
+        if (!e.isPrimary || e.button !== 0 || this.wrapPointer !== null) return;
+        e.preventDefault();
+        const p = position(e);
+        if (skill.beginWrap(p)) {
+          offset = {
+            x: p.x - skill.wrapPosition.x,
+            y: p.y - skill.wrapPosition.y,
+          };
+          this.wrapPointer = e.pointerId;
+          board.setPointerCapture(e.pointerId);
+          board.focus({ preventScroll: true });
+        }
+        this.refresh();
+      });
+      board.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== this.wrapPointer) return;
+        const p = position(e);
+        skill.traceWrap({ x: p.x - offset.x, y: p.y - offset.y });
+        this.refresh();
+      });
+      for (const event of ['pointerup', 'pointercancel', 'lostpointercapture'])
+        board.addEventListener(event, (e) => {
+          if ((e as PointerEvent).pointerId === this.wrapPointer) {
+            this.releaseWrap();
+            this.refresh();
+          }
+        });
+      board.addEventListener('keydown', (e) => {
+        const direction: Record<string, TracePoint> = {
+          ArrowLeft: { x: -0.02, y: 0 },
+          ArrowRight: { x: 0.02, y: 0 },
+          ArrowUp: { x: 0, y: -0.02 },
+          ArrowDown: { x: 0, y: 0.02 },
+        };
+        if (!direction[e.key] || e.altKey || e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+        if (this.wrapPointer !== null) return;
+        if (!skill.wrapping) skill.beginWrap(skill.wrapPosition);
+        skill.traceWrap({
+          x: skill.wrapPosition.x + direction[e.key].x,
+          y: skill.wrapPosition.y + direction[e.key].y,
+        });
+        this.refresh();
+      });
+      board.addEventListener('blur', () => {
+        this.releaseWrap();
+        this.refresh();
+      });
     }
     this.dialog
       .querySelector('[data-skill-action]')
@@ -211,6 +267,24 @@ export class CareSkillView {
     if (marker) marker.style.left = `${Math.min(s.value, 1) * 100}%`;
     const water = this.dialog.querySelector<HTMLElement>('.skill-water');
     if (water) water.style.height = `${s.value * 100}%`;
+    if (kind === 'wrap') {
+      const roll = this.dialog.querySelector<HTMLElement>('.bandage-roll')!;
+      roll.style.left = `${s.wrapPosition.x * 100}%`;
+      roll.style.top = `${s.wrapPosition.y * 100}%`;
+      this.dialog
+        .querySelector('.bandage-trail')!
+        .setAttribute('stroke-dasharray', `${s.progress} 1`);
+      this.dialog
+        .querySelectorAll<HTMLElement>('[data-wrap-marker]')
+        .forEach((marker) => {
+          const index = Number(marker.dataset.wrapMarker);
+          marker.classList.toggle('done', index * 16 <= s.wrapProgress);
+          marker.classList.toggle('next', index === s.stage + 1);
+        });
+      this.dialog
+        .querySelector('.skill-wrap')!
+        .setAttribute('aria-disabled', String(!s.started || s.complete));
+    }
     this.dialog
       .querySelectorAll<HTMLElement>('[data-clean]')
       .forEach((e) =>
@@ -239,7 +313,7 @@ export class CareSkillView {
             : kind === 'steady'
               ? `${Math.round(s.progress * 100)}% settled`
               : kind === 'wrap'
-                ? `Wrap ${Math.min(s.stage + 1, 6)} of 6 →`
+                ? `${Math.floor(s.stage / 2)}/3 wraps · Next: ${Math.min(s.stage + 2, 7)}`
                 : kind === 'spread'
                   ? `${s.covered.size}/6 patches covered`
                   : 'Watch the striped patch';
@@ -265,6 +339,7 @@ export class CareSkillView {
     this.skill.holding = false;
     this.painted = false;
     this.releasePad();
+    this.releaseWrap();
     if (this.skill.spec.kind === 'pressure' && !this.skill.complete)
       this.skill.value = 0;
     this.refresh();
@@ -275,8 +350,31 @@ export class CareSkillView {
   }
   dispose() {
     this.releasePad();
+    this.releaseWrap();
     this.dialog.close();
     this.dialog.remove();
+  }
+  private wrapBoard() {
+    const path = bandagePattern
+      .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x * 300},${p.y * 220}`)
+      .join(' ');
+    return `<div class="skill-wrap" tabindex="0" role="group" aria-label="Bandage wrapping pattern" aria-describedby="skill-instructions"><div class="skill-paw">${icon('paw')}</div><svg class="bandage-ribbon" viewBox="0 0 300 220" preserveAspectRatio="none" aria-hidden="true"><path class="bandage-guide" d="${path}"/><path class="bandage-dots" d="${path}"/><path class="bandage-trail" d="${path}" pathLength="1" stroke-dasharray="0 1"/></svg>${bandagePattern
+      .filter((_, i) => i % 16 === 0)
+      .map(
+        (p, i) =>
+          `<span class="wrap-marker" data-wrap-marker="${i}" style="left:${p.x * 100}%;top:${p.y * 100}%" aria-hidden="true">${i + 1}</span>`,
+      )
+      .join(
+        '',
+      )}<span class="bandage-roll" aria-hidden="true">${icon('bandage')}</span></div>`;
+  }
+  private releaseWrap() {
+    const pointer = this.wrapPointer;
+    this.wrapPointer = null;
+    this.skill.releaseWrap();
+    const board = this.dialog.querySelector<HTMLElement>('.skill-wrap');
+    if (pointer !== null && board?.hasPointerCapture(pointer))
+      board.releasePointerCapture(pointer);
   }
   private releasePad() {
     const pointer = this.padPointer;

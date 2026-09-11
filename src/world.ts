@@ -18,7 +18,7 @@ import { Character } from './character';
 import { Examination } from './examination';
 import { Town, type TownPick } from './town';
 import { TownSimulation } from './town-simulation';
-import { townToLocal } from './clinic-leisure';
+import { clinicPlan, townToLocal } from './clinic-leisure';
 import { layout, localToTown, examRoom } from './town-map';
 
 const assetNames = [
@@ -54,6 +54,7 @@ export class World {
   private ortho = new THREE.OrthographicCamera(-7, 7, 5, -5, 0.1, 80);
   private perspective = new THREE.PerspectiveCamera(40, 1, 0.1, 80);
   private controls: OrbitControls;
+  private clinicControls: OrbitControls;
   private townCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
   private townControls: OrbitControls;
   town?: Town;
@@ -64,6 +65,7 @@ export class World {
   private clinicZoom = 1;
 
   onTownPick: (id: TownPick) => void = () => {};
+  onClinicMove: () => void = () => {};
   private reception = new THREE.Group();
   private treatment = new THREE.Group();
   private decoration = new THREE.Group();
@@ -206,6 +208,23 @@ export class World {
     this.controls.minPolarAngle = 0.25;
     this.controls.maxPolarAngle = 1.48;
     this.controls.enabled = false;
+    this.clinicControls = new OrbitControls(
+      this.ortho,
+      this.renderer.domElement,
+    );
+    this.clinicControls.enableDamping = true;
+    this.clinicControls.screenSpacePanning = false;
+    this.clinicControls.minZoom = 0.6;
+    this.clinicControls.maxZoom = 3;
+    this.clinicControls.minPolarAngle = 0.25;
+    this.clinicControls.maxPolarAngle = 1.25;
+    this.clinicControls.target.set(layout.clinic.x, 0.3, layout.clinic.z);
+    this.clinicControls.cursor.copy(this.clinicControls.target);
+    this.clinicControls.maxTargetRadius = 12 * layout.clinic.scale;
+    this.clinicControls.addEventListener('change', () => {
+      this.needsRender = true;
+    });
+    this.clinicControls.addEventListener('start', () => this.onClinicMove());
     this.townControls = new OrbitControls(
       this.townCamera,
       this.renderer.domElement,
@@ -382,6 +401,19 @@ export class World {
     this.courtyardOwned = ids.includes('sun-courtyard');
     this.needsRender = true;
     this.town?.setUpgrades(ids);
+    const rooms = [
+      { x: 0, z: 0, width: 10, depth: 8 },
+      examRoom,
+      ...clinicPlan.rooms.filter((r) => ids.includes(r.id as UpgradeId)),
+    ];
+    const left = Math.min(...rooms.map((r) => r.x - r.width / 2)),
+      right = Math.max(...rooms.map((r) => r.x + r.width / 2)),
+      back = Math.min(...rooms.map((r) => r.z - r.depth / 2)),
+      front = Math.max(...rooms.map((r) => r.z + r.depth / 2));
+    const centre = localToTown((left + right) / 2, (back + front) / 2);
+    this.clinicControls.cursor.set(centre.x, 0.3, centre.z);
+    this.clinicControls.maxTargetRadius =
+      (Math.hypot(right - left, front - back) / 2 + 1) * layout.clinic.scale;
     this.decoration.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.geometry.dispose();
@@ -459,9 +491,40 @@ export class World {
             : 1;
     const camera = localToTown(centre + 11, depth + 16),
       target = localToTown(centre, depth);
+    // Clear any leftover gesture momentum before a deliberate room jump.
+    this.clinicControls.enableDamping = false;
+    this.clinicControls.update();
     this.ortho.position.set(camera.x, 13 * layout.clinic.scale, camera.z);
-    this.ortho.lookAt(target.x, 0.3, target.z);
+    this.ortho.zoom = 1;
+    this.clinicControls.target.set(target.x, 0.3, target.z);
+    this.clinicControls.update();
+    this.clinicControls.enableDamping = true;
     this.resize();
+  }
+
+  panClinicCamera(x: number, y: number) {
+    const away = this.ortho.position.clone().sub(this.clinicControls.target);
+    away.y = 0;
+    away.normalize();
+    const offset = new THREE.Vector3(away.z, 0, -away.x)
+      .multiplyScalar(x)
+      .addScaledVector(away, y);
+    this.ortho.position.add(offset);
+    this.clinicControls.target.add(offset);
+    this.clinicControls.update();
+    this.onClinicMove();
+  }
+
+  zoomClinic(amount: number) {
+    this.ortho.zoom = THREE.MathUtils.clamp(
+      this.ortho.zoom / amount,
+      this.clinicControls.minZoom,
+      this.clinicControls.maxZoom,
+    );
+    this.ortho.updateProjectionMatrix();
+    this.clinicControls.update();
+    this.needsRender = true;
+    this.onClinicMove();
   }
 
   async showTown() {
@@ -485,6 +548,7 @@ export class World {
     await this.townLoading;
     this.examination.select(null, false);
     this.mode = 'town';
+    this.clinicControls.enabled = false;
     this.setSun('town');
     this.reception.visible = true;
     this.treatment.visible = false;
@@ -594,6 +658,7 @@ export class World {
     }
     this.townControls.enabled = false;
     this.mode = 'reception';
+    this.clinicControls.enabled = true;
     this.setSun('reception');
     this.reception.visible = true;
     this.treatment.visible = false;
@@ -615,6 +680,7 @@ export class World {
     if (this.town) this.town.group.visible = false;
     this.townControls.enabled = false;
     this.mode = 'treatment';
+    this.clinicControls.enabled = false;
     this.setSun('treatment');
     this.reception.visible = false;
     this.treatment.visible = true;
@@ -772,6 +838,7 @@ export class World {
     // The opaque loading screen needs no 3D frames. Leave CPU time for parsing
     // and preparing the models instead of competing with their initial load.
     if (!this.loaded) return;
+    if (this.mode === 'reception') this.clinicControls.update();
     this.town?.update(dt, this.mode !== 'treatment');
     const wet = this.mode === 'town' ? this.simulation.weather.wetness : 0;
     this.sunlight.intensity = 2 - wet * 1.35;

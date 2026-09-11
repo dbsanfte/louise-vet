@@ -231,6 +231,10 @@ Nine new clinic exports in `public/models/clinic/` are `sun-courtyard.glb`,
 `flower-border.glb`, `bunting.glb`, `cosy-rug.glb` and `wall-art.glb`.
 They are original Blender geometry from `scripts/create-clinic-leisure.py`, with
 editable source `assets/blender/clinic-leisure.blend`; rebuild with
-`--headless --leisure`. The playground has a connecting courtyard gate. Named
+`--headless --leisure`. The courtyard model contains a textured lawn surface,
+pointed cream pickets matching Hookville’s garden colours, and stepping stones.
+Its named CourtyardLawn, CourtyardFence and CourtyardPath groups retain editable
+geometry; runtime grass/paving textures come from the existing TownSurfaces code.
+The playground has a connecting courtyard gate, kept clear of the fence. Named
 Bubble0–Bubble6 and Chimes groups retain runtime motion, with species poses shared
 by `src/clinic-enrichment.ts` and the simulation. No third-party artwork or audio.

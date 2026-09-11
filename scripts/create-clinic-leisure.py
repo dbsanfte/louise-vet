@@ -4,7 +4,7 @@ ROOT=globals().get('PROJECT_ROOT') or os.environ.get('BLENDER_PROJECT_ROOT') or 
 OUT=os.path.join(ROOT,'public/models/clinic');os.makedirs(OUT,exist_ok=True)
 scene=bpy.data.scenes.new('Clinic leisure studio');bpy.context.window.scene=scene
 mats={}
-for name,c in {'cream':(.9,.85,.7),'mint':(.37,.64,.55),'rose':(.8,.49,.46),'gold':(.92,.72,.28),'blue':(.39,.64,.76),'wood':(.64,.42,.24),'white':(.98,.96,.86),'dark':(.2,.3,.3)}.items():
+for name,c in {'cream':(.9,.85,.7),'mint':(.37,.64,.55),'rose':(.8,.49,.46),'gold':(.92,.72,.28),'blue':(.39,.64,.76),'wood':(.64,.42,.24),'white':(.98,.96,.86),'dark':(.2,.3,.3),'grass':(.43,.62,.34),'garden path':(.78,.74,.62),'garden fence':(.97,.93,.82)}.items():
  m=bpy.data.materials.new(name);m.diffuse_color=(*c,1);m.use_nodes=True;m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value=(*c,1);mats[name]=m
 
 def root(name,parent=None):
@@ -37,8 +37,39 @@ def chair(r,x,z):
   for dz in [-.25,.25]:box(r,'chair leg',x+dx,z+dz,.36,.08,.08,.7,'wood')
 
 plan=json.load(open(os.path.join(ROOT,'src/clinic-layout.json')))
+
+def courtyard(r,w,d):
+ # A lawn at the existing walking height, with no raised tiled foundation.
+ lawn=root('CourtyardLawn',r);lawn['courtyardSurface']='grass'
+ box(lawn,'soft garden lawn',0,0,.04,w,d,.04,'grass')
+ fence=root('CourtyardFence',r);fence['courtyardSurface']='picket fence'
+ def section(ax,az,bx,bz):
+  length=math.hypot(bx-ax,bz-az);angle=math.atan2(bz-az,bx-ax)
+  for height in [.3,.65]:
+   o=box(fence,'fence rail',(ax+bx)/2,(az+bz)/2,height,length,.06,.09,'garden fence');o.rotation_euler.z=-angle
+  count=max(1,round(length/.28))
+  for i in range(count+1):
+   x=ax+(bx-ax)*i/count;z=az+(bz-az)*i/count
+   profile=[(-.075,.06),(.075,.06),(.075,.82),(0,.94),(-.075,.82)]
+   vertices=[(px,y,h) for y in [-.035,.035] for px,h in profile]
+   faces=[tuple(range(5)),tuple(range(9,4,-1))]+[(j+5,(j+1)%5+5,(j+1)%5,j) for j in range(5)]
+   mesh=bpy.data.meshes.new('pointed picket');mesh.from_pydata(vertices,[],faces);mesh.update()
+   o=bpy.data.objects.new('garden picket',mesh);scene.collection.objects.link(o);o.parent=fence;o.location=(x,-z,0);o.rotation_euler.z=-angle;o.data.materials.append(mats['garden fence'])
+ # Keep every picket inside the purchased footprint. The 1.9-unit opening
+ # matches the existing playground aisle and owner/pet routes.
+ edge=.09
+ section(-w/2+edge,-d/2+edge,w/2-edge,-d/2+edge)
+ section(-w/2+edge,-d/2+edge,-w/2+edge,d/2-edge)
+ section(w/2-edge,-d/2+edge,w/2-edge,d/2-edge)
+ section(-w/2+edge,d/2-edge,w/2-1.9,d/2-edge)
+ path=root('CourtyardPath',r);path['courtyardSurface']='stepping stones'
+ for z in [3.4,2.5,1.6,.7,-.2,-1.1,-2,-2.9]:
+  o=cylinder(path,'garden stepping stone',2.05,z,.067,.35,.025,'garden path');o.scale.y=.8
+
 for kind,room in zip(['lounge','playroom','play-annex','sun-courtyard'],plan['rooms']):
  r=root(kind);w,d=room['width'],room['depth']
+ if kind=='sun-courtyard':
+  courtyard(r,w,d);export(r);continue
  box(r,'room foundation',0,0,-.13,w,d,.3,'cream')
  for x in range(w):
   for z in range(d):box(r,'room tile',x-(w-1)/2,z-(d-1)/2,.035,.99,.99,.05,'white' if kind=='lounge' else 'mint' if (x+z)%2 else 'blue')
