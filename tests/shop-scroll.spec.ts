@@ -43,9 +43,12 @@ test('buying courtyard upgrades and decorations retains shop scroll position and
   }
   await page.screenshot({ path: info.outputPath('shop-retains-place.png') });
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();
-  await page.getByRole('button', { name: 'Courtyard', exact: true }).click();
-  await expect(page.locator('#scene-title')).toContainText(
-    'Sunshine courtyard',
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  await expect(
+    page.locator('[data-build="pick"][data-id="bubbles"]'),
+  ).toContainText('Stored');
+  await expect(page.locator('.build-price')).toContainText(
+    '48 free floor tiles',
   );
   expect(
     await page.evaluate(

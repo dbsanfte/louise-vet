@@ -20,6 +20,15 @@ thumbs and clothing details. Their original rigs include moving elbows, knees,
 ankles and shoulder counter-rotation. Static details are joined by material and
 rig parent to control draw calls; no external meshes or motion-capture data are used.
 
+## Build-mode scenery
+
+`src/clinic-build-scenery.ts` creates original grid lines, cutaway walls, tiled
+floors, lawns and picket fences in Three.js. `src/clinic-furniture.ts` reuses the
+original Blender exports as movable pieces, including the starter bench, shelf,
+plants and rugs; no authored GLBs are overwritten. Existing original procedural
+town surface textures supply the lawn and wall finishes. No external assets or
+additional licenses are introduced.
+
 ## Examination models and fur
 
 The 33 additional GLBs in `public/models/examination/` are original models authored

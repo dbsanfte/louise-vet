@@ -5,6 +5,7 @@ import { CareSkillView } from './care-skill-view';
 import { zoneLabel, checkInstruction } from './game';
 import './style.css';
 import { World } from './world';
+import { ClinicBuildEditor } from './clinic-build-editor';
 import { advanceActiveTime } from './active-time';
 import { Audio } from './audio';
 import { TownSimulation } from './town-simulation';
@@ -62,6 +63,7 @@ let careActivity: CareSkillView | null = null;
 let receipt: ReturnType<typeof reward> | null = null;
 let ready = false;
 let world: World;
+let builder: ClinicBuildEditor | undefined;
 let toastUntil = 0;
 let enteringTown = false;
 let selectedHome: number | undefined;
@@ -94,7 +96,7 @@ app.innerHTML = `
   </main>
   <section id="clue-summary" class="clue-summary" aria-label="Care notebook" hidden></section>
   <div id="visit-actions" class="visit-actions" role="region" aria-label="Visit actions" hidden></div>
-  <footer class="bottom-bar"><nav aria-label="Clinic navigation"><button class="nav-button active" data-action="reception">${icon('home')}<span>My clinic</span></button><button class="nav-button" data-action="town">${icon('home')}<span>Hookville</span></button><button class="nav-button" data-action="shop">${icon('bag')}<span>Clinic shop</span><span class="tiny-label">UPGRADES</span></button><button class="nav-button" data-action="casebook">${icon('book')}<span>Care notebook</span></button></nav><span id="save-note" class="save-note">${icon('check')} Progress saved on this browser</span></footer>
+  <footer class="bottom-bar"><nav aria-label="Clinic navigation"><button class="nav-button active" data-action="reception">${icon('home')}<span>My clinic</span></button><button class="nav-button" data-action="town">${icon('home')}<span>Hookville</span></button><button class="nav-button" data-action="build">${icon('home')}<span>Build</span></button><button class="nav-button" data-action="shop">${icon('bag')}<span>Clinic shop</span><span class="tiny-label">UPGRADES</span></button><button class="nav-button" data-action="casebook">${icon('book')}<span>Care notebook</span></button></nav><span id="save-note" class="save-note">${icon('check')} Progress saved on this browser</span></footer>
   <div id="toast" class="toast" role="status" aria-live="polite"></div><div id="modal-root"></div><div id="skill-root"></div>`;
 
 const byId = (id: string) => document.getElementById(id)!;
@@ -138,6 +140,11 @@ function renderStats() {
   sound.setAttribute('aria-pressed', String(audio.enabled));
 }
 function renderReception() {
+  if (builder?.active) {
+    builder.render();
+    return;
+  }
+  byId('sidebar').setAttribute('aria-label', 'Patient information');
   patientPage = Math.min(
     patientPage,
     Math.max(0, Math.ceil(queue.length / 2) - 1),
@@ -185,6 +192,7 @@ function renderReception() {
     `<span class="footer-tip">${icon('paw')} Choose a patient to begin their visit.</span><span class="clinic-total">${progress.treated} friends helped <span>·</span> ${progress.earned} coins earned</span>`;
 }
 function renderClinicTitle() {
+  if (builder?.active) return;
   const focused = (document.activeElement as HTMLElement)?.dataset.view;
   const label =
     clinicView === 'free'
@@ -222,7 +230,7 @@ function renderClinicTitle() {
                   : 'Your happy little clinic';
   byId('scene-title').innerHTML =
     `<span class="room-pill"><i></i> ${label}</span><h2>${heading}</h2>`;
-  const caption = `<nav class="clinic-views" aria-label="Clinic rooms">${[['reception', 'Reception'], ['exam', 'Exam room'], ...(progress.upgrades.includes('expansion') ? [['lounge', 'Customer lounge']] : []), ...(progress.upgrades.includes('pet-room') ? [['play', 'Pet playground']] : []), ...(progress.upgrades.includes('play-annex') ? [['annex', 'Play garden']] : []), ...(progress.upgrades.includes('sun-courtyard') ? [['courtyard', 'Courtyard']] : []), ['all', 'Whole clinic']].map(([id, name]) => `<button class="secondary" data-action="clinic-view" data-view="${id}" aria-label="${name}" aria-pressed="${clinicView === id}"><span class="room-name-full">${name}</span><span class="room-name-short" aria-hidden="true">${({ lounge: 'Lounge', play: 'Playground', all: 'All rooms' } as Record<string, string>)[id] ?? name}</span></button>`).join('')}</nav>`;
+  const caption = `<nav class="clinic-views" aria-label="Clinic rooms">${[['reception', 'Reception'], ['exam', 'Exam room'], ...(progress.upgrades.includes('expansion') && simulation.build.contains({ x: -8, z: 0 }) ? [['lounge', 'Customer lounge']] : []), ...(progress.upgrades.includes('pet-room') && simulation.build.contains({ x: -14, z: -5 }) ? [['play', 'Pet playground']] : []), ...(progress.upgrades.includes('play-annex') && simulation.build.contains({ x: -8, z: -8 }) ? [['annex', 'Play garden']] : []), ...(progress.upgrades.includes('sun-courtyard') && simulation.build.contains({ x: -14, z: -16 }) ? [['courtyard', 'Courtyard']] : []), ['all', 'Whole clinic']].map(([id, name]) => `<button class="secondary" data-action="clinic-view" data-view="${id}" aria-label="${name}" aria-pressed="${clinicView === id}"><span class="room-name-full">${name}</span><span class="room-name-short" aria-hidden="true">${({ lounge: 'Lounge', play: 'Playground', all: 'All rooms' } as Record<string, string>)[id] ?? name}</span></button>`).join('')}</nav>`;
   if (byId('scene-caption').innerHTML !== caption)
     byId('scene-caption').innerHTML = caption;
   if (focused)
@@ -231,6 +239,7 @@ function renderClinicTitle() {
       ?.focus({ preventScroll: true });
 }
 function renderLeisure() {
+  if (builder?.active) return;
   const panel = document.getElementById('clinic-leisure');
   if (!panel || !world) return;
   const callNext = document.querySelector<HTMLButtonElement>('.call-next');
@@ -567,14 +576,14 @@ function renderModal() {
   let title = '';
   if (modal === 'shop') {
     title = 'Make it feel like home';
-    content = `<p class="modal-intro">A happier clinic, one little upgrade at a time.</p><div class="shop-balance">${icon('coin')} <strong>${progress.coins}</strong> coins to spend</div><div class="shop-grid">${upgrades
+    content = `<p class="modal-intro">Buy things for your collection, then place them in Build mode. Room kits give you free floor tiles to use anywhere on your plot.</p><div class="shop-balance">${icon('coin')} <strong>${progress.coins}</strong> coins to spend</div><div class="shop-grid">${upgrades
       .map((u) => {
         const owned = u.id !== 'stock' && progress.upgrades.includes(u.id);
         const required =
           'requires' in u && !progress.upgrades.includes(u.requires)
             ? upgrades.find((item) => item.id === u.requires)!.name
             : '';
-        return `<article class="shop-card"><span class="shop-art ${u.id}">${icon(u.icon)}</span><small>${u.kind}</small><h3>${u.name}</h3><p>${u.description}</p><button class="${owned ? 'owned' : 'secondary'}" data-action="buy" data-upgrade="${u.id}" ${owned || required || progress.coins < u.price ? 'disabled' : ''}>${owned ? `${icon('check')} In your clinic` : required ? `Build ${required} first` : `${icon('coin')} ${u.price} ${progress.coins < u.price ? '· Save a little more' : ''}`}</button></article>`;
+        return `<article class="shop-card"><span class="shop-art ${u.id}">${icon(u.icon)}</span><small>${u.kind}</small><h3>${u.name}</h3><p>${u.description}</p><button class="${owned ? 'owned' : 'secondary'}" data-action="buy" data-upgrade="${u.id}" ${owned || required || progress.coins < u.price ? 'disabled' : ''}>${owned ? `${icon('check')} In your collection` : required ? `Buy ${required} first` : `${icon('coin')} ${u.price} ${progress.coins < u.price ? '· Save a little more' : ''}`}</button></article>`;
       })
       .join('')}</div>`;
   } else if (modal === 'guide') {
@@ -703,13 +712,16 @@ function render() {
             ? 'shop'
             : modal === 'casebook'
               ? 'casebook'
-              : mode === 'town'
-                ? 'town'
-                : 'reception'),
+              : builder?.active
+                ? 'build'
+                : mode === 'town'
+                  ? 'town'
+                  : 'reception'),
       ),
     );
 }
 function returnToReception(requeue = false) {
+  if (builder?.active) builder.exit();
   patientPage = 0;
   officeTab = 'patients';
   clearAnnouncement();
@@ -739,7 +751,13 @@ function returnToReception(requeue = false) {
     );
 }
 function startVisit(id: number) {
-  if (!ready || enteringTown || mode !== 'reception' || !queue.includes(id))
+  if (
+    !ready ||
+    enteringTown ||
+    builder?.active ||
+    mode !== 'reception' ||
+    !queue.includes(id)
+  )
     return;
   if (pendingPatient !== null && pendingPatient !== id)
     simulation.cancelCall(pendingPatient);
@@ -860,6 +878,23 @@ app.addEventListener('click', (event) => {
   );
   if (!target || target.disabled) return;
   const action = target.dataset.action;
+  if (action === 'build') {
+    if (!ready || enteringTown) return;
+    if (mode !== 'reception') {
+      announce('Return to your clinic before building.');
+      return;
+    }
+    if (pendingPatient !== null) {
+      announce(
+        'Let this family finish coming to the desk, or cancel their call first.',
+      );
+      return;
+    }
+    modal = null;
+    if (!builder?.active) builder?.enter();
+    render();
+    return;
+  }
   if (action === 'town') {
     if (!ready || enteringTown) return;
     if (mode !== 'reception' && mode !== 'town') {
@@ -867,6 +902,7 @@ app.addEventListener('click', (event) => {
       return;
     }
     if (mode === 'town') return;
+    if (builder?.active) builder.exit();
     enteringTown = true;
     announce('Opening the gates to Hookville…');
     void world
@@ -1071,6 +1107,7 @@ app.addEventListener('click', (event) => {
     if (mode === 'town') {
       returnToReception();
     } else if (mode === 'reception') {
+      if (builder?.active) builder.exit();
       modal = null;
       render();
     } else
@@ -1079,6 +1116,7 @@ app.addEventListener('click', (event) => {
       );
   } else if (action === 'shop' || action === 'guide' || action === 'casebook') {
     if (mode === 'result') return;
+    if (builder?.active) builder.cancel();
     modal = action;
     renderModal();
     renderVisitActions();
@@ -1088,11 +1126,16 @@ app.addEventListener('click', (event) => {
     render();
   } else if (action === 'buy') {
     if (purchase(progress, target.dataset.upgrade ?? '')) {
-      save();
+      simulation.build.unlock(target.dataset.upgrade!);
       simulation.configureLeisure(progress.upgrades);
+      save();
       world.setUpgrades(progress.upgrades);
       audio.play('success');
-      announce('A lovely addition to your clinic!');
+      announce(
+        ['stock', 'equipment'].includes(target.dataset.upgrade!)
+          ? 'A lovely addition to your clinic!'
+          : 'Added to your collection! Open Build to find its perfect spot.',
+      );
       renderStats();
       renderModal();
       if (mode === 'reception') renderReception();
@@ -1181,6 +1224,23 @@ try {
       world.setQueue(queue);
       simulation.configureLeisure(progress.upgrades);
       world.setUpgrades(progress.upgrades);
+      builder = new ClinicBuildEditor(
+        world,
+        simulation,
+        progress,
+        () => {
+          save();
+          renderStats();
+        },
+        () => {
+          clinicView = 'free';
+          render();
+        },
+        () => {
+          modal = 'shop';
+          renderModal();
+        },
+      );
       render();
     })
     .catch(showLoadError);
@@ -1252,7 +1312,8 @@ try {
         renderTownWeather();
         townStatusAt = now;
       }
-      if (ready && !modal && !timing && mode !== 'result') {
+      if (builder?.active && !modal) builder.update(dt);
+      if (ready && !builder?.active && !modal && !timing && mode !== 'result') {
         simulation.configureClinic(
           clinicCapacity(progress.upgrades),
           progress.upgrades.includes('poster') ? 13 : 22,

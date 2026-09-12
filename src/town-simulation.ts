@@ -1,3 +1,4 @@
+import { ClinicBuild, toClinic } from './clinic-build.ts';
 import { TownWeather } from './town-weather.ts';
 import { ClinicEntrance, clinicStreetRoute } from './clinic-entrance.ts';
 import { DogWalks } from './dog-walks.ts';
@@ -24,7 +25,7 @@ import {
 } from './town-map.ts';
 import { walkRoute } from './movement.ts';
 import { ClinicEscort } from './clinic-escort.ts';
-import { ClinicLeisure, interiorRoute } from './clinic-leisure.ts';
+import { ClinicLeisure } from './clinic-leisure.ts';
 export type Point = { x: number; z: number };
 export type Routine =
   | 'garden'
@@ -98,7 +99,8 @@ export class TownSimulation {
   weather = new TownWeather();
   dogWalks = new DogWalks();
   park = new Park();
-  leisure = new ClinicLeisure();
+  build = new ClinicBuild();
+  leisure = new ClinicLeisure(this.build);
   escort = new ClinicEscort();
   configureLeisure(ids: UpgradeId[]) {
     this.leisure.configure(ids);
@@ -344,7 +346,10 @@ export class TownSimulation {
   }
   private homeRoute(h: Household) {
     this.leisure.release(h);
-    h.route = [...interiorRoute(h.position, clinicHall), { ...clinicDoor }];
+    h.route = [
+      ...this.leisure.route(h.position, clinicHall),
+      { ...clinicDoor },
+    ];
     h.routine = 'clinic-exit';
     h.returning = true;
     h.inClinic = true;
@@ -410,7 +415,7 @@ export class TownSimulation {
       newVisit.status = 'waiting';
       this.queue.push(newVisit.id);
       h.routine = 'clinic-enter';
-      h.route = interiorRoute(h.position, clinicDesk);
+      h.route = this.leisure.route(h.position, clinicDesk);
     } else this.homeRoute(h);
     if (this.incident?.ticket === id) this.incident.phase = 'recovering';
     this.revision++;
@@ -447,7 +452,7 @@ export class TownSimulation {
     h.route = [
       ...this.entrance.entry(h),
       { ...clinicHall },
-      ...interiorRoute(clinicHall, clinicDesk),
+      ...this.leisure.route(clinicHall, clinicDesk),
     ];
     this.entrance.release(h.id);
     this.queue.push(t.id);
@@ -584,6 +589,7 @@ export class TownSimulation {
   }
   snapshot() {
     return {
+      build: this.build.snapshot(),
       activityPace: 1,
       version: 2,
       emergencies: this.emergencies.snapshot(),
@@ -844,7 +850,9 @@ export class TownSimulation {
         )
       )
         return false;
-      const leisure = new ClinicLeisure();
+      const build = new ClinicBuild();
+      if (!build.restore(data.build)) return false;
+      const leisure = new ClinicLeisure(build);
       if (!leisure.restore(data.leisure, data.households, tickets))
         return false;
       const escort = new ClinicEscort();
@@ -902,6 +910,7 @@ export class TownSimulation {
       this.park = park;
       this.escort = escort;
       this.leisure = leisure;
+      this.build = build;
       this.time = data.time;
       this.nextTicket = data.nextTicket;
       this.catalogueCursor = data.catalogueCursor;
@@ -1015,6 +1024,7 @@ export class TownSimulation {
       this.households,
       this.random,
       (id) => this.emergencies.locked(id) || this.dogWalks.locked(id),
+      (p) => this.build.contains(toClinic(p)),
     );
     this.dogWalks.update(
       step,

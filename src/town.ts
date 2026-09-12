@@ -1,3 +1,4 @@
+import { toClinic } from './clinic-build';
 import { TownSurfaces } from './town-surfaces';
 import { shadeTrees } from './town-weather';
 import { StreetScenery } from './street-scenery';
@@ -15,7 +16,6 @@ import { OwnerTrail } from './owner-trail';
 import type { Visit } from './game';
 import { TownSimulation } from './town-simulation';
 import { ClinicFurniture } from './clinic-furniture';
-import { clinicPlan, clinicPetRest, interiorRoute } from './clinic-leisure';
 import { enrichmentPose, isEnrichment } from './clinic-enrichment';
 import { walkRoute } from './movement';
 import type { UpgradeId } from './game';
@@ -32,9 +32,26 @@ export type TownPick = number | { label: string } | undefined;
 export class Town {
   readonly group = new THREE.Group();
   readonly surfaces = new TownSurfaces();
-  private furniture = new ClinicFurniture();
+  readonly furniture = new ClinicFurniture();
+  clinicOccupants() {
+    return this.residents.flatMap((r, i) =>
+      this.simulation.households[i]?.inClinic
+        ? r.pets
+            .filter((p) => p.model.visible)
+            .map((p) => {
+              const v = p.model.getWorldPosition(new THREE.Vector3());
+              return { x: v.x, z: v.z };
+            })
+        : [],
+    );
+  }
   setUpgrades(ids: UpgradeId[]) {
-    this.furniture.configure(ids);
+    for (const o of this.group.children)
+      if (o.userData.shadeTree)
+        o.visible = !this.simulation.build.contains(
+          toClinic({ x: o.position.x, z: o.position.z }),
+        );
+    this.furniture.applyBuild(this.simulation.build, ids);
   }
 
   private residents: {
@@ -63,6 +80,7 @@ export class Town {
     if (this.clinic) this.clinic.visible = !inside;
   }
   registerClinic(clinic: THREE.Object3D) {
+    this.furniture.registerBase(clinic);
     clinic.userData.homeId = -1;
     this.homes.push(clinic);
   }
@@ -418,7 +436,8 @@ export class Town {
         h.routine !== 'garden' || this.simulation.emergencies.locked(h.id);
       const activity = this.simulation.leisure.owners.get(h.id);
       const station =
-        activity && clinicPlan.stations.find((s) => s.id === activity.station);
+        activity &&
+        this.simulation.build.stations.find((s) => s.id === activity.station);
       const parkVisit = this.simulation.park.visits.get(h.id);
       const parkSeated = Boolean(parkVisit?.seated);
       const seated =
@@ -511,7 +530,26 @@ export class Town {
           p.model.position.set(incident.origin.x, 0.43, incident.origin.z);
           p.model.rotation.set(0, h.facing, Math.PI / 2);
         } else if (following && roaming && !carrying) {
-          const spot = r.trail.sample(0.65 + index * 0.2);
+          let spot = r.trail.sample(0.65 + index * 0.2);
+          if (
+            this.simulation.build.customized &&
+            h.inClinic &&
+            this.simulation.build.contains(toClinic(previous))
+          ) {
+            const safe = this.simulation.build.safe(toClinic(spot));
+            const target = localToTown(safe.x, safe.z);
+            const key = `${this.simulation.build.revision}:${safe.x}:${safe.z}`;
+            if (p.model.userData.followBuildKey !== key) {
+              p.model.userData.followBuildKey = key;
+              p.model.userData.followBuildRoute = this.simulation.leisure.route(
+                previous,
+                target,
+              );
+            }
+            const point = { ...previous };
+            walkRoute(point, p.model.userData.followBuildRoute, dt, 1.6);
+            spot = { ...spot, ...point };
+          }
           p.model.position.set(spot.x, 0.2, spot.z);
           if (distance(previous, spot) > 0.001)
             p.model.rotation.set(
@@ -579,10 +617,17 @@ export class Town {
           ? this.simulation.leisure.pets.get(h.ticket!)
           : undefined;
         if (following && !attending && h.inClinic && seated && roaming) {
-          const route = (p.model.userData.clinicRestRoute ??= interiorRoute(
-            previous,
-            clinicPetRest(h, 1 + index),
-          ));
+          if (
+            p.model.userData.buildRevision !== this.simulation.build.revision
+          ) {
+            delete p.model.userData.clinicRestRoute;
+            p.model.userData.buildRevision = this.simulation.build.revision;
+          }
+          const route = (p.model.userData.clinicRestRoute ??=
+            this.simulation.leisure.route(
+              previous,
+              this.simulation.leisure.rest(h, 1 + index),
+            ));
           const point = { ...previous };
           const facing = walkRoute(point, route, dt, 1.4);
           p.model.position.set(point.x, 0.2, point.z);
@@ -602,7 +647,7 @@ export class Town {
                 : 'Idle',
           );
         if (play) {
-          const station = clinicPlan.stations.find(
+          const station = this.simulation.build.stations.find(
             (s) => s.id === play.station,
           );
           const using = play.phase === 'use';
@@ -629,7 +674,9 @@ export class Town {
           if (using && station?.kind === 'wheel') {
             p.model.scale.setScalar(0.3);
             p.model.position.y = 0.23;
-            p.model.rotation.y = layout.clinic.rotation;
+            p.model.rotation.y =
+              layout.clinic.rotation +
+              this.simulation.build.stationRotation(station!);
           } else
             p.model.scale.setScalar(
               using && isCabinRide(station?.kind ?? '') ? 0.3 : 0.4,
@@ -676,7 +723,7 @@ export class Town {
               ));
           let flying = false;
           if (play) {
-            const station = clinicPlan.stations.find(
+            const station = this.simulation.build.stations.find(
               (s) => s.id === play.station,
             );
             if (play.phase === 'use' && station && isEnrichment(station.kind)) {

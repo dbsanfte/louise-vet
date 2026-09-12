@@ -62,6 +62,7 @@ export class TownWeather {
     households: Household[],
     random: () => number,
     blocked: (id: number) => boolean,
+    built: (p: Point) => boolean = () => false,
   ) {
     this.remaining -= dt;
     if (this.remaining <= 0) {
@@ -99,6 +100,7 @@ export class TownWeather {
           .map((t, i) => ({ t, i }))
           .filter(
             ({ t, i }) =>
+              !built(t) &&
               distance(t, h.position) < 12 &&
               ![...this.active.values()].some((a) => a.tree === i) &&
               safe(h.position, ownerSpot(t)) &&
@@ -124,7 +126,10 @@ export class TownWeather {
         };
         this.active.set(h.id, s);
       }
-      if (this.phase === 'sunny' && s.phase !== 'return') {
+      if (
+        (this.phase === 'sunny' || built(shelterTrees[s.tree])) &&
+        s.phase !== 'return'
+      ) {
         s.phase = 'return';
         s.petRoute = [{ ...s.petAnchor }];
         s.ownerRoute = [{ ...s.anchor }];

@@ -1,3 +1,4 @@
+import { ClinicBuild, toClinic, type BuildStation } from './clinic-build.ts';
 import { walkRoute } from './movement.ts';
 import plan from './clinic-layout.json' with { type: 'json' };
 import type { UpgradeId, Visit } from './game.ts';
@@ -7,6 +8,8 @@ import {
   layout,
   distance,
   clinicDesk,
+  clinicHall,
+  clinicDoor,
   type Point,
 } from './town-map.ts';
 import { ridePose, isCabinRide } from './pet-rides.ts';
@@ -16,7 +19,7 @@ import {
   finishAtGround,
 } from './clinic-enrichment.ts';
 export { plan as clinicPlan };
-export type Station = (typeof plan.stations)[number];
+export type Station = BuildStation;
 export type OwnerActivity = {
   household: number;
   station: string;
@@ -146,22 +149,127 @@ export const clinicPetRest = (
     z: h.position.z - Math.sin(h.facing) * 0.42,
   };
 };
-const restSpot = clinicPetRest;
 const advance = walkRoute;
 
 export class ClinicLeisure {
+  readonly build: ClinicBuild;
+  constructor(build = new ClinicBuild()) {
+    this.build = build;
+  }
+  private unavailable = new Set<string>();
+  private movedPets = new Set<number>();
+  route(from: Point, to: Point) {
+    return this.build.customized
+      ? this.build.route(from, to)
+      : interiorRoute(from, to);
+  }
+  station(id: string) {
+    return this.build.stations.find((s) => s.id === id);
+  }
+  private at(s: Station) {
+    if (!this.build.customized) return at(s);
+    const pose = isCabinRide(s.kind)
+      ? ridePose(s.kind, 0)
+      : isEnrichment(s.kind)
+        ? enrichmentPose(s.kind, 0, '')
+        : undefined;
+    return this.build.stationPoint(s, {
+      x: pose?.x ?? (s.kind === 'carousel' ? 0.55 : 0),
+      z: pose?.z ?? (s.kind === 'scratch' ? 0.55 : 0),
+    });
+  }
+  rest(h: Pick<Household, 'position' | 'facing'>, index = 0) {
+    if (!this.build.customized) return clinicPetRest(h, index);
+    const p = toClinic(h.position),
+      s = this.build.stations.find(
+        (s) => s.audience === 'owner' && Math.hypot(s.x - p.x, s.z - p.z) < 0.3,
+      );
+    const spot = s
+      ? this.build.approach(s)
+      : {
+          x: p.x + Math.cos(h.facing) * (0.65 + index * 0.7),
+          z: p.z - Math.sin(h.facing) * (0.65 + index * 0.7),
+        };
+    const safe = this.build.safe({ x: spot.x + index * 0.55, z: spot.z });
+    return localToTown(safe.x, safe.z);
+  }
+  private queueSpot(s: Station, index: number) {
+    return this.build.customized
+      ? this.build.queue(s, index)
+      : queueSpot(s, index);
+  }
+  beginMove(id: string) {
+    for (const s of this.build.recipe(id).stations) this.unavailable.add(s);
+  }
+  endMove() {
+    this.unavailable.clear();
+    for (const id of this.movedPets) {
+      const p = this.pets.get(id);
+      if (p) p.called = false;
+    }
+    this.movedPets.clear();
+  }
+  movingReady(id: string, households: Household[]) {
+    const stations = this.build.recipe(id).stations;
+    for (const p of this.pets.values())
+      if (stations.includes(p.station)) {
+        this.movedPets.add(p.ticket);
+        p.called = true;
+        if (p.phase === 'use' && finishAtGround(p.station)) return false;
+        const h = households.find((h) => h.ticket === p.ticket)!;
+        p.station = '';
+        p.phase = 'return';
+        p.route = this.route(p.position, this.rest(h));
+      }
+    return (
+      !households.some(
+        (h) =>
+          h.inClinic && this.build.insideItem(id, toClinic(h.position), 0.2),
+      ) &&
+      ![...this.pets.values()].some((p) =>
+        this.build.insideItem(id, toClinic(p.position), 0.15),
+      )
+    );
+  }
+  replan(households: Household[]) {
+    for (const h of households) {
+      if (h.inClinic && h.routine === 'clinic-enter')
+        h.route = this.route(h.position, clinicDesk);
+      if (h.inClinic && h.routine === 'clinic-exit')
+        h.route = [...this.route(h.position, clinicHall), { ...clinicDoor }];
+      const a = this.owners.get(h.id);
+      if (a && a.phase === 'walk') {
+        const s = this.station(a.station);
+        a.route = this.route(h.position, s ? this.at(s) : clinicDesk);
+      }
+    }
+    for (const p of this.pets.values()) {
+      const h = households.find((h) => h.ticket === p.ticket);
+      if (!h) continue;
+      if (p.phase === 'return') p.route = this.route(p.position, this.rest(h));
+      else if (p.phase === 'walk') {
+        const s = this.station(p.station);
+        if (s) p.route = this.route(p.position, this.queueSpot(s, 0));
+      }
+    }
+  }
   readonly owners = new Map<number, OwnerActivity>();
   readonly pets = new Map<number, PetActivity>();
   private owned: UpgradeId[] = [];
   private serial = 0;
   configure(owned: UpgradeId[]) {
     this.owned = [...owned];
+    this.build.syncOwned(owned);
   }
-  available(s: Station) {
-    return !s.upgrade || this.owned.includes(s.upgrade as UpgradeId);
+  available(s: Station | undefined) {
+    return Boolean(
+      s &&
+      !this.unavailable.has(s.id) &&
+      (!s.upgrade || this.owned.includes(s.upgrade as UpgradeId)),
+    );
   }
   stations(audience: 'owner' | 'pet') {
-    return plan.stations.filter(
+    return this.build.stations.filter(
       (s) => s.audience === audience && this.available(s),
     );
   }
@@ -185,6 +293,9 @@ export class ClinicLeisure {
     households: Pick<Household, 'inClinic'>[],
     tickets: Map<number, VisitTicket>,
   ) {
+    const definitions = this.build.customized
+      ? this.build.stations
+      : [...this.build.stations, ...plan.stations];
     if (value === undefined) {
       this.owners.clear();
       this.pets.clear();
@@ -198,12 +309,12 @@ export class ClinicLeisure {
         p &&
         Number.isFinite(p.x) &&
         Number.isFinite(p.z) &&
-        p.x >= -29 &&
-        p.x <= -9 &&
-        p.z >= -20 &&
+        p.x >= -36 &&
+        p.x <= 18 &&
+        p.z >= -26 &&
         p.z <= -2;
       const route = (r: Point[]) =>
-        Array.isArray(r) && r.length <= 16 && r.every(point);
+        Array.isArray(r) && r.length <= 512 && r.every(point);
       if (
         s.version !== 1 ||
         !num(s.serial) ||
@@ -222,7 +333,7 @@ export class ClinicLeisure {
       for (const a of s.owners)
         if (
           !households[a.household]?.inClinic ||
-          !plan.stations.some(
+          !definitions.some(
             (st) => st.audience === 'owner' && st.id === a.station,
           ) ||
           ![
@@ -259,14 +370,12 @@ export class ClinicLeisure {
           typeof p.called !== 'boolean' ||
           !Number.isFinite(p.facing) ||
           (p.station !== '' &&
-            !plan.stations.some(
+            !definitions.some(
               (st) => st.audience === 'pet' && st.id === p.station,
             ))
         )
           return false;
-      for (const station of plan.stations.filter(
-        (st) => st.audience === 'pet',
-      )) {
+      for (const station of definitions.filter((st) => st.audience === 'pet')) {
         const line = s.pets.filter((p) => p.station === station.id);
         if (
           line.filter((p) => ['board', 'use'].includes(p.phase)).length > 1 ||
@@ -294,10 +403,11 @@ export class ClinicLeisure {
       // The enlarged garden moves these two smaller stations away from the
       // pavement. Old saves retain their turn, at the station's current spot.
       for (const p of this.pets.values()) {
-        if (!['wheel', 'toys'].includes(p.station)) continue;
-        const station = plan.stations.find((s) => s.id === p.station)!;
-        if (p.phase === 'use') p.position = at(station);
-        if (p.phase === 'board') p.route = [at(station)];
+        if (this.build.customized || !['wheel', 'toys'].includes(p.station))
+          continue;
+        const station = definitions.find((s) => s.id === p.station)!;
+        if (p.phase === 'use') p.position = this.at(station);
+        if (p.phase === 'board') p.route = [this.at(station)];
       }
       for (const [id, a] of this.owners)
         if (['wait', 'desk', 'ready', 'escort', 'in-room'].includes(a.phase))
@@ -330,7 +440,7 @@ export class ClinicLeisure {
     const p = this.pets.get(id);
     if (
       p &&
-      (!['rest'].includes(p.phase) || distance(p.position, restSpot(h)) > 0.08)
+      (!['rest'].includes(p.phase) || distance(p.position, this.rest(h)) > 0.08)
     ) {
       if (!p.called) {
         p.called = true;
@@ -338,7 +448,7 @@ export class ClinicLeisure {
         if (!(p.phase === 'use' && finishAtGround(p.station))) {
           p.station = '';
           p.phase = 'return';
-          p.route = interiorRoute(p.position, restSpot(h));
+          p.route = this.route(p.position, this.rest(h));
         }
       }
       a.phase = 'wait';
@@ -347,7 +457,7 @@ export class ClinicLeisure {
     }
     if (p) p.called = true;
     a.phase = 'desk';
-    a.route = interiorRoute(h.position, clinicDesk);
+    a.route = this.route(h.position, clinicDesk);
     if (distance(h.position, clinicDesk) < 0.08) {
       a.phase = 'ready';
       a.route = [];
@@ -400,7 +510,7 @@ export class ClinicLeisure {
       household: h.id,
       station: station.id,
       phase: 'walk',
-      route: interiorRoute(h.position, at(station)),
+      route: this.route(h.position, this.at(station)),
       remaining: 12 + (h.id % 4) * 3,
     });
   }
@@ -415,7 +525,7 @@ export class ClinicLeisure {
       if (
         !h?.inClinic ||
         h.routine !== 'clinic-wait' ||
-        !this.available(plan.stations.find((s) => s.id === a.station)!)
+        !this.available(this.build.stations.find((s) => s.id === a.station)!)
       )
         this.owners.delete(id);
     }
@@ -445,19 +555,21 @@ export class ClinicLeisure {
         } else if (a.phase === 'walk') {
           h.facing = advance(h.position, a.route, dt, 1.15) ?? h.facing;
           if (!a.route.length) {
-            const station = plan.stations.find((s) => s.id === a!.station)!;
+            const station = this.build.stations.find(
+              (s) => s.id === a!.station,
+            )!;
             h.facing = station.facing + layout.clinic.rotation;
             a.phase =
               station.kind === 'standing'
                 ? 'stand'
                 : station.kind === 'game'
                   ? 'game'
-                  : this.owned.includes('books')
+                  : Boolean(this.build.placement('books'))
                     ? 'read'
                     : 'sit';
           }
         } else if (['sit', 'read', 'stand'].includes(a.phase)) {
-          const station = plan.stations.find((s) => s.id === a!.station)!;
+          const station = this.build.stations.find((s) => s.id === a!.station)!;
           if (station.kind === 'standing') {
             const taken = new Set(
               [...this.owners.values()].map((o) => o.station),
@@ -470,7 +582,7 @@ export class ClinicLeisure {
               this.chooseOwner(h);
           } else {
             h.facing = station.facing + layout.clinic.rotation;
-            a.phase = this.owned.includes('books') ? 'read' : 'sit';
+            a.phase = Boolean(this.build.placement('books')) ? 'read' : 'sit';
           }
         }
       }
@@ -479,18 +591,20 @@ export class ClinicLeisure {
       let p = this.pets.get(id);
       if (
         p?.station &&
-        !this.available(plan.stations.find((s) => s.id === p!.station)!)
+        (!this.station(p.station) ||
+          (!this.available(this.station(p.station)) &&
+            !(p.phase === 'use' && finishAtGround(p.station))))
       ) {
         p.station = '';
         p.phase = 'return';
-        p.route = interiorRoute(p.position, restSpot(h));
+        p.route = this.route(p.position, this.rest(h));
       }
       if (!p) {
         p = {
           ticket: id,
           station: '',
           phase: 'rest',
-          position: restSpot(h),
+          position: this.rest(h),
           facing: h.facing,
           route: [],
           remaining: 3 + (h.id % 4),
@@ -502,7 +616,7 @@ export class ClinicLeisure {
         this.pets.set(id, p);
       }
       if (a && ['desk', 'ready', 'escort', 'in-room'].includes(a.phase)) {
-        p.facing = advance(p.position, [restSpot(h)], dt, 1.6) ?? h.facing;
+        p.facing = advance(p.position, [this.rest(h)], dt, 1.6) ?? h.facing;
         p.phase = 'rest';
         p.route = [];
         p.called = true;
@@ -515,7 +629,7 @@ export class ClinicLeisure {
           else if (p.phase === 'board') {
             p.phase = 'use';
             p.elapsed = 0;
-            p.remaining = plan.stations.find(
+            p.remaining = this.build.stations.find(
               (s) => s.id === p!.station,
             )!.seconds!;
           } else {
@@ -526,25 +640,32 @@ export class ClinicLeisure {
       } else if (p.phase === 'use') {
         p.remaining = Math.max(0, p.remaining - dt);
         p.elapsed += dt;
-        const station = plan.stations.find((s) => s.id === p!.station)!;
+        const station = this.build.stations.find((s) => s.id === p!.station)!;
         if (station.kind === 'carousel') {
           const angle = p.elapsed * 0.65;
           Object.assign(
             p.position,
-            localToTown(
-              station.x + Math.cos(angle) * 0.55,
-              station.z + Math.sin(angle) * 0.55,
-            ),
+            this.build.stationPoint(station, {
+              x: Math.cos(angle) * 0.55,
+              z: Math.sin(angle) * 0.55,
+            }),
           );
-          p.facing = -angle + Math.PI / 2 + layout.clinic.rotation;
+          p.facing =
+            -angle +
+            Math.PI / 2 +
+            layout.clinic.rotation +
+            this.build.stationRotation(station);
         }
         if (isCabinRide(station.kind)) {
           const pose = ridePose(station.kind, p.elapsed);
           Object.assign(
             p.position,
-            localToTown(station.x + pose.x, station.z + pose.z),
+            this.build.stationPoint(station, { x: pose.x, z: pose.z }),
           );
-          p.facing = pose.facing + layout.clinic.rotation;
+          p.facing =
+            pose.facing +
+            layout.clinic.rotation +
+            this.build.stationRotation(station);
         }
         if (isEnrichment(station.kind)) {
           const pose = enrichmentPose(
@@ -554,21 +675,24 @@ export class ClinicLeisure {
           );
           Object.assign(
             p.position,
-            localToTown(station.x + pose.x, station.z + pose.z),
+            this.build.stationPoint(station, { x: pose.x, z: pose.z }),
           );
-          p.facing = pose.facing + layout.clinic.rotation;
+          p.facing =
+            pose.facing +
+            layout.clinic.rotation +
+            this.build.stationRotation(station);
         }
         if (!p.remaining) {
           p.turns++;
           p.station = '';
           p.phase = 'return';
-          p.route = interiorRoute(p.position, restSpot(h));
+          p.route = this.route(p.position, this.rest(h));
         }
       } else if (p.phase === 'rest') {
-        const target = restSpot(h);
+        const target = this.rest(h);
         if (distance(p.position, target) > 0.5) {
           p.phase = 'return';
-          p.route = interiorRoute(p.position, target);
+          p.route = this.route(p.position, target);
           continue;
         }
         if (distance(p.position, target) > 0.05)
@@ -593,8 +717,8 @@ export class ClinicLeisure {
             const line = [...this.pets.values()].filter(
               (other) => other !== p && other.station === station.id,
             ).length;
-            const q = queueSpot(station, Math.min(line, 2));
-            p.route = interiorRoute(p.position, q);
+            const q = this.queueSpot(station, Math.min(line, 2));
+            p.route = this.route(p.position, q);
           }
         }
       }
@@ -606,19 +730,23 @@ export class ClinicLeisure {
       line
         .filter((p) => ['walk', 'queue'].includes(p.phase))
         .forEach((p, index) => {
-          const spot = queueSpot(station, index);
-          if (p.phase === 'walk' && p.route.length)
-            p.route[p.route.length - 1] = spot;
+          const spot = this.queueSpot(station, index);
+          if (
+            p.phase === 'walk' &&
+            p.route.length &&
+            distance(p.route.at(-1)!, spot) > 0.05
+          )
+            p.route = this.route(p.position, spot);
           if (p.phase === 'queue' && distance(p.position, spot) > 0.05) {
             p.phase = 'walk';
-            p.route = [spot];
+            p.route = this.route(p.position, spot);
           }
         });
       if (line.some((p) => ['use', 'board'].includes(p.phase))) continue;
       const first = line[0];
       if (first?.phase === 'queue') {
         first.phase = 'board';
-        first.route = [at(station)];
+        first.route = [this.at(station)];
         first.facing = station.facing + layout.clinic.rotation;
       }
     }

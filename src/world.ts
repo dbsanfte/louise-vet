@@ -1,3 +1,4 @@
+import { buildableCells, toClinic } from './clinic-build';
 import { WeatherScenery } from './weather-scenery';
 import { instrumentHit } from './fishbowl';
 import { petAsset, petLooks } from './pet-appearance';
@@ -461,15 +462,83 @@ export class World {
     this.needsRender = true;
   }
 
+  buildActive = false;
+  get buildCanvas() {
+    return this.renderer.domElement;
+  }
+  buildHit(clientX: number, clientY: number) {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.raycaster.setFromCamera(
+      new THREE.Vector2(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        1 - ((clientY - rect.top) / rect.height) * 2,
+      ),
+      this.ortho,
+    );
+    const point = this.raycaster.ray.intersectPlane(
+      new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.22),
+      new THREE.Vector3(),
+    );
+    const objects = [...this.town!.furniture.itemModels.values()].filter(
+      (o) => o.visible,
+    );
+    let object: THREE.Object3D | null =
+      this.raycaster.intersectObjects(objects, true)[0]?.object ?? null;
+    while (object && !object.userData.buildItem) object = object.parent;
+    return {
+      point: point ? toClinic(point) : undefined,
+      id: object?.userData.buildItem as string | undefined,
+    };
+  }
+  setBuildMode(active: boolean) {
+    this.buildActive = active;
+    this.clearClinicPick();
+    this.town!.furniture.scenery.grid.visible = active;
+    if (!active) this.town!.furniture.scenery.preview.visible = false;
+    this.setUpgrades(this.simulation.build.state.unlocked as UpgradeId[]);
+  }
+  focusBuildPlot(cells = buildableCells) {
+    const minX = Math.min(...cells.map((p) => p.x)),
+      maxX = Math.max(...cells.map((p) => p.x)),
+      minZ = Math.min(...cells.map((p) => p.z)),
+      maxZ = Math.max(...cells.map((p) => p.z));
+    const target = localToTown((minX + maxX) / 2, (minZ + maxZ) / 2);
+    this.clinicControls.enableDamping = false;
+    this.clinicControls.update();
+    this.clinicControls.target.set(target.x, 0.3, target.z);
+    this.ortho.position.set(target.x - 12, 18, target.z + 12);
+    this.clinicZoom = Math.max(
+      1.5,
+      Math.min(5, Math.max(maxX - minX, maxZ - minZ) / 15),
+    );
+    this.ortho.zoom = 1;
+    this.clinicControls.update();
+    this.clinicControls.enableDamping = true;
+    this.resize();
+  }
   setUpgrades(ids: UpgradeId[]) {
     this.courtyardOwned = ids.includes('sun-courtyard');
     this.needsRender = true;
     this.town?.setUpgrades(ids);
-    const rooms = [
-      { x: 0, z: 0, width: 10, depth: 8 },
-      examRoom,
-      ...clinicPlan.rooms.filter((r) => ids.includes(r.id as UpgradeId)),
-    ];
+    const rooms = this.buildActive
+      ? buildableCells.map((p) => ({
+          x: p.x + 0.5,
+          z: p.z + 0.5,
+          width: 1,
+          depth: 1,
+        }))
+      : this.simulation.build.customized
+        ? this.simulation.build.tiles.map((p) => ({
+            x: p.x + 0.5,
+            z: p.z + 0.5,
+            width: 1,
+            depth: 1,
+          }))
+        : [
+            { x: 0, z: 0, width: 10, depth: 8 },
+            examRoom,
+            ...clinicPlan.rooms.filter((r) => ids.includes(r.id as UpgradeId)),
+          ];
     const left = Math.min(...rooms.map((r) => r.x - r.width / 2)),
       right = Math.max(...rooms.map((r) => r.x + r.width / 2)),
       back = Math.min(...rooms.map((r) => r.z - r.depth / 2)),
@@ -486,38 +555,14 @@ export class World {
       }
     });
     this.decoration.clear();
-    const box = (size: number[], pos: number[], color: number) => {
-      const m = new THREE.Mesh(
-        new THREE.BoxGeometry(...(size as [number, number, number])),
-        new THREE.MeshStandardMaterial({ color, roughness: 0.8 }),
-      );
-      m.position.set(...(pos as [number, number, number]));
-      m.castShadow = true;
-      m.receiveShadow = true;
-      this.decoration.add(m);
-      return m;
-    };
-    if (ids.includes('plants')) {
-      for (const x of [1.8, 4.35]) {
-        box([0.35, 0.4, 0.35], [x, 0.2, 2.7], 0xc8876c);
-        const leaf = new THREE.Mesh(
-          new THREE.IcosahedronGeometry(0.45, 1),
-          new THREE.MeshStandardMaterial({ color: 0x6f9555 }),
-        );
-        leaf.position.set(x, 0.85, 2.7);
-        leaf.scale.y = 1.4;
-        leaf.castShadow = true;
-        this.decoration.add(leaf);
-      }
-    }
-    if (ids.includes('poster')) {
-      box([0.8, 1.15, 0.1], [-4.6, 2.1, -3.7], 0xf6d479);
-      box([0.5, 0.12, 0.12], [-4.6, 2.25, -3.62], 0x679683);
-      box([0.32, 0.12, 0.12], [-4.6, 1.94, -3.62], 0x679683);
-    }
   }
+
   focusClinic(view: string) {
     this.clearClinicPick();
+    if (view === 'all' && this.simulation.build.customized) {
+      this.focusBuildPlot(this.simulation.build.tiles);
+      return;
+    }
     const centre =
       view === 'lounge' || view === 'annex'
         ? -8
@@ -1022,7 +1067,10 @@ export class World {
       this.pick(this.hoverZone);
     }
     this.controls.update();
-    if (this.mode === 'reception' || this.mode === 'town') {
+    if (
+      !this.buildActive &&
+      (this.mode === 'reception' || this.mode === 'town')
+    ) {
       const camera = this.mode === 'town' ? this.townCamera : this.ortho;
       camera.updateMatrixWorld(true);
       this.bubble.update(

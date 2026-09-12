@@ -100,7 +100,7 @@ test('upgrades charge once and remain owned after reloading', async ({
   await page.reload();
   await page.getByRole('button', { name: /Clinic shop/ }).click();
   await expect(page.locator('[data-upgrade="plants"]')).toHaveText(
-    'In your clinic',
+    'In your collection',
   );
   await expect(page.getByTestId('coins')).toHaveText('60');
 });

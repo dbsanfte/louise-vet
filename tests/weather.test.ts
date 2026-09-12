@@ -112,3 +112,33 @@ test('shelter rolls are likely but not certain, and never interrupt clinic care,
     assert.equal(s.weather.active.size, 0);
   }
 });
+
+test('built-over shade trees stop attracting cats and an old shelter journey can safely return', () => {
+  const { s, h } = walkingCat();
+  s.weather.update(
+    0.1,
+    s.households,
+    () => 0.1,
+    () => false,
+    () => true,
+  );
+  assert.equal(s.weather.active.size, 0);
+  s.weather.update(
+    0.1,
+    s.households,
+    () => 0.1,
+    () => false,
+  );
+  assert.ok(s.weather.active.has(h.id));
+  const original = structuredClone(h.route);
+  for (let i = 0; i < 200; i++)
+    s.weather.update(
+      0.1,
+      s.households,
+      () => 0.1,
+      () => false,
+      () => true,
+    );
+  assert.equal(s.weather.active.size, 0);
+  assert.deepEqual(h.route, original);
+});

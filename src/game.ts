@@ -939,7 +939,7 @@ export const upgrades = [
     price: 240,
     icon: 'home',
     description:
-      'Build a connected customer lounge with three seats. Capacity grows from four to six patients.',
+      '48 free floor tiles and three lounge chairs for your collection. Place them in Build mode. Capacity grows from four to six patients.',
   },
   {
     id: 'books',
@@ -948,7 +948,7 @@ export const upgrades = [
     price: 65,
     icon: 'book',
     description:
-      'A book trolley and something lovely to read. Seated owners open a book while they wait.',
+      'Place this book trolley in Build mode. Seated owners can then open a book while they wait.',
   },
   {
     id: 'table-games',
@@ -967,7 +967,7 @@ export const upgrades = [
     icon: 'paw',
     requires: 'expansion',
     description:
-      'Build a spacious connected playground with a toy corner, marked queues and room for bigger rides. Capacity grows to eight patients.',
+      '84 free floor tiles and a toy corner to place in Build mode. Make a pet playground your way. Capacity grows to eight patients.',
   },
   {
     id: 'scratch',
@@ -1027,7 +1027,7 @@ export const upgrades = [
     icon: 'home',
     requires: 'pet-room',
     description:
-      'Add a connected garden with six activity spaces. More room to play; patient capacity stays at eight.',
+      '48 free floor tiles for a bigger room or garden. Unlock six new activities in the shop. Patient capacity stays at eight.',
   },
   {
     id: 'treat-dispenser',
@@ -1096,7 +1096,7 @@ export const upgrades = [
     icon: 'home',
     requires: 'pet-room',
     description:
-      'A spacious courtyard behind the playground, with room for new games and cosy corners. Patient capacity stays at eight.',
+      '48 free floor tiles to make a sunny courtyard wherever you like, and new games in the shop. Patient capacity stays at eight.',
   },
   {
     id: 'puzzle-table',

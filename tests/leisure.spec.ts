@@ -73,14 +73,14 @@ async function open(
   });
 }
 test.setTimeout(120000);
-test('shop builds connected rooms and suitable amusements once, then preserves them on reload', async ({
+test('shop unlocks room kits and stored amusements once, then preserves the collection on reload', async ({
   page,
 }, info) => {
   await open(page);
   await page.getByRole('button', { name: /Clinic shop/ }).click();
   await expect(page.locator('[data-upgrade="pet-room"]')).toBeDisabled();
   await expect(page.locator('[data-upgrade="wheel"]')).toContainText(
-    'Build Pet playground first',
+    'Buy Pet playground first',
   );
   for (const id of [
     'expansion',
@@ -96,28 +96,37 @@ test('shop builds connected rooms and suitable amusements once, then preserves t
   await expect(page.locator('[data-upgrade="carousel"]')).toBeDisabled();
   await expect(page.getByTestId('coins')).toHaveText('820');
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();
-  await page.getByRole('button', { name: 'Whole clinic', exact: true }).click();
-  await page.locator('#world').scrollIntoViewIfNeeded();
-  const rooms = await page
-    .getByRole('navigation', { name: 'Clinic rooms' })
-    .boundingBox();
-  const world = await page.locator('#world').boundingBox();
-  expect(rooms!.height).toBeLessThanOrEqual(
-    info.project.name === 'mobile' ? 104 : 52,
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  for (const id of [
+    'seat-5',
+    'toys',
+    'books',
+    'table-games',
+    'bench',
+    'scratch',
+    'wheel',
+    'carousel',
+  ])
+    await expect(
+      page.locator(`[data-build="pick"][data-id="${id}"]`),
+    ).toContainText('Stored');
+  await expect(page.locator('.build-price')).toContainText(
+    '132 free floor tiles',
   );
-  expect(rooms!.y).toBeGreaterThanOrEqual(world!.y);
-  expect(rooms!.y + rooms!.height).toBeLessThanOrEqual(
-    world!.y + world!.height,
-  );
-  await page.screenshot({ path: info.outputPath('expanded-clinic.png') });
+  await page.screenshot({ path: info.outputPath('clinic-collection.png') });
+  await page.locator('[data-build="done"]').click();
   await page.reload();
   await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
     timeout: 45000,
   });
   await expect(page.getByTestId('coins')).toHaveText('820');
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
   await expect(
-    page.getByRole('button', { name: 'Pet playground', exact: true }),
-  ).toBeVisible();
+    page.locator('[data-build="pick"][data-id="carousel"]'),
+  ).toContainText('Stored');
+  await expect(page.locator('.build-price')).toContainText(
+    '132 free floor tiles',
+  );
 });
 test('owners sit, read and play while pets queue for rendered moving amusements', async ({
   page,

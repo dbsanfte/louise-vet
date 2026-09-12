@@ -1,3 +1,5 @@
+import { ClinicBuildScenery } from './clinic-build-scenery';
+import { buildRecipes, type ClinicBuild } from './clinic-build';
 import { TownSurfaces } from './town-surfaces';
 import { ridePose } from './pet-rides';
 import * as THREE from 'three';
@@ -8,6 +10,11 @@ import type { UpgradeId } from './game';
 import { clinicFixtureNames } from './clinic-identity';
 export class ClinicFurniture {
   readonly group = new THREE.Group();
+  readonly scenery = new ClinicBuildScenery();
+  readonly itemModels = new Map<string, THREE.Group>();
+  private base?: THREE.Object3D;
+  private build?: ClinicBuild;
+  private lastRevision = -1;
   private assets = new Map<string, THREE.Group>();
   private fixtures: {
     model: THREE.Group;
@@ -65,6 +72,7 @@ export class ClinicFurniture {
     this.group.position.set(layout.clinic.x, 0.15, layout.clinic.z);
     this.group.rotation.y = layout.clinic.rotation;
     this.group.scale.setScalar(layout.clinic.scale);
+    this.group.add(this.scenery.group);
     const add = (
       name: string,
       x: number,
@@ -78,9 +86,18 @@ export class ClinicFurniture {
           name: clinicFixtureNames[name],
           description: 'Clinic attraction',
         };
+      if (name === 'bunting' || name === 'wall-art') {
+        const r = buildRecipes.find((r) => r.id === name)!;
+        for (const child of model.children) {
+          child.position.x -= r.x;
+          child.position.z -= r.z;
+        }
+      }
       model.position.set(x, 0, z);
       this.group.add(model);
       this.fixtures.push({ model, upgrade, inverse });
+      if (buildRecipes.some((r) => r.id === name))
+        this.itemModels.set(name, model);
       return model;
     };
     add('door', -5.14, 0, 'expansion', true);
@@ -113,7 +130,136 @@ export class ClinicFurniture {
     add('table-games', -8.2, -2.1, 'table-games');
     for (const s of clinicPlan.stations.filter((s) => s.audience === 'pet'))
       this.rides.set(s.id, add(s.kind, s.x, s.z, s.upgrade));
+    const chairSource = this.assets.get('lounge')!;
+    for (const r of buildRecipes.filter((r) => r.asset === 'chair')) {
+      let source: THREE.Object3D | undefined;
+      chairSource.traverse((o) => {
+        if (!source && /lounge[ _]chair/.test(o.name)) source = o;
+      });
+      const model = new THREE.Group();
+      const chair = source!.clone(true);
+      chair.position.set(0, 0, 0);
+      model.add(chair);
+      this.group.add(model);
+      this.itemModels.set(r.id, model);
+    }
+    for (const f of this.fixtures)
+      if (f.upgrade === 'expansion' && !f.inverse)
+        f.model.traverse((o) => {
+          if (/lounge[ _]chair/.test(o.name)) o.visible = false;
+        });
+    for (const r of buildRecipes.filter(
+      (r) => r.asset === 'plant' || r.asset === 'poster',
+    )) {
+      const model = new THREE.Group();
+      const box = (
+        w: number,
+        h: number,
+        d: number,
+        y: number,
+        color: number,
+      ) => {
+        const m = new THREE.Mesh(
+          new THREE.BoxGeometry(w, h, d),
+          new THREE.MeshStandardMaterial({ color }),
+        );
+        m.position.y = y;
+        model.add(m);
+      };
+      if (r.asset === 'plant') {
+        box(0.35, 0.4, 0.35, 0.2, 0xc8876c);
+        const leaf = new THREE.Mesh(
+          new THREE.IcosahedronGeometry(0.45, 1),
+          new THREE.MeshStandardMaterial({ color: 0x6f9555 }),
+        );
+        leaf.position.y = 0.85;
+        leaf.scale.y = 1.4;
+        model.add(leaf);
+      } else {
+        box(0.8, 1.15, 0.1, 2.1, 0xf6d479);
+        box(0.5, 0.12, 0.12, 2.25, 0x679683);
+      }
+      this.itemModels.set(r.id, model);
+      this.group.add(model);
+    }
     this.configure([]);
+  }
+  registerBase(base: THREE.Object3D) {
+    this.base = base;
+    const filters: Record<string, (o: THREE.Object3D) => boolean> = {
+      'welcome-bench': (o) => /bench|cushion/.test(o.name),
+      shelf: (o) =>
+        /^(shop[ _]|food[ _]tin|toy[ _]ball|treat[ _]bag)/.test(o.name),
+      'base-plant-0': (o) =>
+        /^(terracotta[ _]pot|leaf)/.test(o.name) && o.position.x < 0,
+      'base-plant-1': (o) =>
+        /^(terracotta[ _]pot|leaf)/.test(o.name) && o.position.x > 0,
+      'round-rug': (o) => /^round[ _]rug/.test(o.name),
+      'welcome-mat': (o) => /^welcome[ _]mat/.test(o.name),
+      'paw-picture': (o) => /^(picture|paw[ _]print)/.test(o.name),
+    };
+    for (const [id, match] of Object.entries(filters)) {
+      const model = new THREE.Group(),
+        r = buildRecipes.find((r) => r.id === id)!;
+      base.traverse((o) => {
+        if (o instanceof THREE.Mesh && match(o)) {
+          const part = o.clone();
+          part.position.x -= r.x;
+          part.position.z -= r.z;
+          part.visible = true;
+          model.add(part);
+          o.visible = false;
+        }
+      });
+      this.group.add(model);
+      this.itemModels.set(id, model);
+    }
+    this.lastRevision = -1;
+  }
+
+  applyBuild(build: ClinicBuild, ids: UpgradeId[]) {
+    if (this.build === build && this.lastRevision === build.revision) return;
+    this.build = build;
+    this.lastRevision = build.revision;
+    this.configure(ids);
+    this.scenery.update(build);
+    for (const f of this.fixtures) {
+      const room = clinicPlan.rooms.find((r) => r.id === f.upgrade);
+      if (room && !f.inverse && !this.itemModels.has(f.upgrade))
+        f.model.visible =
+          !build.state.floorEdited &&
+          build.contains(room) &&
+          ids.includes(f.upgrade as UpgradeId);
+      if (f.inverse && !build.state.floorEdited && room)
+        f.model.visible = !build.contains(room);
+      if (f.inverse && build.state.floorEdited) f.model.visible = false;
+    }
+    this.base?.traverse((o) => {
+      if (
+        o instanceof THREE.Mesh &&
+        /^(floor|foundation|left[ _]|connecting[ _]|side[ _]wall|back[ _]wall|back[ _]dado|back[ _]trim)/.test(
+          o.name,
+        )
+      )
+        o.visible = !build.state.floorEdited;
+    });
+    for (const r of buildRecipes) {
+      const model = this.itemModels.get(r.id);
+      if (!model) continue;
+      const p = build.placement(r.id);
+      model.visible = Boolean(p);
+      model.userData.buildItem = r.id;
+      model.userData.clinicInfo = {
+        name: r.name,
+        description: r.stations.length
+          ? 'Clinic furniture'
+          : 'Clinic decoration',
+      };
+      if (p) {
+        model.position.set(p.x, 0, p.z);
+        model.rotation.y = p.rotation;
+      }
+    }
   }
   book() {
     return this.assets.get('reading-book')!.clone(true);
@@ -130,6 +276,7 @@ export class ClinicFurniture {
     }
   }
   update(leisure: ClinicLeisure) {
+    this.applyBuild(leisure.build, leisure.build.state.unlocked as UpgradeId[]);
     for (const [id, model] of this.rides) {
       const rider = [...leisure.pets.values()].find(
         (p) => p.station === id && p.phase === 'use',

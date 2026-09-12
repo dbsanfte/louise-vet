@@ -121,13 +121,13 @@ test('office controls stay inside short, full clinics without page scrolling', a
   await expect(page.locator('.call-next')).toBeVisible();
   await page.getByRole('button', { name: /Clinic shop/ }).click();
   await expect(page.locator('[data-upgrade="coaster"]')).toHaveText(
-    /In your clinic/,
+    /In your collection/,
   );
   await expect(page.locator('[data-upgrade="ferris"]')).toHaveText(
-    /In your clinic/,
+    /In your collection/,
   );
 });
-test('coaster and Ferris wheel can be bought and remain built after reload', async ({
+test('coaster and Ferris wheel purchases remain in the collection after reload', async ({
   page,
 }, info) => {
   await page.addInitScript(() => {
@@ -153,17 +153,20 @@ test('coaster and Ferris wheel can be bought and remain built after reload', asy
   await page.getByRole('button', { name: /Clinic shop/ }).click();
   await expect(page.locator('[data-upgrade="coaster"]')).toBeDisabled();
   await expect(page.locator('[data-upgrade="ferris"]')).toContainText(
-    'Build Pet playground first',
+    'Buy Pet playground first',
   );
   for (const id of ['expansion', 'pet-room', 'coaster', 'ferris'])
     await page.locator(`[data-upgrade="${id}"]`).click();
   await expect(page.getByTestId('coins')).toHaveText('980');
   await expect(page.locator('[data-upgrade="coaster"]')).toBeDisabled();
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();
-  await page
-    .getByRole('button', { name: 'Pet playground', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  for (const id of ['coaster', 'ferris'])
+    await expect(
+      page.locator(`[data-build="pick"][data-id="${id}"]`),
+    ).toContainText('Stored');
   await page.screenshot({ path: info.outputPath('new-rides.png') });
+  await page.locator('[data-build="done"]').click();
   await page.reload();
   await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
     timeout: 45000,
@@ -172,6 +175,6 @@ test('coaster and Ferris wheel can be bought and remain built after reload', asy
   await page.getByRole('button', { name: /Clinic shop/ }).click();
   for (const id of ['coaster', 'ferris'])
     await expect(page.locator(`[data-upgrade="${id}"]`)).toHaveText(
-      /In your clinic/,
+      /In your collection/,
     );
 });

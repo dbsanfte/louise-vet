@@ -95,9 +95,26 @@ notebook without moving the page. See the
 
 ## Expand the clinic
 
-In **Clinic shop**, buy **Room for more paws** to add a customer lounge, then
-**Pet playground** for an adjoining playroom. Capacity grows from 4 to 6 to 8.
-The room buttons beneath the scene show each area or the whole clinic.
+Choose **Build** in the office to shape your clinic on a grid. Draw **Room** or
+**Garden** space by dragging or tapping two opposite corners, then pick furniture
+from the sidebar and place it. Rotate with **R** or **Rotate**, use the nudge
+buttons for fine adjustments, and choose **Done** to resume the day. **Camera**
+lets you orbit and pan; arrow keys and zoom buttons stay available. **Whole plot**
+shows the surrounding buildable greenspace, clear of roads and neighbouring homes.
+
+Buy furniture in **Clinic shop** to add it to your collection. Select a placed
+item to move it or **Store** it for later. Occupants step off before it is lifted;
+raised rides and flying/climbing pets finish safely at ground level. Clear-route
+checks help keep the clinic usable. Existing saves retain their current furniture,
+rooms and activities, ready to rearrange whenever you like.
+
+**Room for more paws** supplies 48 free floor tiles and three chairs; **Pet
+playground** supplies 84 tiles and a toy corner. Capacity grows from 4 to 6 to 8.
+**Play garden extension** and **Sunshine courtyard** each add 48 free tiles and
+unlock more shop choices. Further tiles cost 3 coins each. Floor removal does not
+refund coins; moving stored furniture costs nothing. The entrance, counter and
+examination suite stay in place. The current editor joins floor into open rooms
+with automatic perimeter walls or fences; it has one copy/set per shop purchase.
 
 Hookville also fits the window: **Homes** pages through the household directory, **Home info** shows the selected family, and **Town news** pages through updates. **Back to the clinic** stays beside the map.
 
@@ -112,8 +129,8 @@ while playing, eating, walking and taking part in Hookville's rescue stories.
 Every named pet and owner has at least five individual message variants for
 each action or feeling.
 
-Owners check in once on arrival, then stay at their waiting seat or game table until called. Buy books for seated reading and a
-board-game table for the lounge. The playground includes a toy corner; add a
+Owners check in once on arrival, then stay at their waiting seat or game table until called. Place a book trolley for seated reading and a
+board-game table for games. The playground includes a toy corner; add a
 scratching post, exercise wheel, or merry-go-round to watch suitable pets queue
 and take turns. Fever and broken-bone patients rest beside their owners. Calling
 a pet brings it back, then its owner walks it to the desk. Louise leads them
@@ -123,7 +140,7 @@ views; **Exam room** focuses it from reception. Purchases and ordinary activity/
 state save with clinic progress. Cancelled or stopped visits return through the
 room’s door, and Louise walks back to reception.
 
-After buying **Pet playground**, the shop offers a **Play garden extension** with six reserved spaces for a treat dispenser, water dispenser, bouncy toy box, yarn corner, bird aviary and friendly play tree. Purchase each activity separately; **Play garden** focuses the new wing. Healthy birds fly, cats climb, and both share the tree peacefully. Dispenser refills are included.
+After buying **Pet playground**, the **Play garden extension** unlocks a treat dispenser, water dispenser, bouncy toy box, yarn corner, bird aviary and friendly play tree. Purchase and place each activity separately. Healthy birds fly, cats climb, and both share the tree peacefully. Dispenser refills are included.
 
 ## Run the web container
 
