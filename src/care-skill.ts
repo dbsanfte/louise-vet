@@ -22,25 +22,25 @@ export const careSkills = {
   comb: {
     kind: 'comb',
     title: 'Follow the fur',
-    hint: 'Comb along the arrow to lift the fleas. Return the comb, then make the next stroke.',
+    hint: 'Drag the comb along the arrow to lift the fleas. Drag it back, then make the next stroke.',
     action: 'Move the comb',
   },
   brush: {
     kind: 'brush',
     title: 'Little brushing strokes',
-    hint: 'Brush back and forth. Two small strokes clean each storybook tooth.',
+    hint: 'Drag the brush back and forth. Two small strokes clean each storybook tooth.',
     action: 'Move the brush',
   },
   drops: {
     kind: 'aim',
     title: 'One little drop at a time',
-    hint: 'Line the nozzle up with the striped guide, then release a drop. Follow the guide for three drops.',
+    hint: 'Drag the nozzle to the striped guide, then release a drop. Follow the guide for three drops.',
     action: 'Release a drop',
   },
   forceps: {
     kind: 'pull',
     title: 'Grip, then ease it out',
-    hint: 'Grip the splinter. Slide to each striped mark and pause there before pulling a little further.',
+    hint: 'Grip the splinter. Drag the forceps to each striped mark and pause there before pulling a little further.',
     action: 'Grip splinter',
   },
   cooling: {
@@ -98,7 +98,7 @@ export class CareSkill {
         ? {
             ...careSkills.brush,
             title: 'Smooth the little tangles',
-            hint: 'Brush back and forth with little strokes. Two gentle passes smooth each tangle.',
+            hint: 'Drag the brush back and forth with little strokes. Two gentle passes smooth each tangle.',
           }
         : careSkills[tool];
     if (['aim', 'steady'].includes(this.spec.kind)) this.value = 0.5;
@@ -275,7 +275,7 @@ export class CareSkill {
         break;
       case 'pull':
         this.gripped = true;
-        this.message = 'Got it! Ease the slider to the first mark and pause.';
+        this.message = 'Got it! Drag the forceps to the first mark and pause.';
         break;
       case 'pressure':
         if (this.holding) {

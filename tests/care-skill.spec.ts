@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import { build } from 'vite';
 import { careSkills, type CareTool } from '../src/care-skill';
 import { bandagePattern } from '../src/bandage-pattern';
@@ -23,6 +23,178 @@ test.beforeAll(async () => {
     if ('output' in out)
       for (const chunk of out.output)
         if (chunk.type === 'chunk') script += chunk.code;
+});
+async function openSliderFixture(page: Page) {
+  const index = await (await page.request.get('/')).text();
+  const css = index.match(/href="([^"]+\.css)"/)![1];
+  await page.route('**/skill-test.html', (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: `<meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="${css}"><body></body>`,
+    }),
+  );
+  await page.route('**/assets/**', async (route) =>
+    route.fulfill({ response: await route.fetch() }),
+  );
+  await page.goto('/skill-test.html');
+  await page.addScriptTag({ content: script });
+}
+async function sliderPointer(page: Page, touch: boolean) {
+  const session = touch ? await page.context().newCDPSession(page) : null;
+  return {
+    async move(
+      control: Locator,
+      phase: 'start' | 'move' | 'end' | 'cancel',
+      fraction: number,
+      offsetY = 0,
+    ) {
+      const box = (await control.boundingBox())!;
+      const point = {
+        x: box.x + box.width * fraction,
+        y: box.y + box.height / 2 + offsetY,
+      };
+      if (session)
+        await session.send('Input.dispatchTouchEvent', {
+          type: {
+            start: 'touchStart',
+            move: 'touchMove',
+            end: 'touchEnd',
+            cancel: 'touchCancel',
+          }[phase] as 'touchStart' | 'touchMove' | 'touchEnd' | 'touchCancel',
+          touchPoints: ['end', 'cancel'].includes(phase)
+            ? []
+            : [{ ...point, id: 0 }],
+        });
+      else if (phase === 'start') {
+        await page.mouse.move(point.x, point.y);
+        await page.mouse.down();
+      } else if (phase === 'move') await page.mouse.move(point.x, point.y);
+      else await page.mouse.up();
+    },
+    dispose: () => session?.detach(),
+  };
+}
+test('every movable treatment track and slider follows a finger or mouse through a continuous drag', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await openSliderFixture(page);
+  const pointer = await sliderPointer(page, info.project.name === 'mobile');
+  for (const tool of [
+    'comb',
+    'brush',
+    'drops',
+    'forceps',
+    'cooling',
+  ] as const) {
+    await page.evaluate((tool) => window.openCare(tool), tool);
+    const rail = page.locator('.skill-rail');
+    const input = page.locator('#skill-position');
+    const initial = await input.inputValue();
+    for (const control of [rail, input]) {
+      await pointer.move(control, 'start', 0.2);
+      await pointer.move(control, 'move', 0.8);
+      await pointer.move(control, 'end', 0.8);
+      await expect(input).toHaveValue(initial);
+    }
+    await page.getByRole('button', { name: 'Start when ready' }).click();
+    if (tool === 'forceps') {
+      await pointer.move(rail, 'start', 0.2);
+      await pointer.move(rail, 'move', 0.8);
+      await pointer.move(rail, 'end', 0.8);
+      await expect(input).toHaveValue('0');
+      await page.getByRole('button', { name: 'Grip splinter' }).click();
+    }
+    for (const control of [rail, input]) {
+      const scroll = await page
+        .locator('.skill-dialog')
+        .evaluate((d) => d.scrollTop);
+      await pointer.move(control, 'start', 0.2);
+      await pointer.move(control, 'move', 0.35, 55);
+      await expect
+        .poll(async () => Number(await input.inputValue()))
+        .toBeGreaterThan(25);
+      await pointer.move(control, 'move', 0.8, 55);
+      await expect
+        .poll(async () => Number(await input.inputValue()))
+        .toBeGreaterThan(70);
+      await pointer.move(control, 'move', 0.2, -35);
+      await expect
+        .poll(async () => Number(await input.inputValue()))
+        .toBeLessThan(30);
+      await pointer.move(control, 'cancel', 0.2);
+      expect(
+        await page.locator('.skill-dialog').evaluate((d) => d.scrollTop),
+      ).toBe(scroll);
+      const position = await input.inputValue();
+      await pointer.move(page.locator('.skill-header'), 'start', 0.2);
+      await pointer.move(page.locator('.skill-header'), 'move', 0.8);
+      await pointer.move(page.locator('.skill-header'), 'end', 0.8);
+      await expect(input).toHaveValue(position);
+    }
+    await input.focus();
+    await input.press('Home');
+    await expect(input).toHaveValue('0');
+    await input.press('End');
+    await expect(input).toHaveValue('100');
+    await page.getByRole('button', { name: 'Cancel care activity' }).click();
+    await expect(page.locator('#outcome')).toHaveText('Cancelled');
+  }
+  await pointer.dispose();
+});
+test('dragging completes combing, brushing, drops and forceps care', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await openSliderFixture(page);
+  const pointer = await sliderPointer(page, info.project.name === 'mobile');
+  for (const tool of ['comb', 'brush', 'drops', 'forceps'] as const) {
+    await page.evaluate((tool) => window.openCare(tool), tool);
+    const rail = page.locator('.skill-rail');
+    const input = page.locator('#skill-position');
+    const finish = page.getByRole('button', { name: 'Finish care' });
+    await page.getByRole('button', { name: 'Start when ready' }).click();
+    await expect(finish).toBeDisabled();
+    if (tool === 'comb' || tool === 'brush') {
+      // Complete continuous outward/return strokes on both controls.
+      const control = tool === 'comb' ? rail : input;
+      await pointer.move(control, 'start', 0);
+      for (let stroke = 0; stroke < 6; stroke++) {
+        const target = stroke % 2 === 0 ? 1 : 0;
+        await pointer.move(control, 'move', 0.5);
+        await pointer.move(control, 'move', target);
+      }
+      await pointer.move(control, 'end', 0);
+    } else {
+      if (tool === 'forceps')
+        await page.getByRole('button', { name: 'Grip splinter' }).click();
+      const targets = tool === 'drops' ? [0.25, 0.75, 0.4] : [0.25, 0.5, 0.8];
+      await pointer.move(rail, 'start', tool === 'drops' ? 0.5 : 0);
+      for (let stage = 0; stage < targets.length; stage++) {
+        if (tool === 'drops' && stage > 0)
+          await pointer.move(rail, 'start', targets[stage - 1]);
+        await pointer.move(rail, 'move', targets[stage]);
+        if (tool === 'drops') {
+          await pointer.move(rail, 'end', targets[stage]);
+          await page.getByRole('button', { name: 'Release a drop' }).click();
+        }
+        await expect(page.getByRole('meter')).toHaveAttribute(
+          'aria-valuenow',
+          String(Math.round(((stage + 1) / 3) * 100)),
+        );
+      }
+      if (tool === 'forceps') await pointer.move(rail, 'end', 0.8);
+    }
+    await expect(finish).toBeEnabled();
+    await expect(input).toBeDisabled();
+    await expect(page.locator('#outcome')).toHaveText('');
+    await page.screenshot({
+      path: info.outputPath(`${tool}-drag-complete.png`),
+    });
+    await finish.click();
+    await expect(page.locator('#outcome')).toHaveText('Care completed');
+  }
+  await pointer.dispose();
 });
 test('all care activities support real controls and fit short windows', async ({
   page,

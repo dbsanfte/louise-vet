@@ -6,7 +6,11 @@ import { icon } from './icons';
 export class CareSkillView {
   readonly dialog = document.createElement('dialog');
   private painted = false;
-  private padPointer: number | null = null;
+  private sliderDrag: {
+    pointer: number;
+    control: HTMLElement;
+    offset: number;
+  } | null = null;
   private wrapPointer: number | null = null;
   private lastMessage = '';
   constructor(
@@ -83,39 +87,80 @@ export class CareSkillView {
           )
           ?.focus();
       });
-    this.dialog
-      .querySelector('#skill-position')
-      ?.addEventListener('input', (e) => {
-        skill.input(Number((e.target as HTMLInputElement).value) / 100);
-        this.refresh();
-      });
-    // The pictured pad is a direct control, alongside the native keyboard slider.
-    if (kind === 'steady') {
-      const track = this.dialog.querySelector<HTMLElement>('.skill-rail')!;
-      const movePad = (e: PointerEvent) => {
-        const bounds = track.getBoundingClientRect();
-        if (bounds.width > 0) {
-          skill.input((e.clientX - bounds.left) / bounds.width);
+    const input =
+      this.dialog.querySelector<HTMLInputElement>('#skill-position');
+    input?.addEventListener('input', (e) => {
+      skill.input(Number((e.target as HTMLInputElement).value) / 100);
+      this.refresh();
+    });
+    // Both the pictured tool and its labelled range accept the same gesture.
+    // Capture keeps a finger controlling the tool even beyond the track's edges.
+    if (input) {
+      const rail = this.dialog.querySelector<HTMLElement>('.skill-rail')!;
+      rail.dataset.draggable = 'true';
+      for (const control of [rail, input]) {
+        const metrics = () => {
+          const bounds = control.getBoundingClientRect();
+          // Native range thumbs travel between inset centres, unlike the picture.
+          const inset =
+            control === input
+              ? (parseFloat(
+                  getComputedStyle(input).getPropertyValue(
+                    '--skill-thumb-size',
+                  ),
+                ) || 32) / 2
+              : 0;
+          return {
+            left: bounds.left + inset,
+            width: Math.max(1, bounds.width - inset * 2),
+          };
+        };
+        const move = (e: PointerEvent) => {
+          const drag = this.sliderDrag;
+          if (
+            !drag ||
+            drag.pointer !== e.pointerId ||
+            drag.control !== control ||
+            input.disabled
+          )
+            return;
+          const bounds = metrics();
+          skill.input((e.clientX - bounds.left - drag.offset) / bounds.width);
           this.refresh();
-        }
-      };
-      track.addEventListener('pointerdown', (e) => {
-        if (!e.isPrimary || e.button !== 0 || !skill.started || skill.complete)
-          return;
-        e.preventDefault();
-        this.padPointer = e.pointerId;
-        track.setPointerCapture(e.pointerId);
-        this.dialog.querySelector<HTMLInputElement>('#skill-position')!.focus();
-        movePad(e);
-      });
-      track.addEventListener('pointermove', (e) => {
-        if (e.pointerId === this.padPointer) movePad(e);
-      });
-      for (const event of ['pointerup', 'pointercancel', 'lostpointercapture'])
-        track.addEventListener(event, (e) => {
-          if ((e as PointerEvent).pointerId === this.padPointer)
-            this.releasePad();
+        };
+        control.addEventListener('pointerdown', (e) => {
+          if (
+            !e.isPrimary ||
+            e.button !== 0 ||
+            input.disabled ||
+            this.sliderDrag
+          )
+            return;
+          e.preventDefault();
+          input.focus({ preventScroll: true });
+          const bounds = metrics();
+          const offset = e.clientX - (bounds.left + skill.value * bounds.width);
+          this.sliderDrag = {
+            pointer: e.pointerId,
+            control,
+            // Grabbing the side of a handle should not make the tool jump.
+            offset: Math.abs(offset) <= 18 ? offset : 0,
+          };
+          control.setPointerCapture(e.pointerId);
+          move(e);
         });
+        control.addEventListener('pointermove', move);
+        for (const event of [
+          'pointerup',
+          'pointercancel',
+          'lostpointercapture',
+        ])
+          control.addEventListener(event, (e) => {
+            if ((e as PointerEvent).pointerId === this.sliderDrag?.pointer)
+              this.releaseSlider();
+          });
+      }
+      input.addEventListener('blur', () => this.releaseSlider());
     }
     if (kind === 'wrap') {
       const board = this.dialog.querySelector<HTMLElement>('.skill-wrap')!;
@@ -254,6 +299,11 @@ export class CareSkillView {
     }
     const input =
       this.dialog.querySelector<HTMLInputElement>('#skill-position');
+    if (input) {
+      this.dialog.querySelector<HTMLElement>('.skill-rail')!.dataset.disabled =
+        String(input.disabled);
+      if (input.disabled) this.releaseSlider();
+    }
     if (input && Math.abs(Number(input.value) - s.value * 100) > 0.1)
       input.value = String(s.value * 100);
     const target = this.dialog.querySelector<HTMLElement>('.skill-target');
@@ -338,7 +388,7 @@ export class CareSkillView {
   pause() {
     this.skill.holding = false;
     this.painted = false;
-    this.releasePad();
+    this.releaseSlider();
     this.releaseWrap();
     if (this.skill.spec.kind === 'pressure' && !this.skill.complete)
       this.skill.value = 0;
@@ -349,7 +399,7 @@ export class CareSkillView {
     this.refresh();
   }
   dispose() {
-    this.releasePad();
+    this.releaseSlider();
     this.releaseWrap();
     this.dialog.close();
     this.dialog.remove();
@@ -376,11 +426,10 @@ export class CareSkillView {
     if (pointer !== null && board?.hasPointerCapture(pointer))
       board.releasePointerCapture(pointer);
   }
-  private releasePad() {
-    const pointer = this.padPointer;
-    this.padPointer = null;
-    const track = this.dialog.querySelector<HTMLElement>('.skill-rail');
-    if (pointer !== null && track?.hasPointerCapture(pointer))
-      track.releasePointerCapture(pointer);
+  private releaseSlider() {
+    const drag = this.sliderDrag;
+    this.sliderDrag = null;
+    if (drag?.control.hasPointerCapture(drag.pointer))
+      drag.control.releasePointerCapture(drag.pointer);
   }
 }
