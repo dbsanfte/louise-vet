@@ -259,10 +259,10 @@ for (const [name, bpm] of [
     const reading = page.locator('.heart-reading');
     await expect(reading).toHaveText(`${bpm} BPM · Faster than usual`);
     await expect.poll(() => activeHeartRate(page)).toBeCloseTo(bpm, 3);
-    // Count the actual bright ECG peaks across its 2.5-second canvas window.
-    const peaks = await page
-      .locator('.ecg-trace')
-      .evaluate((canvas: HTMLCanvasElement) => {
+    // The label/audio update can precede the throttled canvas draw. Wait for
+    // the actual bright ECG peaks across its 2.5-second window, not just BPM text.
+    const peaks = () =>
+      page.locator('.ecg-trace').evaluate((canvas: HTMLCanvasElement) => {
         const { width, height } = canvas;
         const data = canvas
           .getContext('2d')!
@@ -280,7 +280,9 @@ for (const [name, bpm] of [
         }
         return count;
       });
-    expect(Math.abs(peaks - (bpm * 2.5) / 60)).toBeLessThanOrEqual(1);
+    await expect
+      .poll(async () => Math.abs((await peaks()) - (bpm * 2.5) / 60))
+      .toBeLessThanOrEqual(1);
     await expect(reading).toBeInViewport();
     const clearOfNotes = async () => {
       const notes = await page.locator('#clue-summary').boundingBox();

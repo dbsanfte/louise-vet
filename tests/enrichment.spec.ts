@@ -43,7 +43,7 @@ function furnishedClinic() {
   return best;
 }
 test.setTimeout(120000);
-test('new garden purchases require space and persist with their room control', async ({
+test('garden kits unlock stored activities and persist without automatically building space', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -73,15 +73,34 @@ test('new garden purchases require space and persist with their room control', a
     await page.locator(`[data-upgrade="${id}"]`).click();
   await expect(page.getByTestId('coins')).toHaveText('2,440');
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();
-  await page.getByRole('button', { name: 'Play garden', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Play garden', exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  for (const id of additions)
+    await expect(
+      page.locator(`[data-build="pick"][data-id="${id}"]`),
+    ).toContainText('Stored');
+  await expect(page.locator('.build-price')).toContainText(
+    '180 free floor tiles',
+  );
+  await page.locator('[data-build="done"]').click();
   await page.reload();
   await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
     timeout: 45000,
   });
   await expect(
     page.getByRole('button', { name: 'Play garden', exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(page.getByTestId('coins')).toHaveText('2,440');
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  for (const id of additions)
+    await expect(
+      page.locator(`[data-build="pick"][data-id="${id}"]`),
+    ).toContainText('Stored');
+  await expect(page.locator('.build-price')).toContainText(
+    '180 free floor tiles',
+  );
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('louises-vet-office-v1')!),
   );

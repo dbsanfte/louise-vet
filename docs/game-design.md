@@ -107,8 +107,9 @@ Healthy birds fly alongside their owners and make short flights around their hom
 The waiting list shows each pet's name, appearance/breed, and presenting concern.
 The player can call the next patient or choose another waiting patient. Existing
 customers retain their places when someone new arrives. A treat shelf, plants,
-seating, equipment, advertising, and adjoining room modules give purchases a visible home.
-Current room and furniture positions are authored; there is no free-placement editor.
+seating, equipment and amusements give the clinic its character. Build mode lets
+players expand the floor and place or rearrange their collection; existing saves
+keep their original room and furniture positions until the player edits them.
 
 ### Examination room
 
