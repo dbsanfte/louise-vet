@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { build } from 'vite';
 import { TownSimulation } from '../src/town-simulation';
-import { visits, upgrades } from '../src/game';
+import { visits, upgrades, type UpgradeId } from '../src/game';
 const owned = upgrades.filter((u) => u.id !== 'stock').map((u) => u.id);
 let script = '';
 test.setTimeout(120000);
@@ -23,7 +23,12 @@ test.beforeAll(async () => {
       for (const chunk of out.output)
         if (chunk.type === 'chunk') script += chunk.code;
 });
-async function open(page: Page, busy = false) {
+async function open(
+  page: Page,
+  busy = false,
+  items: UpgradeId[] = owned,
+  legacy = false,
+) {
   const s = new TownSimulation(visits, () => 0.5);
   s.seedClinic(
     busy
@@ -33,8 +38,10 @@ async function open(page: Page, busy = false) {
       : [],
   );
   s.configureClinic(8, 22);
-  s.configureLeisure(owned);
+  s.configureLeisure(items);
   if (busy) for (let i = 0; i < 250; i++) s.update(0.1);
+  const town = s.snapshot();
+  const { build: _layout, ...legacyTown } = town;
   const index = await (await page.request.get('/')).text(),
     css = index.match(/href="([^"]+\.css)"/)![1];
   await page.addInitScript(
@@ -55,7 +62,7 @@ async function open(page: Page, busy = false) {
           }),
         );
     },
-    { town: s.snapshot(), owned },
+    { town: legacy ? legacyTown : town, owned: items },
   );
   await page.route('**/build-test.html', (r) =>
     r.fulfill({
@@ -90,6 +97,82 @@ async function tap(
   if (touch) await page.touchscreen.tap(p.x, p.y);
   else await page.mouse.click(p.x, p.y);
 }
+async function visibleDoors(page: Page) {
+  return page.evaluate(() => {
+    window.buildTest.step(0);
+    return window.buildTest
+      .doors()
+      .filter((o) => o.visible)
+      .map(({ x, z }) => [x, z]);
+  });
+}
+test('fresh clinics and unbuilt room kits have no doors standing outside the building', async ({
+  page,
+}, info) => {
+  await open(page, false, []);
+  expect(await page.evaluate(() => window.buildTest.doors())).toHaveLength(4);
+  await page.evaluate(() => window.buildTest.point(-8, -6, true));
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: info.outputPath('fresh-clinic-doors.png') });
+  // Only the door in the starter clinic's actual lounge opening is present.
+  expect(await visibleDoors(page)).toEqual([[-5.14, 0]]);
+  await page.locator('[data-build="shop"]').click();
+  for (const id of ['expansion', 'pet-room', 'play-annex', 'sun-courtyard'])
+    await page.locator(`[data-upgrade="${id}"]`).click();
+  await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  expect(await visibleDoors(page)).toEqual([[-5.14, 0]]);
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await visibleDoors(page)).toEqual([[-5.14, 0]]);
+});
+const doorStages: { items: UpgradeId[]; doors: number[][] }[] = [
+  {
+    items: ['expansion'],
+    doors: [
+      [-11, 0],
+      [-8, -4],
+    ],
+  },
+  {
+    items: ['expansion', 'pet-room'],
+    doors: [
+      [-8, -4],
+      [-11.95, -12],
+    ],
+  },
+  {
+    items: ['expansion', 'pet-room', 'play-annex', 'sun-courtyard'],
+    doors: [],
+  },
+];
+for (const [i, { items, doors }] of doorStages.entries())
+  test(`migrated clinic with ${items.length} built rooms keeps doors attached to existing walls`, async ({
+    page,
+  }, info) => {
+    await open(page, false, items, true);
+    expect(await visibleDoors(page)).toEqual(doors);
+    if (i === 0) {
+      // Room kits alone must not open existing doors or add distant doors.
+      await page.locator('[data-build="shop"]').click();
+      for (const id of ['pet-room', 'play-annex', 'sun-courtyard'])
+        await page.locator(`[data-upgrade="${id}"]`).click();
+      await page
+        .getByRole('button', { name: 'Close shop', exact: true })
+        .click();
+      expect(await visibleDoors(page)).toEqual(doors);
+      await page.waitForTimeout(900);
+      await page.screenshot({
+        path: info.outputPath('migrated-lounge-doors.png'),
+      });
+      await page.locator('[data-build="tool"][data-value="garden"]').click();
+      await tap(page, -12, -3, info.project.name === 'mobile');
+      await tap(page, -12, -1, info.project.name === 'mobile');
+      await expect(page.locator('#build-feedback')).toContainText('ready');
+      expect(await visibleDoors(page)).toEqual([]);
+    }
+  });
 test('migrated furniture can be stored, placed, rotated and saved with controls staying on screen', async ({
   page,
 }, info) => {

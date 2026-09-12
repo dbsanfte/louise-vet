@@ -223,16 +223,23 @@ export class ClinicFurniture {
     this.lastRevision = build.revision;
     this.configure(ids);
     this.scenery.update(build);
+    const builtRooms = new Set(
+      clinicPlan.rooms
+        .filter((r) => ids.includes(r.id as UpgradeId) && build.contains(r))
+        .map((r) => r.id),
+    );
     for (const f of this.fixtures) {
       const room = clinicPlan.rooms.find((r) => r.id === f.upgrade);
       if (room && !f.inverse && !this.itemModels.has(f.upgrade))
+        f.model.visible = !build.state.floorEdited && builtRooms.has(f.upgrade);
+      // A future-room door belongs to an existing wall. Buying a kit alone
+      // neither creates that wall nor opens its connection to the next room.
+      if (f.inverse)
         f.model.visible =
           !build.state.floorEdited &&
-          build.contains(room) &&
-          ids.includes(f.upgrade as UpgradeId);
-      if (f.inverse && !build.state.floorEdited && room)
-        f.model.visible = !build.contains(room);
-      if (f.inverse && build.state.floorEdited) f.model.visible = false;
+          !builtRooms.has(f.upgrade) &&
+          (!f.model.userData.requiresLounge || builtRooms.has('expansion')) &&
+          (!f.model.userData.requiresPlayroom || builtRooms.has('pet-room'));
     }
     this.base?.traverse((o) => {
       if (

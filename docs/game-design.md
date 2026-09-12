@@ -146,7 +146,9 @@ opposite corners. A preview shows its area, price, and a green or red footprint.
 Room floor has low cutaway perimeter walls; garden floor has grass and cream
 picket fencing. Adjacent additions join into open space. Editing the floor replaces
 the old modular shell with this continuous boundary; moving furniture alone keeps
-migrated room architecture. The public front entrance, counter, examination suite,
+migrated room architecture. Legacy future-room doors appear only in walls of
+rooms that already exist; buying a floor kit leaves those doors in place until
+the adjoining space is built. The public front entrance, counter, examination suite,
 and Louise's escort route remain anchored and protected. Independent interior-wall
 drawing, extra floors, duplicate catalogue copies and movable treatment rooms are
 outside this editor's current scope.

@@ -61,6 +61,10 @@ window.buildTest = {
       z: o.position.z,
       rotation: o.rotation.y,
     })),
+  doors: () =>
+    world
+      .town!.furniture.group.children.filter((o) => o.getObjectByName('door'))
+      .map((o) => ({ visible: o.visible, x: o.position.x, z: o.position.z })),
 };
 declare global {
   interface Window {
@@ -82,6 +86,7 @@ declare global {
         z: number;
         rotation: number;
       }[];
+      doors: () => { visible: boolean; x: number; z: number }[];
     };
   }
 }
