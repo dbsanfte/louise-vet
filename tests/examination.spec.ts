@@ -80,7 +80,11 @@ test('drag the real X-ray across the patient, zoom, and orbit a whole skeleton',
     .info()
     .attach('whole skeleton', { body: front, contentType: 'image/png' });
   await page.getByRole('button', { name: 'Rotate animal right' }).click();
-  expect((await canvas.screenshot()).equals(front)).toBe(false);
+  // Software WebGL may still be presenting the preceding GPU frame when the
+  // separate camera toolbar has finished handling the tap.
+  await expect
+    .poll(async () => (await canvas.screenshot()).equals(front))
+    .toBe(false);
   await page.getByRole('button', { name: 'Increase magnification' }).click();
   await expect(page.locator('.instrument-zoom')).toHaveText('2.0×');
   await expect(readout).toHaveAttribute('data-whole', 'false');

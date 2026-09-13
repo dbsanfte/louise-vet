@@ -71,17 +71,8 @@ export class Examination {
     this.panel.className = 'examination-readout';
     this.panel.hidden = true;
     this.panel.innerHTML =
-      '<div class="instrument-title"></div><p class="instrument-message"></p><div class="instrument-actions"><button data-action="instrument-zoom-out" aria-label="Reduce magnification">−</button><span class="instrument-zoom"></span><button data-action="instrument-zoom-in" aria-label="Increase magnification">+</button><button data-action="full-xray">Whole-body X-ray</button></div><canvas class="ecg-trace" width="520" height="140" aria-label="Live heartbeat ECG"></canvas><strong class="heart-reading"></strong><button class="heart-sound" data-action="sound">Listen with sound / mute</button>';
+      '<div class="instrument-title"></div><p class="instrument-message"></p><div class="instrument-actions"><button data-action="instrument-zoom-out" aria-label="Reduce magnification">−</button><span class="instrument-zoom"></span><button data-action="instrument-zoom-in" aria-label="Increase magnification">+</button><button data-action="full-xray">Whole-body X-ray</button></div><canvas class="ecg-trace" width="520" height="140" aria-label="Live heartbeat ECG"></canvas><strong class="heart-reading"></strong><button class="heart-sound" data-action="sound">Sound on / off</button>';
     container.append(this.panel);
-    // On a small screen, keep controls below the animal so dragging a viewer
-    // cannot accidentally press a button hidden beneath a finger.
-    const compact = window.matchMedia('(max-width: 700px)');
-    const arrange = () => {
-      if (compact.matches) container.after(this.panel);
-      else container.append(this.panel);
-    };
-    compact.addEventListener('change', arrange);
-    arrange();
     this.trace = this.panel.querySelector('canvas')!;
     this.message = this.panel.querySelector('.instrument-message')!;
     this.readout = this.panel.querySelector('.heart-reading')!;
@@ -300,7 +291,7 @@ export class Examination {
     }
     if (!point) return true;
     point.project(camera);
-    const scale = Math.min(250, width * 0.6);
+    const scale = Math.min(250, width * 0.6, height * 0.8);
     const zoom = this.tool === 'xray' ? this.xrayZoom : this.zoom;
     const dx = (((point.x + 1) / 2 - this.point.x) * width * zoom) / scale;
     const dy = (((1 - point.y) / 2 - this.point.y) * height * zoom) / scale;
@@ -439,8 +430,9 @@ export class Examination {
     if (!this.active || !this.tool || !this.visit) return;
     const scale =
       this.whole && this.tool === 'xray'
-        ? Math.min(420, width * 0.7)
-        : Math.min(250, width * 0.6) * (this.tool === 'mouth' ? 1.45 : 1);
+        ? Math.min(420, width * 0.7, height * 0.85)
+        : Math.min(250, width * 0.6, height * 0.8) *
+          (this.tool === 'mouth' ? 1.45 : 1);
     const px = this.whole
         ? THREE.MathUtils.clamp(
             this.point.x * width,

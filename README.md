@@ -352,4 +352,6 @@ The master design describes [examination and care](docs/game-design.md#5-examina
 [current patients](docs/game-design.md#7-current-case-catalogue). Keep gameplay
 rules there so setup instructions and product design do not drift apart.
 
+On phones and tablets, the examination fits the screen: tools, body guides, live readings, notes and next/exit buttons have separate space. Rotate the device to change the layout without losing the visit. **Visit info** opens the owner’s story; longer care notes scroll within their notebook.
+
 After placing the correct care tool, read its activity card and choose **Start when ready**. Spread cream, trace the bandage ribbon, make comb/brush strokes, aim drops, ease a splinter out, steady a cooling pad, control vaccine pressure or pour water. Drag the comb, brush, dropper, forceps or ice pack with a finger or mouse on its illustrated track or the slider below; keyboard arrows work too. **Finish care** confirms a successful activity. **Cancel care activity** returns to placement; **Stop visit** returns to the office without a reward. Cream patches can also be tapped individually.

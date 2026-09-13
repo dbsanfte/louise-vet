@@ -844,12 +844,14 @@ export class World {
     this.perspective.position.set(3.1, 3.4, 4.7);
     this.controls.target.set(0, 1.95, 0);
     this.controls.update();
+    this.needsRender = true;
   }
   rotate(amount: number) {
     const offset = this.perspective.position.clone().sub(this.controls.target);
     offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), amount);
     this.perspective.position.copy(this.controls.target).add(offset);
     this.controls.update();
+    this.needsRender = true;
   }
   setInstrument(tool: Tool | null, active: boolean) {
     if (tool === 'xray' && active && this.examination.selected !== 'xray')

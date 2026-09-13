@@ -4,6 +4,8 @@ import { CareSkill, isCareTool } from './care-skill';
 import { CareSkillView } from './care-skill-view';
 import { zoneLabel, checkInstruction } from './game';
 import './style.css';
+import './examination-layout.css';
+import { arrangeExamination } from './exam-layout';
 import { World } from './world';
 import { ClinicBuildEditor } from './clinic-build-editor';
 import { advanceActiveTime } from './active-time';
@@ -44,7 +46,7 @@ audio.enabled = progress.sound;
 let pendingPatient: number | null = null;
 let clinicView = 'reception';
 let mode: Mode = 'reception';
-let modal: 'shop' | 'guide' | 'casebook' | null = null;
+let modal: 'shop' | 'guide' | 'casebook' | 'visit' | null = null;
 let queue = simulation.queue;
 let patient: Visit | null = null;
 let patientId = 0;
@@ -65,6 +67,7 @@ let ready = false;
 let world: World;
 let builder: ClinicBuildEditor | undefined;
 let toastUntil = 0;
+let visitFeedback = '';
 let enteringTown = false;
 let selectedHome: number | undefined;
 let townStatusAt = 0;
@@ -85,12 +88,15 @@ app.innerHTML = `
   <main class="workspace">
     <aside id="sidebar" class="sidebar" aria-label="Patient information"></aside>
     <section class="stage" aria-label="Clinic game view">
+      <div id="exam-camera" class="exam-camera"></div>
       <div id="world" class="world">
         <div id="scene-title" class="scene-title"></div><div id="scene-goal" class="scene-goal"></div>
         <div id="zones" class="zones"></div><div id="scene-controls" class="scene-controls"></div>
         <div id="precision"></div><div id="scene-caption" class="scene-caption"></div>
         <div id="loading" class="loading"><span class="loading-paw">${icon('paw')}</span><h2>Opening the clinic…</h2><p>Making everything cosy for our little visitors.</p></div>
       </div>
+      <div id="exam-guides" class="exam-guides" role="group" aria-label="Body guides" hidden></div>
+      <div id="instrument-dock" class="instrument-dock"><p class="instrument-placeholder">Choose a tool, then touch your patient. You can also use a body guide.</p></div>
       <div id="stage-footer" class="stage-footer"></div>
     </section>
   </main>
@@ -100,12 +106,22 @@ app.innerHTML = `
   <div id="toast" class="toast" role="status" aria-live="polite"></div><div id="modal-root"></div><div id="skill-root"></div>`;
 
 const byId = (id: string) => document.getElementById(id)!;
-function announce(text: string) {
+function announce(text: string, recordedInNotebook = false) {
   byId('toast').textContent = text;
   byId('toast').classList.add('show');
   toastUntil = performance.now() + 4600;
+  visitFeedback =
+    app.dataset.compactExam === 'true' && !recordedInNotebook ? text : '';
+  if (app.dataset.compactExam === 'true') {
+    if (patient?.treatment === 'vaccine') {
+      const plan = byId('sidebar').querySelector('.care-plan p');
+      if (plan && visitFeedback) plan.textContent = visitFeedback;
+    }
+    renderVisitActions();
+  }
 }
 function clearAnnouncement() {
+  visitFeedback = '';
   byId('toast').textContent = '';
   byId('toast').classList.remove('show');
   toastUntil = 0;
@@ -460,10 +476,13 @@ function renderCase() {
   const treatments = [
     ...new Set<Tool>([patient.treatment, 'cream', 'bandage', 'comb']),
   ];
+  byId('exam-guides').replaceChildren();
   byId('sidebar').innerHTML = `
-    <div class="case-heading"><span class="pet-avatar large ${patient.color}">${petIcon(patient.species)}</span><div><p class="eyebrow">YOUR LITTLE PATIENT</p><h2>${patient.name}</h2><p>${patient.breed} · ${patient.age}</p></div></div>
+    <div class="case-heading"><span class="pet-avatar large ${patient.color}">${petIcon(patient.species)}</span><div><p class="eyebrow">YOUR LITTLE PATIENT</p><h2>${patient.name}</h2><p>${patient.breed} · ${patient.age}</p></div><button class="secondary visit-details-button" data-action="visit" aria-label="About ${patient.name}’s visit">Visit info</button></div>
+    <div class="case-details">
     <div class="owner-note"><p>“${patient.quote}”</p><span>— ${patient.owner}, ${patient.name}’s person</span></div>
     <ol class="case-steps">${steps.map((label, i) => `<li class="${i === step ? 'current' : i < step ? 'complete' : ''}"><span>${i < step ? icon('check') : i + 1}</span>${label}</li>`).join('')}</ol>
+    </div><div class="case-work" data-purpose="${patient.purpose}">
     ${vaccination ? `<div class="care-plan"><span>${icon('heart')} VACCINATION VISIT</span><h3>${timing ? 'A gentle touch' : 'Find a comfy spot'}</h3><p>${timing ? 'You found the spot! Now keep your hand steady.' : `The vaccine is ready. Find the soft patch of fur on ${patient.name}’s upper body. Turn her around and tap the matching body marker.`}</p></div><p class="instruction">${timing ? 'Begin gently, then pause in the striped pressure patch. A wobbly try gives no vaccine and you can try again.' : 'No mystery to solve today — just a little practice with careful hands.'}</p>` : ''}
     ${mode === 'examine' ? `<div class="section-title"><h3>${patient.purpose === 'checkup' ? 'Standard checks' : 'Look & listen'}</h3><span>${findings.size}/${patient.checks.length} key clues</span></div>${patient.purpose === 'checkup' ? `<p class="instruction">Two standard checks for ${patient.name}. Choose a check below, then use its tool at the listed spot or choose the labelled body guide. Both ticks unlock Finish healthy checkup.</p><ol class="routine-checks" aria-label="Standard checks">${patient.checks.map((check, i) => `<li><button class="secondary ${findings.has(i) ? 'check-done' : ''}" data-action="tool" data-tool="${check.tool}" aria-pressed="${selectedTool === check.tool}">${icon(findings.has(i) ? 'check' : 'search')}<span>${checkInstruction(check, patient!.species)}${findings.has(i) ? '<strong>Done</strong>' : ''}</span></button></li>`).join('')}</ol>` : `<p class="instruction">Choose a tool, then hold and drag it over ${patient.name}. Look closely at what you see and hear. The body guides can help you place your tool.</p>`}<div class="tool-grid">${diagnosticTools.map(toolButton).join('')}</div>` : ''}
     ${
@@ -477,6 +496,7 @@ function renderCase() {
         : ''
     }
     ${mode === 'treat' && !vaccination ? `<div class="care-plan"><span>${icon('check')} CARE PLAN</span><h3>${patient.diagnosis}</h3><p>${toolInfo[patient.treatment].name} → <strong>${zoneLabel(patient.zone, patient.species)}</strong></p></div><p class="instruction">Choose the right care tool and place it at the spot in your plan.</p><div class="tool-grid">${treatments.map(toolButton).join('')}</div>` : ''}
+    </div>
 `;
   byId('scene-title').innerHTML =
     `<span class="room-pill treatment-pill">${icon('plus')} TREATMENT ROOM</span><h2>A little help for ${patient.name}</h2>`;
@@ -554,6 +574,16 @@ function renderPrecision() {
     );
 }
 
+function closeModal() {
+  const wasVisitInfo = modal === 'visit';
+  modal = null;
+  render();
+  if (wasVisitInfo)
+    byId('sidebar')
+      .querySelector<HTMLButtonElement>('[data-action="visit"]')
+      ?.focus({ preventScroll: true });
+}
+
 function renderModal() {
   if (ready && (modal || mode !== 'reception')) world.clearClinicPick();
   const root = byId('modal-root');
@@ -574,7 +604,10 @@ function renderModal() {
   }
   let content = '';
   let title = '';
-  if (modal === 'shop') {
+  if (modal === 'visit' && patient) {
+    title = `${patient.name}’s visit`;
+    content = `<p class="modal-intro">${patient.breed} · ${patient.age}</p>${byId('sidebar').querySelector('.case-details')?.innerHTML ?? ''}<p>Choose a tool, then hold and drag it over ${patient.name}, or tap a labelled body guide. Use Look around to turn your patient. Your discoveries stay in Key clues and Care notes.</p>`;
+  } else if (modal === 'shop') {
     title = 'Make it feel like home';
     content = `<p class="modal-intro">Buy things for your collection, then place them in Build mode. Room kits give you free floor tiles to use anywhere on your plot.</p><div class="shop-balance">${icon('coin')} <strong>${progress.coins}</strong> coins to spend</div><div class="shop-grid">${upgrades
       .map((u) => {
@@ -666,13 +699,14 @@ function renderVisitActions() {
         <button class="secondary ${cluesComplete ? 'clues-complete' : ''} ${pulseRemaining ? 'clue-discovered' : ''}" style="--clue-delay: -${2400 - pulseRemaining}ms" data-action="notebook" data-tab="clues" aria-pressed="${notebookTab === 'clues'}">Key clues · ${findings.size}/${patient!.checks.length}${cluesComplete ? ' · ✓ Ready' : ''}</button>
         <button class="secondary" data-action="notebook" data-tab="notes" aria-pressed="${notebookTab === 'notes'}">Care notes · ${observations.size}</button>
       </div>
-      <section class="notebook-page" aria-label="Key clues" ${notebookTab !== 'clues' ? 'hidden' : ''} tabindex="0"><ul>${
+      <p class="visit-feedback notebook-page" ${!visitFeedback ? 'hidden' : ''}></p>
+      <section class="notebook-page" aria-label="Key clues" ${notebookTab !== 'clues' || visitFeedback ? 'hidden' : ''} tabindex="0"><ul>${
         [...observations.values()]
           .filter((o) => o.keyClue)
           .map((o) => `<li>${o.text}</li>`)
           .join('') || '<li>Look and listen. Your discoveries stay here.</li>'
       }</ul></section>
-      <ul class="findings notebook-page" tabindex="0" aria-label="Care notes" ${notebookTab !== 'notes' ? 'hidden' : ''}>${
+      <ul class="findings notebook-page" tabindex="0" aria-label="Care notes" ${notebookTab !== 'notes' || visitFeedback ? 'hidden' : ''}>${
         [...observations.values()]
           .reverse()
           .map(
@@ -682,6 +716,8 @@ function renderVisitActions() {
           .join('') ||
         '<li class="no-clues">Your observations will appear here.</li>'
       }</ul>`;
+  const feedback = summary.querySelector('.visit-feedback');
+  if (feedback) feedback.textContent = visitFeedback;
   const actions = byId('visit-actions');
   actions.hidden =
     !patient || mode === 'reception' || mode === 'result' || Boolean(modal);
@@ -702,6 +738,7 @@ function render() {
   else if (mode !== 'result') renderCase();
   renderModal();
   renderVisitActions();
+  arrangeExamination();
   document
     .querySelectorAll('.nav-button')
     .forEach((el) =>
@@ -835,7 +872,7 @@ function useZone(zone: Zone | null, findingVisible = true) {
       keyClue: result.clueIndex >= 0,
     });
     audio.play('tap');
-    announce(newKeyClue ? `Key clue found! ${result.text}` : result.text);
+    announce(newKeyClue ? `Key clue found! ${result.text}` : result.text, true);
     render();
   } else {
     if (selectedTool !== patient.treatment || zone !== patient.zone) {
@@ -1042,6 +1079,7 @@ app.addEventListener('click', (event) => {
     return;
   }
   if (action === 'notebook') {
+    visitFeedback = '';
     notebookTab = target.dataset.tab === 'notes' ? 'notes' : 'clues';
     renderVisitActions();
     byId('clue-summary')
@@ -1058,11 +1096,10 @@ app.addEventListener('click', (event) => {
     world.setQueue(queue);
     render();
   } else if (action === 'tool') {
+    clearAnnouncement();
     selectedTool = target.dataset.tool as Tool;
     audio.play('tap');
     render();
-    if (window.innerWidth <= 700)
-      byId('world').scrollIntoView({ block: 'center', behavior: 'instant' });
   } else if (action === 'zone')
     world.placeInstrument(target.dataset.zone as Zone);
   else if (action === 'orbit-mode') {
@@ -1114,7 +1151,12 @@ app.addEventListener('click', (event) => {
       announce(
         'Finish this visit, or use “Stop visit” to return your patient to the queue.',
       );
-  } else if (action === 'shop' || action === 'guide' || action === 'casebook') {
+  } else if (
+    action === 'shop' ||
+    action === 'guide' ||
+    action === 'casebook' ||
+    action === 'visit'
+  ) {
     if (mode === 'result') return;
     if (builder?.active) builder.cancel();
     modal = action;
@@ -1122,8 +1164,7 @@ app.addEventListener('click', (event) => {
     renderVisitActions();
     byId('modal-root').querySelector<HTMLButtonElement>('button')?.focus();
   } else if (action === 'close-modal') {
-    modal = null;
-    render();
+    closeModal();
   } else if (action === 'buy') {
     if (purchase(progress, target.dataset.upgrade ?? '')) {
       simulation.build.unlock(target.dataset.upgrade!);
@@ -1187,10 +1228,7 @@ document.addEventListener('keydown', (e) => {
       return;
     }
   }
-  if (e.key === 'Escape' && modal) {
-    modal = null;
-    render();
-  }
+  if (e.key === 'Escape' && modal) closeModal();
   const dialog = byId('modal-root').querySelector('[role="dialog"]');
   if (e.key === 'Tab' && dialog) {
     const focusable = [
@@ -1286,7 +1324,10 @@ try {
           y = ay * byId('world').clientHeight;
         el.style.left = `${x}px`;
         el.style.top = `${y}px`;
-        el.style.visibility = p.visible ? 'visible' : 'hidden';
+        el.style.visibility =
+          app.dataset.compactExam === 'true' || p.visible
+            ? 'visible'
+            : 'hidden';
         const line = byId('zones').querySelector<SVGLineElement>(
           `[data-leader="${zone}"]`,
         );

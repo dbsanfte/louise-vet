@@ -1,0 +1,507 @@
+/* Compact visits use one grid. No readout or notebook floats over another panel. */
+.exam-camera,
+.exam-guides,
+.instrument-dock,
+.visit-details-button {
+  display: none;
+}
+
+html:has(#app[data-compact-exam='true']) {
+  overflow: hidden;
+  scroll-padding: 0;
+}
+
+#app[data-compact-exam='true'] {
+  height: 100dvh;
+  display: grid;
+  grid-template-areas: 'header' 'scene' 'tools' 'notes' 'actions';
+  grid-template-rows: 48px minmax(0, 1fr) auto clamp(112px, 18dvh, 156px) auto;
+  gap: 4px;
+  padding: 0 8px;
+  overflow: hidden;
+
+  .workspace,
+  .sidebar {
+    display: contents;
+  }
+  .topbar {
+    grid-area: header;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    justify-content: flex-end;
+    border: 0;
+    background: none;
+  }
+  .topbar :is(.brand, .day-heading, .stats) {
+    display: none;
+  }
+  .header-actions {
+    flex-direction: row;
+    margin: 0;
+    gap: 4px;
+  }
+  .header-actions .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+  .case-heading {
+    grid-area: header;
+    align-self: center;
+    width: calc(100% - 96px);
+    min-width: 0;
+    gap: 8px;
+    margin: 0;
+  }
+  .case-heading > div {
+    min-width: 0;
+  }
+  .case-heading h2 {
+    font-size: 22px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .case-heading :is(.pet-avatar, p),
+  .case-details {
+    display: none;
+  }
+  .visit-details-button {
+    display: block;
+    width: auto;
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 4px 8px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .stage {
+    grid-area: scene;
+    align-self: stretch;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto 86px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    min-width: 0;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .world {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    border-radius: 0;
+  }
+  :is(.scene-title, .scene-goal, .scene-caption, .stage-footer, .zone-leaders) {
+    display: none;
+  }
+  .exam-camera {
+    display: block;
+    background: #eef2e8;
+  }
+  .scene-controls {
+    position: static;
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 2px 6px;
+  }
+  .scene-controls :is(button, .icon-button) {
+    min-height: 40px;
+    height: 40px;
+    min-width: 44px;
+    font-size: 14px;
+  }
+  .scene-controls .orbit-mode {
+    margin-right: auto;
+  }
+  .exam-guides:not([hidden]) {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding: 2px 4px;
+    background: #eef2e8;
+  }
+  .body-spot {
+    position: static;
+    transform: none;
+    min-height: 44px;
+    min-width: 0;
+    padding: 2px;
+    justify-content: center;
+    border: 1px solid #b6c7aa;
+    border-radius: 8px;
+    background: #fcfbf6;
+  }
+  .spot-dot {
+    display: none;
+  }
+  .spot-label {
+    font-size: 14px;
+    line-height: 1.1;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .instrument-dock {
+    display: grid;
+    align-items: center;
+    padding: 4px 8px;
+    background: #fcfff8;
+    border-top: 1px solid #d5dfcc;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .instrument-placeholder {
+    font-size: 14px;
+    line-height: 1.35;
+    margin: 0;
+  }
+  .instrument-dock:has(.examination-readout:not([hidden]))
+    .instrument-placeholder {
+    display: none;
+  }
+  .examination-readout:not([hidden]) {
+    position: static;
+    inset: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'title actions' 'message actions' 'reading reading';
+    gap: 2px 8px;
+    align-items: center;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .instrument-title {
+    grid-area: title;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+  .instrument-message {
+    grid-area: message;
+    font-size: 13px;
+    line-height: 1.25;
+    margin: 0;
+  }
+  .instrument-actions {
+    grid-area: actions;
+    display: grid;
+    grid-template-columns: 44px auto 44px;
+    align-items: center;
+    gap: 2px;
+  }
+  .instrument-actions[hidden] {
+    display: none;
+  }
+  .instrument-actions button {
+    min-height: 36px;
+    padding: 2px 6px;
+  }
+  .instrument-actions [data-action='full-xray'] {
+    grid-column: 1 / -1;
+  }
+  .heart-reading {
+    grid-area: reading;
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.25;
+  }
+  .examination-readout[data-tool='listen']:not([hidden]) {
+    grid-template-areas: 'reading sound' 'trace sound';
+  }
+  .examination-readout[data-tool='listen']
+    :is(.instrument-title, .instrument-message) {
+    display: none;
+  }
+  .ecg-trace {
+    grid-area: trace;
+    height: 40px;
+    margin: 0;
+  }
+  .heart-sound {
+    grid-area: sound;
+    width: 66px;
+    min-height: 44px;
+    padding: 4px;
+    font-size: 13px;
+  }
+  .case-work {
+    grid-area: tools;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  .case-work > :is(.instruction, .section-title) {
+    display: none;
+  }
+  .tool-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .tool-button {
+    min-height: 46px;
+    flex-direction: row;
+    gap: 4px;
+    padding: 4px;
+    font-size: 14px;
+    line-height: 1.2;
+  }
+  .tool-button .icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .case-work[data-purpose='checkup'] .tool-grid {
+    display: none;
+  }
+  .routine-checks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+  }
+  .routine-checks li + li {
+    margin: 0;
+  }
+  .routine-checks button {
+    height: 100%;
+    min-height: 72px;
+    padding: 6px;
+    gap: 4px;
+    font-size: 14px;
+    line-height: 1.3;
+  }
+  .care-plan {
+    padding: 4px 8px;
+    margin: 0 0 4px;
+  }
+  .care-plan > span {
+    display: none;
+  }
+  .care-plan h3 {
+    font-size: 16px;
+    margin: 0;
+  }
+  .care-plan p {
+    font-size: 14px;
+    line-height: 1.3;
+    margin: 0;
+  }
+  .diagnosis-heading {
+    font-size: 16px;
+    margin: 0 0 4px;
+  }
+  .diagnosis-choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .choice {
+    min-height: 44px;
+    font-size: 14px;
+    padding: 6px 8px;
+    margin: 0;
+  }
+  .clue-summary {
+    grid-area: notes;
+    position: static;
+    width: 100%;
+    max-height: none;
+    min-height: 0;
+    margin: 0;
+    padding: 4px;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+  .notebook-tabs {
+    margin-bottom: 4px;
+    gap: 4px;
+  }
+  .notebook-tabs button {
+    min-height: 40px;
+    padding: 4px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .notebook-page {
+    font-size: 14px;
+    line-height: 1.35;
+    scrollbar-gutter: auto;
+  }
+  .visit-feedback {
+    margin: 0;
+    padding: 4px;
+    color: var(--green);
+  }
+  /* The same live announcement is readable in the notebook/care plan here. */
+  .toast {
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    pointer-events: none;
+  }
+  .clue-summary .findings li {
+    padding: 4px;
+    font-size: 14px;
+    line-height: 1.35;
+  }
+  .clue-summary .findings li strong {
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+  .visit-actions {
+    grid-area: actions;
+    position: static;
+    padding: 4px 0 max(4px, env(safe-area-inset-bottom));
+    gap: 6px;
+    box-shadow: none;
+  }
+  .visit-actions button {
+    min-height: 48px;
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+  .visit-actions .primary {
+    flex: 1;
+    min-width: 0;
+  }
+  .visit-action-hint {
+    display: none;
+  }
+  #modal-root,
+  #skill-root {
+    position: absolute;
+  }
+  &:not(:has(.clue-summary:not([hidden]))) {
+    grid-template-rows: 48px minmax(0, 1fr) auto 0 auto;
+  }
+}
+
+@media (max-height: 700px) and (orientation: portrait) {
+  #app[data-compact-exam='true'] {
+    grid-template-rows: 48px minmax(0, 1fr) auto 100px auto;
+  }
+}
+
+@media (min-width: 701px), (orientation: landscape) {
+  #app[data-compact-exam='true'] {
+    grid-template-columns: 280px minmax(0, 1fr);
+    grid-template-areas: 'header header' 'tools scene' 'notes scene' 'actions actions';
+    grid-template-rows: 48px minmax(0, 1fr) minmax(112px, 24dvh) auto;
+
+    .case-heading {
+      width: calc(100% - 96px);
+    }
+    .stage {
+      grid-template-rows: auto minmax(0, 1fr) auto 86px;
+    }
+    .tool-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .routine-checks {
+      grid-template-columns: 1fr;
+    }
+    &:not(:has(.clue-summary:not([hidden]))) {
+      grid-template-rows: 48px minmax(0, 1fr) 0 auto;
+    }
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  #app[data-compact-exam='true'] {
+    grid-template-columns: 220px minmax(0, 1fr) 200px;
+    grid-template-areas: 'header header header' 'tools scene notes' 'actions actions actions';
+    grid-template-rows: 48px minmax(0, 1fr) auto;
+    .stage {
+      display: contents;
+    }
+    .case-heading {
+      width: 200px;
+    }
+    .exam-camera {
+      grid-area: header;
+      justify-self: center;
+      align-self: center;
+      margin-left: 100px;
+      border-radius: 10px;
+    }
+    .scene-controls {
+      padding: 0;
+    }
+    .world {
+      grid-area: scene;
+      border-radius: 12px;
+    }
+    .case-work {
+      align-self: start;
+      max-height: calc(100% - 90px);
+    }
+    .tool-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .tool-button {
+      min-height: 44px;
+      font-size: 13px;
+    }
+    .tool-button .icon {
+      display: none;
+    }
+    .routine-checks {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .instrument-dock {
+      grid-area: tools;
+      align-self: end;
+      height: 86px;
+      padding: 2px 4px;
+      border-radius: 10px;
+    }
+    .examination-readout:not([hidden]) {
+      grid-template-areas: 'title actions' 'message actions' 'reading reading';
+      gap: 2px;
+    }
+    .examination-readout[data-tool='listen']:not([hidden]) {
+      grid-template-areas: 'reading reading' 'trace sound';
+    }
+    .instrument-message {
+      display: none;
+    }
+    .heart-reading {
+      font-size: 13px;
+      line-height: 1.1;
+    }
+    .ecg-trace {
+      height: 32px;
+    }
+    .clue-summary {
+      align-self: start;
+      height: calc(100% - 144px);
+    }
+    .notebook-tabs button {
+      font-size: 13px;
+      white-space: normal;
+      line-height: 1.1;
+    }
+    .exam-guides:not([hidden]) {
+      grid-area: notes;
+      align-self: end;
+      grid-auto-flow: row;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-radius: 10px;
+    }
+    &:not(:has(.clue-summary:not([hidden]))) {
+      grid-template-rows: 48px minmax(0, 1fr) auto;
+    }
+  }
+}

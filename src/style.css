@@ -2147,65 +2147,6 @@ h1 {
   cursor: crosshair;
 }
 @media (max-width: 700px) {
-  .examination-readout {
-    position: relative;
-    inset: auto;
-    margin: 8px 12px;
-    width: calc(100% - 24px);
-    padding: 12px;
-  }
-  .instrument-message {
-    font-size: 14px;
-    margin: 4px 0;
-  }
-  .instrument-title {
-    font-size: 18px;
-  }
-  .instrument-actions {
-    gap: 4px;
-  }
-  .instrument-actions button {
-    font-size: 14px;
-    padding: 6px 10px;
-    min-height: 38px;
-  }
-  .ecg-trace {
-    height: 65px;
-  }
-  .heart-reading {
-    font-size: 14px;
-  }
-  /* Keep the live rate and trace clear of even a full care notebook. */
-  .examination-readout[data-tool='listen']:not([hidden]) {
-    position: fixed;
-    inset: auto 12px calc(96px + min(29dvh, 250px) + 8px);
-    width: auto;
-    margin: 0;
-    padding: 8px;
-    display: grid;
-    grid-template-areas: 'title sound' 'reading reading' 'trace trace';
-    grid-template-columns: 1fr auto;
-    gap: 4px;
-    align-items: center;
-  }
-  .examination-readout[data-tool='listen'] .instrument-title {
-    grid-area: title;
-  }
-  .examination-readout[data-tool='listen'] .instrument-message {
-    display: none;
-  }
-  .examination-readout[data-tool='listen'] .heart-sound {
-    grid-area: sound;
-  }
-  .examination-readout[data-tool='listen'] .heart-reading {
-    grid-area: reading;
-    margin: 0;
-  }
-  .examination-readout[data-tool='listen'] .ecg-trace {
-    grid-area: trace;
-    height: 48px;
-    margin: 0;
-  }
   .scene-controls {
     gap: 4px;
   }
@@ -2301,19 +2242,6 @@ h1 {
   padding: 5px 9px;
 }
 @media (max-width: 700px) {
-  .clue-summary {
-    left: 10px;
-    right: 10px;
-    bottom: 96px;
-    width: auto;
-    max-height: min(24vh, 200px);
-    font-size: 14px;
-    padding: 8px 12px;
-  }
-  #app[data-mode='examine'] .workspace,
-  #app[data-mode='diagnose'] .workspace {
-    padding-bottom: 240px;
-  }
   #app[data-mode='town'] .scene-title h2 {
     font-size: 21px;
   }
@@ -2486,18 +2414,6 @@ h1 {
 .clue-summary .findings li strong {
   font-size: 16px;
 }
-@media (max-width: 700px) {
-  .clue-summary {
-    max-height: min(29dvh, 250px);
-    bottom: 96px;
-    padding: 6px;
-  }
-  .clue-summary .findings li,
-  .clue-summary .findings li strong {
-    font-size: 16px;
-    line-height: 1.45;
-  }
-}
 
 /* Camera controls sit under the room title, clear of the reading notebook. */
 #app:is(
@@ -2526,17 +2442,12 @@ h1 {
   }
 }
 
-/* Leave scroll space for controls below the scene on narrow screens. */
+/* Desktop pages leave room for their floating care notebook. */
 html:has(#clue-summary:not([hidden])) {
   scroll-padding-bottom: calc(min(32dvh, 240px) + 120px);
 }
 #app:has(#clue-summary:not([hidden])) .sidebar button {
   scroll-margin-block: 24px;
-}
-@media (max-width: 700px) {
-  #app:has(#clue-summary:not([hidden])) .workspace {
-    padding-bottom: calc(min(29dvh, 250px) + 150px);
-  }
 }
 
 /* Office and town are viewport-sized game screens. Lists use pages, never page scroll. */
