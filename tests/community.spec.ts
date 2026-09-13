@@ -134,10 +134,11 @@ test('routine checkup finishes with healthy findings and survives a reload witho
   await waitForExamination(page);
   await expect(page.locator('[data-action="diagnose"]')).toHaveCount(0);
   await expect(page.locator('[data-action="finish-checkup"]')).toBeDisabled();
-  await page.getByRole('button', { name: 'Thermometer', exact: true }).click();
+  const checks = page.getByRole('list', { name: 'Standard checks' });
+  await checks.getByRole('button', { name: /Check temperature/ }).click();
   await page.getByRole('button', { name: 'Coat on Cleo', exact: true }).click();
   await expect(page.locator('.heart-reading')).toContainText('Comfortable');
-  await page.getByRole('button', { name: 'Stethoscope', exact: true }).click();
+  await checks.getByRole('button', { name: /Listen to the heart/ }).click();
   await page
     .getByRole('button', { name: 'Chest on Cleo', exact: true })
     .click();
@@ -196,7 +197,8 @@ for (const name of [
     const visit = s.visit(h.ticket!);
     for (const check of visit.checks) {
       await page
-        .getByRole('button', { name: toolInfo[check.tool].name, exact: true })
+        .getByRole('list', { name: 'Standard checks' })
+        .getByRole('button', { name: toolInfo[check.tool].name })
         .click();
       await page
         .getByRole('button', {

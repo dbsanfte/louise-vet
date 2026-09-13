@@ -174,11 +174,12 @@ test('the clinic doorway joins the street and a served family visibly leaves int
     .click();
   await (await showPatient(page, 'Luna')).click();
   await waitForExamination(page);
-  for (const [tool, zone] of [
-    ['Thermometer', 'Coat'],
-    ['Stethoscope', 'Chest'],
+  const checks = page.getByRole('list', { name: 'Standard checks' });
+  for (const [instruction, zone] of [
+    ['Check temperature', 'Coat'],
+    ['Listen to the heart', 'Chest'],
   ]) {
-    await page.getByRole('button', { name: tool, exact: true }).click();
+    await checks.getByRole('button', { name: instruction }).click();
     await page
       .getByRole('button', { name: `${zone} on Luna`, exact: true })
       .click();

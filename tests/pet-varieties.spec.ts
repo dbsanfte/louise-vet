@@ -81,12 +81,13 @@ test('bird checkup uses feathers, keeps care controls visible, and completes for
   await expect(
     page.getByRole('button', { name: 'Ear scope', exact: true }),
   ).toHaveCount(0);
-  await page.getByRole('button', { name: 'Thermometer', exact: true }).click();
+  const checks = page.getByRole('list', { name: 'Standard checks' });
+  await checks.getByRole('button', { name: /Check temperature/ }).click();
   await page
     .getByRole('button', { name: 'Feathers on Pico', exact: true })
     .click();
   await expect(page.locator('#clue-summary')).toContainText('No fever');
-  await page.getByRole('button', { name: 'Stethoscope', exact: true }).click();
+  await checks.getByRole('button', { name: /Listen to the heart/ }).click();
   await page
     .getByRole('button', { name: 'Chest on Pico', exact: true })
     .click();
