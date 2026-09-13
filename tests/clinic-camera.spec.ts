@@ -172,6 +172,8 @@ test('office arrow keys and touch buttons free the camera without interfering wi
     await expect(page.locator('.room-pill')).toContainText('YOUR CLINIC');
   }
   for (const name of [
+    'Rotate clinic camera left',
+    'Rotate clinic camera right',
     'Pan clinic left',
     'Pan clinic right',
     'Pan clinic up',

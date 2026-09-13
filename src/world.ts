@@ -612,6 +612,33 @@ export class World {
     this.resize();
   }
 
+  rotateClinicCamera(angle: number) {
+    this.clearClinicPick();
+    this.clinicControls.enableDamping = false;
+    this.clinicControls.update();
+    const offset = this.ortho.position.clone().sub(this.clinicControls.target);
+    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+    this.ortho.position.copy(this.clinicControls.target).add(offset);
+    this.clinicControls.update();
+    this.clinicControls.enableDamping = true;
+    this.needsRender = true;
+    this.onClinicMove();
+  }
+
+  focusBuildItem(id: string) {
+    const p = this.simulation.build.placement(id);
+    if (!p) return;
+    const centre = localToTown(p.x, p.z);
+    this.clinicControls.enableDamping = false;
+    this.clinicControls.update();
+    const offset = this.ortho.position.clone().sub(this.clinicControls.target);
+    this.clinicControls.target.set(centre.x, 0.3, centre.z);
+    this.ortho.position.copy(this.clinicControls.target).add(offset);
+    this.clinicControls.update();
+    this.clinicControls.enableDamping = true;
+    this.needsRender = true;
+  }
+
   panClinicCamera(x: number, y: number) {
     this.clearClinicPick();
     const away = this.ortho.position.clone().sub(this.clinicControls.target);

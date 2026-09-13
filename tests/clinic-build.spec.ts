@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { build } from 'vite';
 import { TownSimulation } from '../src/town-simulation';
 import { visits, upgrades, type UpgradeId } from '../src/game';
+import { furnitureType } from '../src/clinic-build';
 const owned = upgrades.filter((u) => u.id !== 'stock').map((u) => u.id);
 let script = '';
 test.setTimeout(120000);
@@ -103,6 +104,21 @@ async function visibleDoors(page: Page) {
       .map(({ x, z }) => [x, z]);
   });
 }
+async function movePlaced(page: Page, id: string) {
+  const items = (await page.evaluate(() => window.buildTest.snapshot())).build
+    .items;
+  const type = furnitureType(items.find((i) => i.id === id)!.recipe);
+  const copies = items.filter(
+    (i) => furnitureType(i.recipe) === type && i.placement,
+  );
+  for (let n = 0; n < copies.length; n++) {
+    await page.locator(`[data-build="move"][data-recipe="${type}"]`).click();
+    if (await page.evaluate((id) => window.buildTest.selection() === id, id))
+      return;
+    await page.evaluate(() => window.buildTest.step(45));
+  }
+  throw new Error(`Could not select the placed copy ${id}`);
+}
 test('fresh clinics and unbuilt room kits have no doors standing outside the building', async ({
   page,
 }, info) => {
@@ -191,13 +207,13 @@ test('migrated furniture can be stored, placed, rotated and saved with controls 
       )
       .every((m) => m.parts > 0),
   ).toBe(true);
-  await page.locator('[data-build="pick"][data-id="plant-0"]').click();
+  await movePlaced(page, 'plant-0');
   await page.evaluate(() => window.buildTest.step(20));
   await expect(page.locator('[data-build="store"]')).toBeEnabled();
   await page.locator('[data-build="store"]').click();
   await expect(
     page.locator('[data-build="pick"][data-id="plant-0"]'),
-  ).toContainText('Stored');
+  ).toContainText('1 available');
   await page.locator('[data-build="pick"][data-id="plant-0"]').click();
   if (touch) await page.locator('[data-build="rotate"]').click();
   else await page.keyboard.press('r');
@@ -264,7 +280,7 @@ test('build a connected garden and room, reject unsafe furniture, and cancel wit
       .filter((t) => t.x === -18 && t.z >= -7 && t.z <= -1)
       .every((t) => t.surface === 'room'),
   ).toBe(true);
-  await page.locator('[data-build="pick"][data-id="bench"]').click();
+  await movePlaced(page, 'bench');
   await page.evaluate(() => window.buildTest.step(20));
   await tap(page, 3.5, -4, touch);
   await expect(page.locator('#build-feedback')).toContainText(
@@ -291,7 +307,7 @@ test('picking occupied seating lets owners and pets leave before hiding it and r
     : ['seat-3', 'seat-4'].includes(station)
       ? 'bench'
       : station;
-  await page.locator(`[data-build="pick"][data-id="${item}"]`).click();
+  await movePlaced(page, item);
   await page.evaluate(() => window.buildTest.step(45));
   await expect(page.locator('[data-build="store"]')).toBeEnabled();
   await page.locator('[data-build="store"]').click();
@@ -411,7 +427,7 @@ test('paid furniture copies have ordinary names, counts and independent placemen
   }
   expect(both, 'two pets ride separately animated wheels at once').toBe(true);
   await page.getByRole('button', { name: 'Build', exact: true }).click();
-  await page.locator('[data-build="pick"][data-id="wheel~1"]').click();
+  await movePlaced(page, 'wheel~1');
   await page.evaluate(() => window.buildTest.step(45));
   await page.locator('[data-build="store"]').click();
   const stored = await page.evaluate(() => window.buildTest.snapshot().build);
@@ -496,4 +512,165 @@ test('recovering rejected town activity keeps all paid furniture, placements and
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     saved.town.build,
   );
+});
+
+test('illustrated catalogue stacks all copies, explains availability, and keeps cards and camera controls separate', async ({
+  page,
+}, info) => {
+  const mobile = info.project.name === 'mobile';
+  await page.setViewportSize(
+    mobile ? { width: 360, height: 640 } : { width: 1280, height: 720 },
+  );
+  await open(page, false, ['expansion', 'pet-room']);
+  const cards = page.locator('.build-card');
+  const names = await cards.locator('strong').allTextContents();
+  expect(new Set(names).size).toBe(names.length);
+  const chair = page.locator('.build-card[data-recipe="seat-5"]');
+  await expect(chair).toHaveCount(1);
+  await expect(chair).toContainText('0 available');
+  await expect(chair).toContainText('3 placed');
+  await expect(chair.locator('[data-build="pick"]')).toBeDisabled();
+  await expect(chair.locator('[data-build="move"]')).toBeEnabled();
+  await expect(
+    page.locator('.build-card[data-recipe="wheel"] [data-build="pick"]'),
+  ).toBeDisabled();
+
+  await page.locator('[data-build="shop"]').click();
+  const products = page.locator('.shop-card');
+  await expect(products.locator('img')).toHaveCount(upgrades.length);
+  // Decode every real portrait, including initially offscreen products.
+  expect(
+    await products.locator('img').evaluateAll(async (images) => {
+      for (const image of images as HTMLImageElement[]) {
+        image.loading = 'eager';
+        await image.decode();
+      }
+      return images.every(
+        (image) => (image as HTMLImageElement).naturalWidth === 256,
+      );
+    }),
+  ).toBe(true);
+  await page.screenshot({ path: info.outputPath('illustrated-shop.png') });
+  expect(
+    await products.evaluateAll((cards) =>
+      cards.every((card) => {
+        const art = card.querySelector('.shop-art')!.getBoundingClientRect();
+        const img = card.querySelector('img')!.getBoundingClientRect();
+        const text = card.querySelector('small')!.getBoundingClientRect();
+        return (
+          img.top >= art.top - 1 &&
+          img.bottom <= art.bottom + 1 &&
+          img.right <= art.right + 1 &&
+          art.bottom <= text.top
+        );
+      }),
+    ),
+  ).toBe(true);
+  for (let i = 0; i < 2; i++)
+    await page.locator('[data-upgrade="lounge-chair"]').click();
+  await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  await expect(chair).toHaveCount(1);
+  await expect(chair).toContainText('2 available');
+  await expect(chair.locator('[data-build="pick"]')).toBeEnabled();
+  await expect(page.locator('#toast')).not.toHaveClass(/show/);
+  await chair.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath('illustrated-build.png') });
+
+  // Every card's image, words and move button have their own space. Its internal
+  // list may scroll, but neither its contents nor fixed tools overlap each other.
+  for (const size of mobile
+    ? [
+        { width: 360, height: 640 },
+        { width: 412, height: 915 },
+      ]
+    : [
+        { width: 1280, height: 720 },
+        { width: 900, height: 550 },
+      ]) {
+    await page.setViewportSize(size);
+    const errors = await page.evaluate(() => {
+      const errors: string[] = [];
+      for (const card of document.querySelectorAll<HTMLElement>(
+        '.build-card',
+      )) {
+        const img = card.querySelector('img')!.getBoundingClientRect();
+        const words = card
+          .querySelector('.build-card-text')!
+          .getBoundingClientRect();
+        const pick = card
+          .querySelector('[data-build="pick"]')!
+          .getBoundingClientRect();
+        const move = card
+          .querySelector('[data-build="move"]')
+          ?.getBoundingClientRect();
+        if (
+          img.right > words.left + 1 ||
+          words.right > pick.right + 1 ||
+          words.bottom > pick.bottom + 1 ||
+          (move && pick.bottom > move.top + 1)
+        )
+          errors.push(card.dataset.recipe!);
+      }
+      const list = document
+        .querySelector('.build-list')!
+        .getBoundingClientRect();
+      const tools = document
+        .querySelector('.build-tools')!
+        .getBoundingClientRect();
+      const feedback = document
+        .querySelector('#build-feedback')!
+        .getBoundingClientRect();
+      if (
+        list.height < 85 ||
+        tools.bottom > list.top ||
+        list.bottom > feedback.top
+      )
+        errors.push('list space');
+      if (
+        document.documentElement.scrollHeight > innerHeight + 1 ||
+        document.documentElement.scrollWidth > innerWidth + 1
+      )
+        errors.push('page overflow');
+      return errors;
+    });
+    expect(errors, `layout at ${size.width} × ${size.height}`).toEqual([]);
+    for (const selector of [
+      '[data-build="done"]',
+      '[data-build="shop"]',
+      '[data-build="rotate"]',
+      '[data-action="clinic-rotate-left"]',
+      '[data-action="clinic-rotate-right"]',
+    ]) {
+      const box = (await page.locator(selector).boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(size.height + 1);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(size.width + 1);
+    }
+  }
+  const before = await page.evaluate(() => window.buildTest.snapshot().build);
+  const camera = await page.evaluate(() => window.buildTest.camera());
+  await page
+    .getByRole('button', { name: 'Rotate clinic camera left', exact: true })
+    .click();
+  const left = await page.evaluate(() => window.buildTest.camera());
+  expect(left.position).not.toEqual(camera.position);
+  expect(left.target).toEqual(camera.target);
+  expect(left.zoom).toBe(camera.zoom);
+  await page
+    .getByRole('button', { name: 'Rotate clinic camera right', exact: true })
+    .click();
+  const back = await page.evaluate(() => window.buildTest.camera());
+  back.position.forEach((n, i) => expect(n).toBeCloseTo(camera.position[i], 5));
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  // The non-pointer Move placed action can reach every existing chair without
+  // duplicating catalogue rows or showing internal instance numbers.
+  await movePlaced(page, 'seat-7');
+  await page.evaluate(() => window.buildTest.step(20));
+  await expect(chair).toHaveCount(1);
+  await page.locator('[data-build="store"]').click();
+  await expect(chair).toContainText('3 available');
+  await expect(chair).toContainText('2 placed');
 });

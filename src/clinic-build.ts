@@ -46,6 +46,19 @@ export type BuildRecipe = {
   stations: string[];
   soft?: boolean;
 };
+/** Legacy starter positions share a catalogue type, but keep their saved IDs. */
+export function furnitureType(recipeId: string) {
+  return (
+    (
+      {
+        'seat-6': 'seat-5',
+        'seat-7': 'seat-5',
+        'base-plant-1': 'base-plant-0',
+        'plant-1': 'plant-0',
+      } as Record<string, string>
+    )[recipeId] ?? recipeId
+  );
+}
 const recipe = (
   id: string,
   name: string,
@@ -420,8 +433,9 @@ export class ClinicBuild {
     return buildRecipes.find((r) => r.id === type)!;
   }
   copies(recipeId: string) {
-    const r = buildRecipes.find((r) => r.id === recipeId)!;
-    return this.items.filter((i) => this.recipe(i.id).name === r.name);
+    return this.items.filter(
+      (i) => furnitureType(i.recipe) === furnitureType(recipeId),
+    );
   }
   hasPlaced(recipeId: string) {
     return this.copies(recipeId).some((i) => i.placement);

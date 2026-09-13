@@ -80,7 +80,7 @@ test('garden kits unlock stored activities and persist without automatically bui
   for (const id of additions)
     await expect(
       page.locator(`[data-build="pick"][data-id="${id}"]`),
-    ).toContainText('Stored');
+    ).toContainText('1 available');
   await expect(page.locator('.build-price')).toContainText(
     '180 free floor tiles',
   );
@@ -97,7 +97,7 @@ test('garden kits unlock stored activities and persist without automatically bui
   for (const id of additions)
     await expect(
       page.locator(`[data-build="pick"][data-id="${id}"]`),
-    ).toContainText('Stored');
+    ).toContainText('1 available');
   await expect(page.locator('.build-price')).toContainText(
     '180 free floor tiles',
   );

@@ -29,6 +29,17 @@ plants and rugs; no authored GLBs are overwritten. Existing original procedural
 town surface textures supply the lawn and wall finishes. No external assets or
 additional licenses are introduced.
 
+`public/images/catalogue/*.webp` contains 38 original 256-pixel portraits rendered
+from these same game models, including room kits, stocked shelf goods and the
+stethoscope. Shop and Build share the portraits; menus do not create additional
+WebGL renderers. `scripts/catalogue-preview.ts` reuses `ClinicFurniture` to frame
+the real pieces, with explicit camera and lighting settings. To reproduce them,
+start the web container and run `node scripts/render-catalogue.mjs`; outside the
+devcontainer set `CATALOGUE_BASE_URL=http://localhost:8080`. The generator reads
+served models and writes only the catalogue WebPs, leaving Blender/GLB sources
+untouched. Regenerate and visually inspect these previews when their underlying
+models change. No external images or additional licenses are introduced.
+
 ## Examination models and fur
 
 The 33 additional GLBs in `public/models/examination/` are original models authored

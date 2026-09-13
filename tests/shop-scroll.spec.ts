@@ -47,7 +47,7 @@ test('buying courtyard upgrades and decorations retains shop scroll position and
   await page.getByRole('button', { name: 'Build', exact: true }).click();
   await expect(
     page.locator('[data-build="pick"][data-id="bubbles"]'),
-  ).toContainText('Stored');
+  ).toContainText('1 available');
   await expect(page.locator('.build-price')).toContainText(
     '48 free floor tiles',
   );

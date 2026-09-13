@@ -161,7 +161,7 @@ test('coaster and Ferris wheel purchases remain in the collection after reload',
   for (const id of ['coaster', 'ferris'])
     await expect(
       page.locator(`[data-build="pick"][data-id="${id}"]`),
-    ).toContainText('Stored');
+    ).toContainText('1 available');
   await page.screenshot({ path: info.outputPath('new-rides.png') });
   await page.locator('[data-build="done"]').click();
   await page.reload();

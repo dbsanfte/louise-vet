@@ -5,9 +5,11 @@ import { CareSkillView } from './care-skill-view';
 import { zoneLabel, checkInstruction } from './game';
 import './style.css';
 import './examination-layout.css';
+import './build-layout.css';
 import { arrangeExamination } from './exam-layout';
 import { World } from './world';
 import { ClinicBuildEditor } from './clinic-build-editor';
+import { catalogueImage } from './catalogue';
 import { advanceActiveTime } from './active-time';
 import { Audio } from './audio';
 import { TownSimulation } from './town-simulation';
@@ -200,7 +202,7 @@ function renderReception() {
   renderClinicTitle();
   byId('scene-goal').innerHTML =
     `<span class="goal-icon">${icon('star')}</span><div><small>TODAY’S LITTLE GOAL</small><strong>Help 3 animal friends</strong><div class="goal-dots">${[0, 1, 2].map((i) => `<span class="${progress.treated % 3 > i ? 'done' : ''}">${progress.treated % 3 > i ? icon('check') : ''}</span>`).join('')}</div></div>`;
-  const cameraControls = `<button data-action="clinic-left" aria-label="Pan clinic left">←</button><button data-action="clinic-right" aria-label="Pan clinic right">→</button><button data-action="clinic-up" aria-label="Pan clinic up">↑</button><button data-action="clinic-down" aria-label="Pan clinic down">↓</button><button data-action="clinic-in" aria-label="Zoom into clinic">+</button><button data-action="clinic-out" aria-label="Zoom out of clinic">−</button>`;
+  const cameraControls = `<button data-action="clinic-rotate-left" aria-label="Rotate clinic camera left" title="Rotate camera left">↶</button><button data-action="clinic-rotate-right" aria-label="Rotate clinic camera right" title="Rotate camera right">↷</button><button data-action="clinic-left" aria-label="Pan clinic left">←</button><button data-action="clinic-right" aria-label="Pan clinic right">→</button><button data-action="clinic-up" aria-label="Pan clinic up">↑</button><button data-action="clinic-down" aria-label="Pan clinic down">↓</button><button data-action="clinic-in" aria-label="Zoom into clinic">+</button><button data-action="clinic-out" aria-label="Zoom out of clinic">−</button>`;
   if (byId('scene-controls').innerHTML !== cameraControls)
     byId('scene-controls').innerHTML = cameraControls;
   byId('zones').innerHTML = '';
@@ -582,6 +584,7 @@ function renderPrecision() {
 }
 
 function closeModal() {
+  if (builder?.active) clearAnnouncement();
   const wasVisitInfo = modal === 'visit';
   modal = null;
   render();
@@ -633,7 +636,7 @@ function renderModal() {
           'requires' in u && !progress.upgrades.includes(u.requires)
             ? upgrades.find((item) => item.id === u.requires)!.name
             : '';
-        return `<article class="shop-card"><span class="shop-art ${u.id}">${icon(u.icon)}</span><small>${u.kind}</small><h3>${u.name}</h3><p>${u.description}</p>${repeatable ? `<p class="shop-count">${placed} placed · ${copies.length - placed} stored</p>` : ''}<button class="${owned ? 'owned' : 'secondary'}" data-action="buy" data-upgrade="${u.id}" ${owned || required || progress.coins < u.price ? 'disabled' : ''}>${owned ? `${icon('check')} In your collection` : required ? `Buy ${required} first` : `${icon('coin')} ${u.price}${repeatable ? ' · Buy one' : ''} ${progress.coins < u.price ? '· Save a little more' : ''}`}</button></article>`;
+        return `<article class="shop-card"><span class="shop-art">${catalogueImage('furniture' in u ? u.furniture : u.id)}</span><small>${u.kind}</small><h3>${u.name}</h3><p>${u.description}</p>${repeatable ? `<p class="shop-count">${placed} placed · ${copies.length - placed} stored</p>` : ''}<button class="${owned ? 'owned' : 'secondary'}" data-action="buy" data-upgrade="${u.id}" ${owned || required || progress.coins < u.price ? 'disabled' : ''}>${owned ? `${icon('check')} In your collection` : required ? `Buy ${required} first` : `${icon('coin')} ${u.price}${repeatable ? ' · Buy one' : ''} ${progress.coins < u.price ? '· Save a little more' : ''}`}</button></article>`;
       })
       .join('')}</div>`;
   } else if (modal === 'guide') {
@@ -945,6 +948,7 @@ app.addEventListener('click', (event) => {
       return;
     }
     modal = null;
+    clearAnnouncement();
     if (!builder?.active) builder?.enter();
     render();
     return;
@@ -988,7 +992,10 @@ app.addEventListener('click', (event) => {
     return;
   }
   if (action?.startsWith('clinic-') && mode === 'reception') {
-    if (action === 'clinic-in') world.zoomClinic(0.8);
+    if (action === 'clinic-rotate-left') world.rotateClinicCamera(-Math.PI / 8);
+    else if (action === 'clinic-rotate-right')
+      world.rotateClinicCamera(Math.PI / 8);
+    else if (action === 'clinic-in') world.zoomClinic(0.8);
     else if (action === 'clinic-out') world.zoomClinic(1.25);
     else
       world.panClinicCamera(

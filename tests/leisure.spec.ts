@@ -110,7 +110,7 @@ test('shop keeps room kits one-time and amusements repeatable, then preserves th
   ])
     await expect(
       page.locator(`[data-build="pick"][data-id="${id}"]`),
-    ).toContainText('Stored');
+    ).toContainText(id === 'seat-5' ? '3 available' : '1 available');
   await expect(page.locator('.build-price')).toContainText(
     '132 free floor tiles',
   );
@@ -124,7 +124,7 @@ test('shop keeps room kits one-time and amusements repeatable, then preserves th
   await page.getByRole('button', { name: 'Build', exact: true }).click();
   await expect(
     page.locator('[data-build="pick"][data-id="carousel"]'),
-  ).toContainText('Stored');
+  ).toContainText('1 available');
   await expect(page.locator('.build-price')).toContainText(
     '132 free floor tiles',
   );

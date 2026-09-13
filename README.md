@@ -105,7 +105,10 @@ shows the surrounding buildable greenspace, clear of roads and neighbouring home
 Buy furniture in **Clinic shop** to add it to your collection. Every purchase
 buys one copy: add as many lounge chairs, exercise wheels or other furnishings as
 you can afford, with room to place them. The shop shows placed/stored counts;
-stored copies share a card in Build, while each placed item can be moved separately.
+Build shows one illustrated card per item type, with **available** and **placed**
+counts. Cards with no available copies are greyed out. Choose **Move placed** to
+find an existing copy; press again to cycle through its placed copies, or select
+the exact item in the clinic. Shop pictures match the game's models too.
 Individual lounge chairs cost 45 coins, and starter furnishings are also available
 in the shop. Existing kit chairs and furniture are preserved. Select a placed
 item to move it or **Store** it for later. Occupants step off before it is lifted;
@@ -123,6 +126,10 @@ refund coins; moving stored furniture costs nothing. The entrance, counter and
 examination suite stay in place. The current editor joins floor into open rooms
 with automatic perimeter walls or fences. Room kits and equipment are one-time
 upgrades; extra furniture does not stack satisfaction bonuses.
+
+Use the **↶ / ↷ camera buttons** to turn your view in the office or Build, alongside
+the pan and zoom buttons. **Rotate** (or **R**) turns the selected furniture;
+camera rotation keeps the item facing the same way.
 
 Hookville also fits the window: **Homes** pages through the household directory, **Home info** shows the selected family, and **Town news** pages through updates. **Back to the clinic** stays beside the map.
 

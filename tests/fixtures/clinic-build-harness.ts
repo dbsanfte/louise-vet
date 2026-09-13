@@ -19,6 +19,18 @@ ClinicBuildEditor.prototype.enter = function () {
 };
 void import('../../src/main');
 window.buildTest = {
+  selection: () => (editor as unknown as { selected?: string }).selected,
+  camera: () => {
+    const w = world as unknown as {
+      ortho: OrthographicCamera;
+      clinicControls: OrbitControls;
+    };
+    return {
+      position: w.ortho.position.toArray(),
+      target: w.clinicControls.target.toArray(),
+      zoom: w.ortho.zoom,
+    };
+  },
   snapshot: () => world.town!.simulation.snapshot(),
   step: (seconds: number) => {
     for (let i = 0; i < seconds * 10; i++) {
@@ -70,6 +82,8 @@ window.buildTest = {
 declare global {
   interface Window {
     buildTest: {
+      selection: () => string | undefined;
+      camera: () => { position: number[]; target: number[]; zoom: number };
       snapshot: () => ReturnType<
         import('../../src/town-simulation').TownSimulation['snapshot']
       >;

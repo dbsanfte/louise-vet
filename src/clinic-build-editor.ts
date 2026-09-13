@@ -3,11 +3,14 @@ import type { World } from './world';
 import type { TownSimulation } from './town-simulation';
 import type { Progress } from './game';
 import {
+  buildRecipes,
+  furnitureType,
   floorPrice,
   toClinic,
   type Placement,
   type FloorCell,
 } from './clinic-build';
+import { catalogueImage } from './catalogue';
 import type { Point } from './town-map';
 import { shelterTrees } from './town-weather';
 
@@ -144,7 +147,19 @@ export class ClinicBuildEditor {
     if (!b || b.disabled) return;
     const action = b.dataset.build;
     if (action === 'pick') this.pick(b.dataset.id!);
-    else if (action === 'filter') {
+    else if (action === 'move') {
+      const placed = this.sim.build
+        .copies(b.dataset.recipe!)
+        .filter((i) => i.placement);
+      const next =
+        placed[
+          (placed.findIndex((i) => i.id === this.selected) + 1) % placed.length
+        ];
+      if (next) {
+        this.world.focusBuildItem(next.id);
+        this.pick(next.id);
+      }
+    } else if (action === 'filter') {
       this.filter = b.dataset.value!;
       this.render();
     } else if (action === 'tool') {
@@ -218,7 +233,7 @@ export class ClinicBuildEditor {
     });
     this.world.town!.furniture.group.add(this.ghost);
     model.visible = false;
-    this.message = 'Choose a spot. Rotate with R or the Rotate button.';
+    this.message = `${this.sim.build.recipe(this.selected!).name}: choose a spot, then Place item. Rotate turns the furniture.`;
     this.preview();
     this.render();
   }
@@ -404,11 +419,15 @@ export class ClinicBuildEditor {
     if (!this.active) return;
     const sidebar = document.getElementById('sidebar')!,
       old = sidebar.querySelector('.build-list')?.scrollTop ?? 0;
-    const items = this.sim.build.items.filter((i) => {
-      const r = this.sim.build.recipe(i.id);
+    const focused = sidebar.contains(document.activeElement)
+      ? { ...(document.activeElement as HTMLElement).dataset }
+      : undefined;
+    const cards = buildRecipes.filter((r) => {
+      if (furnitureType(r.id) !== r.id) return false;
       return (
         this.filter === 'all' ||
-        (this.filter === 'stored' && !i.placement) ||
+        (this.filter === 'stored' &&
+          this.sim.build.copies(r.id).some((i) => !i.placement)) ||
         (this.filter === 'seats' &&
           r.stations.some(
             (id) =>
@@ -426,18 +445,6 @@ export class ClinicBuildEditor {
         (this.filter === 'decor' && !r.stations.length)
       );
     });
-    // Keep every placed copy selectable. Stored copies share a card so a large
-    // collection stays browsable, with one owned copy selected per placement.
-    const cards: { id: string; name: string; stored: number }[] = [];
-    for (const i of items) {
-      const name = this.sim.build.recipe(i.id).name;
-      const stored =
-        !i.placement && cards.find((c) => c.name === name && c.stored > 0);
-      if (stored) {
-        stored.stored++;
-        if (i.id === this.selected) stored.id = i.id;
-      } else cards.push({ id: i.id, name, stored: i.placement ? 0 : 1 });
-    }
     const button = (
       text: string,
       action: string,
@@ -445,6 +452,19 @@ export class ClinicBuildEditor {
       disabled = false,
     ) =>
       `<button class="secondary" data-build="${action}" ${extra} ${disabled ? 'disabled' : ''}>${text}</button>`;
+    const collection = cards
+      .map((r) => {
+        const copies = this.sim.build.copies(r.id),
+          stored = copies.filter((i) => !i.placement),
+          placed = copies.length - stored.length,
+          selected = copies.some((i) => i.id === this.selected),
+          next = stored.find((i) => i.id === this.selected) ?? stored[0];
+        return `<article class="build-card" data-recipe="${r.id}" data-available="${stored.length}" data-selected="${selected}">
+        ${button(`${catalogueImage(r.id)}<span class="build-card-text"><strong>${r.name}</strong><span class="build-available">${stored.length} available</span><small>${placed} placed${stored.length ? ' · Place one' : ' · Buy in Shop'}</small></span>`, 'pick', `data-id="${next?.id ?? r.id}" aria-pressed="${Boolean(next && next.id === this.selected)}"`, !stored.length || this.lifting)}
+        ${placed ? button('Move placed' + (placed > 1 ? ' · Next copy' : ''), 'move', `data-recipe="${r.id}" aria-label="Move placed ${r.name}"`, this.lifting) : ''}
+      </article>`;
+      })
+      .join('');
     sidebar.setAttribute('aria-label', 'Build collection');
     sidebar.innerHTML = `<div class="build-heading"><h2>Build your clinic</h2>${button('Shop', 'shop')}</div><nav class="build-tools" aria-label="Build tools">${[
       ['items', 'Furniture'],
@@ -464,7 +484,7 @@ export class ClinicBuildEditor {
         '',
       )}</nav><p class="build-price">${this.progress.coins} coins · ${this.sim.build.state.credits} free floor tiles · then ${floorPrice} coins/tile</p><nav class="build-filters" aria-label="Collection filters">${[
       ['all', 'All'],
-      ['stored', 'Stored'],
+      ['stored', 'Available'],
       ['seats', 'Seats'],
       ['pets', 'Pets'],
       ['decor', 'Decor'],
@@ -478,7 +498,7 @@ export class ClinicBuildEditor {
       )
       .join(
         '',
-      )}</nav><div class="build-list">${cards.map((i) => button(`<strong>${i.name}</strong><small>${i.stored ? `Stored · ${i.stored} available · place one` : 'Placed · pick up'}</small>`, 'pick', `data-id="${i.id}" aria-pressed="${this.selected === i.id}"`, this.lifting)).join('') || '<p>Buy more lovely things in the shop.</p>'}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item">${[
+      )}</nav><div class="build-list" tabindex="0" aria-label="Furniture catalogue">${collection || '<p>No spare items here yet. Buy a copy in Shop, or store something from the clinic.</p>'}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item">${[
       [-0.5, 0, '←'],
       [0.5, 0, '→'],
       [0, -0.5, '↑'],
@@ -498,6 +518,16 @@ export class ClinicBuildEditor {
         '',
       )}${button('Rotate ↻', 'rotate', '', !this.selected || this.lifting)}</div>`;
     sidebar.querySelector('.build-list')!.scrollTop = old;
+    if (focused?.build) {
+      const target = [
+        ...sidebar.querySelectorAll<HTMLButtonElement>('[data-build]'),
+      ].find((b) =>
+        ['build', 'id', 'recipe', 'value'].every(
+          (key) => b.dataset[key] === focused[key],
+        ),
+      );
+      if (target && !target.disabled) target.focus({ preventScroll: true });
+    }
     document.getElementById('scene-title')!.innerHTML =
       '<span class="eyebrow">BUILD MODE</span><h2>Make room for happy paws</h2>';
     document.getElementById('scene-goal')!.innerHTML = '';
