@@ -84,9 +84,10 @@ export const foodFeelings: Record<Species, string> = {
   goldfish: 'Bloop! Delicious fish flakes!',
 };
 export function attractionFeeling(activity?: PetActivity, species?: Species) {
+  const kind = activity?.station.split('@')[0] ?? '';
   return activity?.phase === 'use'
-    ? activity.station === 'treat-dispenser' && species
+    ? kind === 'treat-dispenser' && species
       ? foodFeelings[species]
-      : clinicAttractions[activity.station]?.feeling
+      : clinicAttractions[kind]?.feeling
     : undefined;
 }

@@ -80,11 +80,13 @@ test('money, stock, reputation, and upgrades have consistent rewards', () => {
   assert.equal(purchase(p, 'equipment'), false);
   assert.equal(p.coins, 120);
   assert.equal(purchase(p, 'plants'), true);
+  assert.equal(purchase(p, 'plants'), true);
   assert.equal(purchase(p, 'plants'), false);
-  assert.equal(p.coins, 60);
+  assert.equal(p.coins, 0);
+  assert.deepEqual(p.upgrades, ['plants']);
   const result = reward(p, 95);
   assert.equal(result.satisfaction, 98);
-  assert.equal(p.coins, 60 + result.total);
+  assert.equal(p.coins, result.total);
   assert.equal(p.earned, result.total);
   assert.equal(p.stock, 2);
   assert.equal(p.treated, 1);

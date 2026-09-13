@@ -130,9 +130,15 @@ patient call first. **Done** returns to the same waiting room and resumes town t
 Vaccinations still skip diagnosis, and examination/Stop visit/rewards are unchanged.
 
 The sidebar contains the player's **collection**, with All, Stored, Seats, Pets and
-Decor filters on larger screens. Buy more items in **Shop**; purchases unlock one
-copy of each catalogue item, or a set of chairs where stated. New furniture starts
-stored rather than appearing in a fixed location. Select a collection card or tap
+Decor filters on larger screens. Every furniture purchase in **Shop** buys one
+additional copy; there is no per-type ownership limit. Chairs, benches, wheels,
+other amusements and decorations remain available to buy again while the player
+has enough coins and the required room kit. Starter furnishings can also be bought
+again. Lounge chairs have one ordinary name, never numbered catalogue variants.
+The shop shows placed and stored counts. Stored copies of the same furnishing
+share a collection card with an available count; selecting it takes one copy.
+Placed copies remain individually selectable in the collection or scene.
+New furniture starts stored rather than appearing in a fixed location. Select a collection card or tap
 an item in the scene, choose a built tile, rotate in quarter turns, and place it.
 Furniture snaps to half-tile steps; original fractional positions remain intact
 until moved. Benches and game tables move with their attached seats as a unit;
@@ -150,7 +156,7 @@ migrated room architecture. Legacy future-room doors appear only in walls of
 rooms that already exist; buying a floor kit leaves those doors in place until
 the adjoining space is built. The public front entrance, counter, examination suite,
 and Louise's escort route remain anchored and protected. Independent interior-wall
-drawing, extra floors, duplicate catalogue copies and movable treatment rooms are
+drawing, extra floors and movable treatment rooms are
 outside this editor's current scope.
 
 The grid spans the available greenspace around the clinic, including the larger
@@ -167,7 +173,10 @@ blocked seats/attractions, occupied ground and blocked clinical access, with a
 short explanation and no spending. Custom navigation follows the connected floor
 around solid item footprints, respects seat fronts and quarter-turn rotations,
 and recalculates routes after edits. Pets queue at accessible points and share
-rotation with their ride, including the car/cabin. Moving occupied furniture first
+rotation with their ride, including the car/cabin. Each copy has its own internal
+identity, hit target, seat reservations, pet queue and animation. Several copies
+can be used at the same time. Moving one copy leaves the others available.
+Moving occupied furniture first
 reserves it against new users and lets owners step away. Elevated rides finish
 their lap; flying/climbing pets descend to ground and move clear before the model
 can be lifted. Cancelling restores availability. There are separate standing
@@ -188,7 +197,7 @@ visit, sitting, reading, or playing there until the player calls them. They do
 not make timed trips back to the desk or randomly change chairs. If every seat
 is occupied, an owner waits in a designated spot in the waiting area and takes
 a seat when one becomes free. The original bench is usable without a purchase. Extra seating adds two
-places; the lounge includes three chairs. A book trolley enables seated reading
+places per bench; the lounge kit includes three individually movable chairs, and more chairs can be bought separately. A book trolley enables seated reading
 with a held book; a lounge board-game table adds two usable game seats with hand
 animation. A place is reserved while its owner approaches, so two people cannot
 occupy one chair. Lounge chairs face into the room. Owners approach the open side of their seat; pets rest in front of the seating, clear of backs and legs. Routes to the new garden go around the game table. These are ambient activities, with no patience countdown.
@@ -1102,9 +1111,9 @@ half-coil. These are game controls, not physical medical measurements.
 
 | Purchase               | Current price | Current effect                                                                                                                              |
 | ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| A little more green    | 60            | Plants; +3 satisfaction per visit.                                                                                                          |
+| Leafy plant            | 60            | One plant; the first purchase adds +3 satisfaction per visit.                                                                               |
 | Treat shelf refill     | 35            | Add six treats; repeatable purchase.                                                                                                        |
-| Comfy waiting seats    | 90            | Two usable waiting seats; +4 satisfaction per visit.                                                                                        |
+| Comfy waiting seats    | 90            | One bench with two usable seats; the first purchase adds +4 satisfaction per visit.                                                         |
 | Steady-paw tool kit    | 150           | Widens alignment, pressure and fill guide half-width from 0.09 to 0.14, and bandage path tolerance from 0.05 to 0.07, on normalized scales. |
 | Tell the neighbourhood | 110           | Poster; shortens introductory invitation cadence from 22 to 13 active seconds and future routine-care intervals by the same ratio.          |
 | Room for more paws     | 240           | 48 free floor tiles and three stored lounge chairs; patient capacity four to six, including the pet being examined.                         |
@@ -1133,22 +1142,40 @@ half-coil. These are game controls, not physical medical measurements.
 | Cosy welcome rug       | 75            | Paw-patterned reception rug; decorative only.                                                                                               |
 | Happy pets gallery     | 90            | Three framed pet pictures in reception; decorative only.                                                                                    |
 
-All purchases except stock are one-time upgrades. Insufficient coins or an
-already-owned upgrade leaves the wallet unchanged. Missing prerequisite kits also block a purchase without spending coins; the shop names the required kit. Retail currently happens
+Furniture and decoration rows are repeatable: the listed price buys one additional
+copy (a bench includes its seats, and grouped decorations move as one furnishing).
+The following furnishings are also sold individually:
+
+| Purchase          | Current price | Current effect                                                 |
+| ----------------- | ------------- | -------------------------------------------------------------- |
+| Lounge chair      | 45            | One independently usable waiting seat. No room kit required.   |
+| Welcome bench     | 75            | One three-seat starter-style bench.                            |
+| Treat shop shelf  | 55            | One additional shelf; retail stock is still bought separately. |
+| Potted fern       | 35            | One decorative fern matching the starter plants.               |
+| Round welcome rug | 40            | One decorative round rug.                                      |
+| Welcome mat       | 25            | One decorative mat.                                            |
+| Pawprint picture  | 30            | One decorative framed picture.                                 |
+| Toy corner        | 60            | One extra toy attraction; requires Pet playground.             |
+
+Room kits and the Steady-paw tool kit remain one-time upgrades; treat refills
+remain repeatable. A room kit retains its included furniture and floor allowance.
+Insufficient coins, a missing prerequisite kit, or a second purchase of a one-time
+upgrade leaves both the wallet and collection unchanged. The shop names any
+required kit. Retail currently happens
 automatically on visit completion when treats are available.
 
 In Build, a new room or garden tile costs **3 coins** after free kit tiles are used.
 The rectangle limit is 250 tiles per action. Changing an existing tile's surface
 is free; removing floor returns neither coins nor kit credit. Stored items can be
 placed again without charge. Invalid previews/placements spend nothing. Purchases
-retain their existing satisfaction, advertising and capacity effects; storing
-furniture does not revoke an earned upgrade bonus. Reading requires the book
+retain their existing satisfaction, advertising and capacity effects once per upgrade, regardless of copy count; storing
+furniture does not revoke an earned upgrade bonus. Reading requires at least one book
 trolley to be placed. Other leisure requires its item to be placed and accessible.
 
 **Approved / planned extension:** customers should also be able to buy displayed
 goods on their way in or out. This broader shopping behavior is not yet modelled.
 Stock, furniture, equipment, decoration, advertising, and expansion each have a
-working examples. Build provides free placement and floor expansion; a wider catalogue, duplicate furniture copies and independent wall construction remain future decisions.
+working examples. Build provides repeatable furniture, free placement and floor expansion; further catalogue additions and independent wall construction remain future decisions.
 
 ### Traffic and sense of progress
 
@@ -1282,7 +1309,12 @@ saves retain exact timers; ongoing rescues and dog stops keep their phases and
 routes.
 The town snapshot also includes a validated Build layout: floor/garden cells,
 collection unlocks, placed/stored items, quarter-turn orientations and remaining
-kit tiles. Older snapshots without this state are migrated from owned upgrades,
+kit tiles. Build save version 2 separates each copy's unique ID from its furniture
+recipe. Version 1 layouts retain their original IDs, placements, stored items,
+active reservations and included chair/plant sets when migrated. Repeated loading
+never grants another copy or another set of kit tiles. There is no catalogue-size
+limit on the saved collection; invalid recipes and duplicate instance IDs reject
+the snapshot. Wallet and purchased copies save together. Older snapshots without this state are migrated from owned upgrades,
 keeping their old positions and room outlines. A lift is temporary: saving during
 it retains the old placement, so reloading cannot lose furniture or save a floating
 rider. Floor edits and placements persist with the wallet in the same browser save.
@@ -1358,7 +1390,7 @@ and evidence, not a competing set of mechanics.
 | F07 | Friendly visit controls                    | Implemented        | Abort/requeue, fixed actions, scrollable notes, rounded text, body guides, and a viewport-sized compact examination with separate tool/readout/notebook areas, rotation support and Visit info. [Compact layout checks](../tests/exam-layout.spec.ts). [UI](../src/main.ts), [styles](../src/style.css), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                  |
 | F08 | Authored case collection                   | Implemented        | Eleven visits in section 7, with skin, ear, tooth, bone, and water findings. [Case data](../src/game.ts), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                 |
 | F09 | Satisfaction, earnings, and saving         | Implemented        | Local completed progress and shop effects; saved community visits; an unfinished examination restarts from its queue. [Rules](../src/game.ts), [economy checks](../tests/economy.test.ts).                                                                                                                                                                                                                                                                                                                                         |
-| F10 | Clinic improvement                         | Partial            | Thirty shop items include floor kits, usable seats and owner/pet amusements; V2-13 supplies placement and expansion. [Rules](../src/game.ts), [world](../src/world.ts). Retail browsing and duplicate catalogue copies remain future work.                                                                                                                                                                                                                                                                                         |
+| F10 | Clinic improvement                         | Partial            | Thirty-eight shop items include floor kits, repeatable furniture, usable seats and owner/pet amusements; V2-13 supplies placement and expansion. [Rules](../src/game.ts), [world](../src/world.ts). Retail browsing remains future work.                                                                                                                                                                                                                                                                                           |
 | F11 | Customer shopping on arrival/departure     | Approved / planned | Completion-time treat sale exists under F09. Complete the broader feature when customers can make an understandable purchase from displayed stock during arrival/departure, with consistent inventory and rewards.                                                                                                                                                                                                                                                                                                                 |
 | F12 | Longer campaign and returning-pet stories  | Exploratory        | Current day label is a milestone only. Decide whether campaign progression or persistent follow-ups improve the caring loop before specifying levels/unlocks.                                                                                                                                                                                                                                                                                                                                                                      |
 | F13 | Narration and broader presentation variety | Exploratory        | Narrated reading, more owner/pet variants, and music are possible additions; no asset list or delivery commitment yet.                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -1389,7 +1421,7 @@ Development milestones group work; they are not player levels or release dates:
 | V2-10 | Police, fire service and rescue stories    | Implemented | Visible owner pursuits with an initial pet speed boost, distance-triggered police reports, lost-pet searches, dog chases, tree flights/climbs and ladder handovers, driver collection, safely extinguished house fires, every resident pet’s care, service cameras and saved phases. [Director checks](../tests/emergencies.test.ts), [rendering and care checks](../tests/emergencies.spec.ts), [authored rescue scene checks](../tests/emergency-visual.spec.ts). Named pets and owners express contextual feelings throughout the story using the shared bubble system. First opportunity at 35 seconds, then 100–160 seconds between starts with a twenty-second rest after responders return. Pending clinic care does not block the next story. One story at a time; authored public rescue trees, distance-based noticing and exterior-only house rescues.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | V2-11 | Street furniture and dog stops             | Implemented | Seventeen lamps, six hydrants, reserved sniffing stops, male-only leg-lift wees and owner poo pickup before resuming outdoor walks. One poo per dog on outings of twelve town units at the next safe spot, more frequent random poos, 45–90-second random-stop cooldowns and sniffing opportunities; saved outing progress/phases/cooldowns; no clinic or road stops, litter buildup or rewards. [Rules and save checks](../tests/dog-walks.test.ts), [rendered poses](../tests/street-visual.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | V2-12 | Textured town, weather and cat shelter     | Implemented | Textured ground/wood/roof/plaster, glossy car paint, mostly sunny active-time weather with brief rain, saved off-road cat/owner shelter detours and automatic return. [Weather rules and saves](../tests/weather.test.ts), [materials and rendered scenes](../tests/weather-visual.spec.ts). No storms, weather injuries or rain effects inside examinations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| V2-13 | Grid construction and furniture collection | Implemented | Room/garden grid expansion across available clinic grounds, stored shop items, quarter-turn placement, picking/moving/storing, occupied-item unloading, custom routes, exact legacy migration and saved layouts. Counter, entrance and treatment suite anchored; open-plan floor boundaries, one catalogue copy/set, no independent interior walls or upper floors. [Layout and unloading checks](../tests/clinic-build.test.ts), [desktop/touch editor checks](../tests/clinic-build.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| V2-13 | Grid construction and furniture collection | Implemented | Room/garden grid expansion across available clinic grounds, stored shop items, quarter-turn placement, picking/moving/storing, occupied-item unloading, custom routes, exact legacy migration and saved layouts. Counter, entrance and treatment suite anchored; open-plan floor boundaries, paid copies with independent seating/queues/animations and no per-type ownership cap, no independent interior walls or upper floors. [Layout and unloading checks](../tests/clinic-build.test.ts), [desktop/touch editor checks](../tests/clinic-build.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 V2 connects navigation and ambient routines to actual appointments, bounded road
 incidents, care outcomes, return journeys, and cross-reload saving. Later campaign
@@ -1495,7 +1527,7 @@ after multiple observations; new key clues signal clearly, completion stays gree
 and its Key clues page stays directly accessible while
 Care notes scrolls internally.
 
-Modular clinic acceptance: purchases enforce prerequisites and charge once;
+Modular clinic acceptance: purchases enforce prerequisites and charge for each furniture copy; room kits charge once;
 capacity becomes four/six/eight with the respective rooms. Owners reserve
 separate chairs, visibly sit/read/play, and walk through connecting doorways.
 Clinic bubble acceptance: visible pets, companions, owners, Louise and built
@@ -1541,7 +1573,7 @@ and Stop visit remain usable. After multiple observations, the active notebook p
 and newest note remain visible without scrolling the browser. Reading older
 notes scrolls only that page, with a direct button back to Key clues.
 
-Enrichment acceptance: lounge occupants face the open side of their chairs; approaches and pet rest spots avoid seat backs and the game table. New purchases require the extension, charge once and survive reload. Eligible pets use all six new activities; flying/climbing recall finishes at ground level; bird wings move in an authored flight clip. The annex and its props fit inside clinic grounds. Room/shop controls fit short desktop and phone windows.
+Enrichment acceptance: lounge occupants face the open side of their chairs; approaches and pet rest spots avoid seat backs and the game table. New activity purchases require the extension, charge for each copy and survive reload. Eligible pets use all six new activities; flying/climbing recall finishes at ground level; bird wings move in an authored flight clip. The annex and its props fit inside clinic grounds. Room/shop controls fit short desktop and phone windows.
 
 Park acceptance: eighteen simultaneous families have distinct seated positions;
 no station has two pet users; each pet species has suitable activity or quiet
@@ -1559,7 +1591,13 @@ have real turns, and birds return to ground level when called. Purchases preserv
 scroll position and persist on desktop/mobile; new room controls fit the viewport.
 
 Build acceptance: an old fully upgraded clinic opens without moving any item or
-charging again. A player can buy an item, find it stored, build a connected room
+charging again. Buying more than three lounge chairs, more than one wheel and a
+collection larger than the catalogue charges for every copy and survives reload.
+Copies have separate seats, queues, animation and rotations. Moving one occupied
+copy unloads only that copy safely; other copies remain available. Stored copy
+counts decrease on placement and increase on storage. Satisfaction/advertising
+bonuses and room credits are not awarded again for extra furniture.
+A player can buy an item, find it stored, build a connected room
 or garden, place and rotate it, move it again and reload the saved result. A
 blocked doorway, unsupported footprint, overlapping solid item or occupied
 location gets clear feedback without spending or changing the prior placement.
@@ -1584,11 +1622,16 @@ for routine implementation choices.
   should its motion work on touch and with an accessible alternative?
 - How should customers browse goods, choose purchases, and understand stock on
   arrival/departure without distracting from animal care?
-- Should Build next offer duplicate furniture copies, separately drawn interior walls, movable treatment rooms, or additional floors?
+- Should Build next offer separately drawn interior walls, movable treatment rooms, or additional floors?
 - Would a longer campaign, narrative follow-up stories, narration, or visual variety
   add the most value after the approved core is deepened?
 
 ### Decision history
+
+Furniture is owned by the copy, with a price for each purchase and no per-type
+cap. Internal instance IDs keep copies independent; children see ordinary names
+and available counts. Room kits retain their original grants, and old saves keep
+every paid item. Collection ownership no longer acts as a one-time furniture unlock.
 
 Compact examinations use one viewport grid instead of independently floating
 readouts, notes and tool lists. This keeps targeting and the next action stable

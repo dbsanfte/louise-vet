@@ -7,7 +7,7 @@ import {
   toClinic,
 } from '../src/clinic-build.ts';
 import { TownSimulation } from '../src/town-simulation.ts';
-import { upgrades, visits } from '../src/game.ts';
+import { upgrades, visits, loadProgress, purchase } from '../src/game.ts';
 import {
   localToTown,
   distance,
@@ -337,4 +337,214 @@ test('routes cross legacy partitions only at openings, including between the pla
       .error!,
     /opening/,
   );
+});
+
+test('every furniture type is sold by the copy, with no catalogue-size limit or duplicate bonuses', () => {
+  const b = new ClinicBuild(),
+    p = loadProgress();
+  p.coins = 100000;
+  const buy = (id: string) => {
+    assert.ok(purchase(p, id), id);
+    return b.buy(id);
+  };
+  for (const id of ['expansion', 'pet-room', 'play-annex', 'sun-courtyard'])
+    buy(id);
+  for (const u of upgrades) {
+    if (!('furniture' in u)) continue;
+    const before = b.items.length,
+      coins = p.coins;
+    const a = buy(u.id)!,
+      c = buy(u.id)!;
+    assert.equal(b.items.length, before + 2, u.id);
+    assert.notEqual(a.id, c.id);
+    assert.equal(a.recipe, c.recipe);
+    assert.equal(a.placement, undefined);
+    assert.equal(c.placement, undefined);
+    assert.equal(p.coins, coins - 2 * u.price);
+    assert.equal(p.upgrades.filter((id) => id === u.id).length, 1);
+  }
+  for (let i = 0; i < 50; i++) buy('lounge-chair');
+  assert.equal(b.copies('seat-5').length, 55); // three kit chairs and 52 paid chairs
+  assert.ok(b.items.length > buildRecipes.length);
+  assert.equal(new Set(b.items.map((i) => i.id)).size, b.items.length);
+  const before = b.snapshot();
+  p.coins = 44;
+  if (purchase(p, 'lounge-chair')) b.buy('lounge-chair');
+  assert.equal(p.coins, 44);
+  assert.deepEqual(b.snapshot(), before);
+  const restored = new ClinicBuild();
+  assert.ok(restored.restore(before));
+  restored.syncOwned(p.upgrades);
+  assert.deepEqual(
+    restored.snapshot(),
+    before,
+    'reload never grants more copies or floor credits',
+  );
+  assert.equal(purchase(p, 'expansion'), false);
+});
+
+test('version-one build saves retain every chair, plant and active reservation through repeated migration', () => {
+  const s = new TownSimulation(visits, () => 0.5);
+  s.seedClinic([0, 1, 2, 3]);
+  const ids = ['expansion', 'pet-room', 'plants', 'wheel'] as const;
+  s.configureLeisure([...ids]);
+  tick(s, 25);
+  const snapshot = s.snapshot();
+  const old = {
+    ...snapshot,
+    build: {
+      ...snapshot.build,
+      version: 1,
+      items: snapshot.build.items.map(({ recipe: _type, ...i }) => i),
+    },
+  };
+  const restored = new TownSimulation(visits);
+  assert.ok(restored.restore(old));
+  restored.configureLeisure([...ids]);
+  assert.deepEqual(restored.build.snapshot(), snapshot.build);
+  assert.deepEqual(restored.leisure.snapshot(), snapshot.leisure);
+  const copy = restored.build.buy('lounge-chair')!;
+  assert.equal(restored.build.recipe(copy.id).name, 'Lounge chair');
+  assert.equal(restored.build.copies('seat-5').length, 4);
+  const again = new TownSimulation(visits);
+  assert.ok(again.restore(restored.snapshot()));
+  again.configureLeisure([...ids, 'lounge-chair']);
+  assert.deepEqual(again.build.snapshot(), restored.build.snapshot());
+  const corrupt = structuredClone(restored.snapshot());
+  corrupt.build.items.at(-1)!.recipe = 'missing';
+  assert.equal(again.restore(corrupt), false);
+  const duplicate = restored.build.snapshot();
+  duplicate.items.push({ ...duplicate.items.at(-1)! });
+  assert.equal(again.build.restore(duplicate), false);
+  assert.deepEqual(again.build.snapshot(), restored.build.snapshot());
+});
+
+test('separate copies of chairs and wheels have independent places, queues and saved rotations', () => {
+  const s = new TownSimulation(visits, () => 0.5);
+  s.seedClinic(
+    ['Peanut', 'Sunny'].map((name) => visits.findIndex((v) => v.name === name)),
+  );
+  s.configureLeisure(['expansion', 'pet-room', 'wheel']);
+  const chair = s.build.buy('lounge-chair')!,
+    wheel = s.build.buy('wheel')!;
+  s.configureLeisure(['expansion', 'pet-room', 'wheel', 'lounge-chair']);
+  assert.equal(
+    s.build.place(chair.id, { x: -8, z: 0, rotation: Math.PI / 2 }),
+    undefined,
+  );
+  assert.equal(
+    s.build.place(wheel.id, { x: -14, z: -6, rotation: Math.PI / 2 }),
+    undefined,
+  );
+  const seats = s.build.stations.filter((st) => st.itemId === chair.id);
+  assert.equal(seats.length, 1);
+  assert.notEqual(seats[0].id, 'seat-5');
+  assert.equal(s.build.stationRotation(seats[0]), Math.PI / 2);
+  const stations = s.build.stations.filter((st) => st.kind === 'wheel');
+  assert.equal(stations.length, 2);
+  assert.equal(new Set(stations.map((st) => st.id)).size, 2);
+  const seen = new Set<string>();
+  let simultaneous = false;
+  for (let i = 0; i < 1600; i++) {
+    s.update(0.1);
+    const using = [...s.leisure.pets.values()].filter(
+      (p) =>
+        p.phase === 'use' && s.leisure.station(p.station)?.kind === 'wheel',
+    );
+    using.forEach((p) => seen.add(p.station));
+    simultaneous ||=
+      using.length === 2 && new Set(using.map((p) => p.station)).size === 2;
+  }
+  assert.deepEqual(seen, new Set(stations.map((st) => st.id)));
+  assert.ok(simultaneous, 'both wheels can be used at the same time');
+  assert.equal(s.leisure.summary().filter((s) => s.kind === 'wheel').length, 2);
+  const restored = new TownSimulation(visits);
+  assert.ok(restored.restore(s.snapshot()));
+  assert.deepEqual(restored.build.snapshot(), s.build.snapshot());
+  assert.deepEqual(restored.leisure.snapshot(), s.leisure.snapshot());
+  assert.equal(s.build.place('wheel', undefined), undefined);
+  assert.ok(s.build.placement(wheel.id));
+  assert.equal(s.build.stations.filter((st) => st.kind === 'wheel').length, 1);
+});
+
+for (const kind of ['ferris', 'play-tree'])
+  test(`moving a second ${kind} waits for its rider without closing the first copy`, () => {
+    const s = setup(),
+      copy = s.build.buy(kind)!;
+    assert.equal(
+      s.build.floor(
+        { x: -17, z: -24 },
+        { x: -12, z: -20 },
+        'garden',
+        5000,
+        [],
+        true,
+      ).error,
+      undefined,
+    );
+    assert.equal(
+      s.build.place(copy.id, { x: -14, z: -22, rotation: Math.PI / 2 }),
+      undefined,
+    );
+    const st = s.build.stations.find((st) => st.itemId === copy.id)!;
+    const pet = [...s.leisure.pets.values()].find(
+      (p) => s.visit(p.ticket).species === 'cat',
+    )!;
+    Object.assign(pet, {
+      station: st.id,
+      phase: 'use',
+      elapsed: 3,
+      remaining: 9,
+      route: [],
+    });
+    const pose =
+      kind === 'ferris' ? ridePose(kind, 3) : enrichmentPose(kind, 3, 'cat');
+    pet.position = s.build.stationPoint(st, pose);
+    s.leisure.beginMove(copy.id);
+    assert.equal(s.leisure.movingReady(copy.id, s.households), false);
+    assert.equal(s.leisure.available(s.leisure.station(kind)), true);
+    assert.equal(s.leisure.available(st), false);
+    let ready = false,
+      steps = 0;
+    for (; steps < 500 && !ready; steps++) {
+      s.leisure.update(0.1, s.households, s.tickets, (id) => s.visit(id));
+      ready = s.leisure.movingReady(copy.id, s.households);
+    }
+    assert.ok(ready);
+    assert.ok(steps >= 85, 'wait for the full descent');
+    assert.equal(s.build.place(copy.id, undefined), undefined);
+    s.leisure.replan(s.households);
+    s.leisure.endMove();
+    assert.ok(s.build.placement(kind));
+    assert.ok(new TownSimulation(visits).restore(s.snapshot()));
+    callToRoom(s, pet.ticket);
+  });
+
+test('a separately purchased chair works before buying any room kit, and any placed book trolley supports reading', () => {
+  const s = new TownSimulation(visits, () => 0.5);
+  s.seedClinic([0]);
+  const chair = s.build.buy('lounge-chair')!;
+  s.configureLeisure(['lounge-chair']);
+  assert.equal(s.build.place('welcome-bench', undefined), undefined);
+  assert.equal(
+    s.build.place(chair.id, { x: -2.5, z: 2.5, rotation: 0 }),
+    undefined,
+  );
+  tick(s, 20);
+  const owner = [...s.leisure.owners.values()][0];
+  assert.equal(owner.station, s.build.itemStations(chair.id)[0]);
+  assert.equal(owner.phase, 'sit');
+  s.build.buy('books');
+  const books = s.build.buy('books')!;
+  s.configureLeisure(['lounge-chair', 'books']);
+  assert.equal(s.build.placement('books'), undefined);
+  assert.equal(
+    s.build.place(books.id, { x: 0.5, z: 2.5, rotation: 0 }),
+    undefined,
+  );
+  tick(s, 1);
+  assert.equal(owner.phase, 'read');
+  assert.equal(s.build.place(books.id, undefined), undefined);
+  tick(s, 1);
+  assert.equal(owner.phase, 'sit');
 });

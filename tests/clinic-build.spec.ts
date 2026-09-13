@@ -28,14 +28,11 @@ async function open(
   busy = false,
   items: UpgradeId[] = owned,
   legacy = false,
+  patients = ['Luna', 'Milo', 'Peanut', 'Pico'],
 ) {
   const s = new TownSimulation(visits, () => 0.5);
   s.seedClinic(
-    busy
-      ? ['Luna', 'Milo', 'Peanut', 'Pico'].map((n) =>
-          visits.findIndex((v) => v.name === n),
-        )
-      : [],
+    busy ? patients.map((n) => visits.findIndex((v) => v.name === n)) : [],
   );
   s.configureClinic(8, 22);
   s.configureLeisure(items);
@@ -306,4 +303,144 @@ test('picking occupied seating lets owners and pets leave before hiding it and r
   ).toBeUndefined();
   expect(after.leisure.owners.some((o) => o.station === station)).toBe(false);
   await expect(page.locator('.patient-list')).toBeVisible();
+});
+
+test('paid furniture copies have ordinary names, counts and independent placement on desktop and touch', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  if (touch) await page.setViewportSize({ width: 360, height: 640 });
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await open(page, true, ['expansion', 'pet-room'], false, [
+    'Luna',
+    'Milo',
+    'Peanut',
+    'Sunny',
+  ]);
+  await page.locator('[data-build="shop"]').click();
+  for (const [id, count] of [
+    ['lounge-chair', 4],
+    ['wheel', 2],
+  ] as const) {
+    const buy = page.locator(`[data-upgrade="${id}"]`);
+    for (let i = 0; i < count; i++) {
+      await buy.scrollIntoViewIfNeeded();
+      const scroll = await page
+        .locator('.modal.shop')
+        .evaluate((el) => el.scrollTop);
+      await buy.click();
+      await expect(buy).toBeEnabled();
+      expect(
+        Math.abs(
+          (await page.locator('.modal.shop').evaluate((el) => el.scrollTop)) -
+            scroll,
+        ),
+      ).toBeLessThan(3);
+    }
+  }
+  await expect(page.getByTestId('coins')).toHaveText('4,600');
+  await expect(
+    page
+      .locator('.shop-card')
+      .filter({ has: page.locator('[data-upgrade="lounge-chair"]') }),
+  ).toContainText('3 placed · 4 stored');
+  await expect(
+    page
+      .locator('.shop-card')
+      .filter({ has: page.locator('[data-upgrade="wheel"]') }),
+  ).toContainText('0 placed · 2 stored');
+  await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  await expect(page.locator('.build-list')).not.toContainText(
+    /Lounge chair [0-9]/,
+  );
+  await expect(
+    page.locator('[data-build="pick"][data-id="seat-5~1"]'),
+  ).toContainText('4 available');
+  for (const [id, x, z] of [
+    ['seat-5~1', -8, 0],
+    ['wheel', -14, -6],
+    ['wheel~1', -14, -9],
+  ] as const) {
+    await page.locator(`[data-build="pick"][data-id="${id}"]`).click();
+    if (touch) await page.locator('[data-build="rotate"]').click();
+    else await page.keyboard.press('r');
+    await tap(page, x, z, touch);
+    await expect(page.locator('#build-feedback')).toContainText('Lovely');
+  }
+  await expect(
+    page.locator('[data-build="pick"][data-id="seat-5~2"]'),
+  ).toContainText('3 available');
+  const placed = await page.evaluate(() => window.buildTest.snapshot().build);
+  const models = await page.evaluate(() => window.buildTest.models());
+  for (const id of ['seat-5~1', 'wheel', 'wheel~1']) {
+    const model = models.find((m) => m.id === id)!;
+    expect(model.visible).toBe(true);
+    expect(model.parts).toBeGreaterThan(0);
+    expect(model.rotation).toBeCloseTo(Math.PI / 2);
+    expect(placed.items.find((i) => i.id === id)!.placement).toEqual({
+      x: model.x,
+      z: model.z,
+      rotation: model.rotation,
+    });
+  }
+  await page.screenshot({
+    path: info.outputPath('separate-furniture-copies.png'),
+  });
+  await page.locator('[data-build="done"]').click();
+  let both = false;
+  for (let i = 0; i < 100 && !both; i++) {
+    both = await page.evaluate(() => {
+      window.buildTest.step(2);
+      const pets = window.buildTest.snapshot().leisure.pets;
+      const riders = pets.filter(
+        (p) =>
+          p.station.startsWith('wheel') && p.phase === 'use' && p.elapsed > 0,
+      );
+      if (riders.length !== 2) return false;
+      const models = window.buildTest.models();
+      return riders.every(
+        (p) =>
+          Math.abs(
+            models.find((m) => m.id === (p.station.split('@')[1] ?? p.station))!
+              .wheelRotation! -
+              p.elapsed * 4,
+          ) < 0.001,
+      );
+    });
+  }
+  expect(both, 'two pets ride separately animated wheels at once').toBe(true);
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  await page.locator('[data-build="pick"][data-id="wheel~1"]').click();
+  await page.evaluate(() => window.buildTest.step(45));
+  await page.locator('[data-build="store"]').click();
+  const stored = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(
+    stored.items.find((i) => i.id === 'wheel~1')!.placement,
+  ).toBeUndefined();
+  expect(stored.items.find((i) => i.id === 'wheel')!.placement).toEqual(
+    placed.items.find((i) => i.id === 'wheel')!.placement,
+  );
+  await expect(page.getByTestId('coins')).toHaveText('4,600');
+  await page.locator('[data-build="done"]').click();
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    stored,
+  );
+  await page.getByRole('button', { name: /Clinic shop/ }).click();
+  await expect(
+    page
+      .locator('.shop-card')
+      .filter({ has: page.locator('[data-upgrade="lounge-chair"]') }),
+  ).toContainText('4 placed · 3 stored');
+  await expect(
+    page
+      .locator('.shop-card')
+      .filter({ has: page.locator('[data-upgrade="wheel"]') }),
+  ).toContainText('1 placed · 1 stored');
+  await expect(page.locator('[data-upgrade="wheel"]')).toBeEnabled();
+  expect(errors).toEqual([]);
 });

@@ -250,12 +250,29 @@ export class ClinicFurniture {
       )
         o.visible = !build.state.floorEdited;
     });
-    for (const r of buildRecipes) {
-      const model = this.itemModels.get(r.id);
-      if (!model) continue;
-      const p = build.placement(r.id);
+    // Legacy models also serve as templates; every copy has a separate scene
+    // graph, animation state and hit target while sharing mesh resources.
+    for (const item of build.items) {
+      if (this.itemModels.has(item.id)) continue;
+      const template = this.itemModels.get(item.recipe);
+      if (!template) continue;
+      const model = template.clone(true);
+      this.group.add(model);
+      this.itemModels.set(item.id, model);
+    }
+    this.rides.clear();
+    for (const [id, model] of this.itemModels) {
+      const item = build.items.find((i) => i.id === id);
+      model.visible = Boolean(item?.placement);
+      if (!item) continue;
+      const r = build.recipe(id),
+        p = item.placement;
+      for (const station of build.stations.filter(
+        (s) => s.itemId === id && s.audience === 'pet',
+      ))
+        this.rides.set(station.id, model);
       model.visible = Boolean(p);
-      model.userData.buildItem = r.id;
+      model.userData.buildItem = id;
       model.userData.clinicInfo = {
         name: r.name,
         description: r.stations.length
@@ -288,10 +305,11 @@ export class ClinicFurniture {
       const rider = [...leisure.pets.values()].find(
         (p) => p.station === id && p.phase === 'use',
       );
+      const kind = leisure.station(id)!.kind;
       const wheel = model.getObjectByName('WheelRotor'),
         carousel = model.getObjectByName('CarouselRotor');
-      if (wheel && rider) wheel.rotation.x = rider.elapsed * 4;
-      if (carousel && rider) carousel.rotation.y = -rider.elapsed * 0.65;
+      if (wheel) wheel.rotation.x = rider ? rider.elapsed * 4 : 0;
+      if (carousel) carousel.rotation.y = rider ? -rider.elapsed * 0.65 : 0;
       const flow = model.getObjectByName('DispenserFlow');
       if (flow)
         flow.visible = Boolean(rider && Math.sin(rider.elapsed * 3) > -0.4);
@@ -323,19 +341,19 @@ export class ClinicFurniture {
       const swing = model.getObjectByName('BirdSwing');
       if (swing)
         swing.rotation.x = rider ? Math.sin(rider.elapsed * 2) * 0.15 : 0;
-      if (id === 'coaster') {
+      if (kind === 'coaster') {
         const car = model.getObjectByName('CoasterCar')!;
-        const pose = ridePose(id, rider?.elapsed ?? 0);
+        const pose = ridePose(kind, rider?.elapsed ?? 0);
         car.position.set(pose.x, pose.y, pose.z);
         car.rotation.y = pose.facing;
       }
-      if (id === 'ferris') {
+      if (kind === 'ferris') {
         const elapsed = rider?.elapsed ?? 0;
         model.getObjectByName('FerrisRotor')!.rotation.z =
           (elapsed / 12) * Math.PI * 2;
         for (let i = 0; i < 4; i++) {
           const cabin = model.getObjectByName(`FerrisCabin${i}`)!;
-          const pose = ridePose(id, (elapsed + i * 3) % 12);
+          const pose = ridePose(kind, (elapsed + i * 3) % 12);
           cabin.position.set(pose.x, pose.y, pose.z);
         }
       }

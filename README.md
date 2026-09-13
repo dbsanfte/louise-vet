@@ -102,7 +102,12 @@ buttons for fine adjustments, and choose **Done** to resume the day. **Camera**
 lets you orbit and pan; arrow keys and zoom buttons stay available. **Whole plot**
 shows the surrounding buildable greenspace, clear of roads and neighbouring homes.
 
-Buy furniture in **Clinic shop** to add it to your collection. Select a placed
+Buy furniture in **Clinic shop** to add it to your collection. Every purchase
+buys one copy: add as many lounge chairs, exercise wheels or other furnishings as
+you can afford, with room to place them. The shop shows placed/stored counts;
+stored copies share a card in Build, while each placed item can be moved separately.
+Individual lounge chairs cost 45 coins, and starter furnishings are also available
+in the shop. Existing kit chairs and furniture are preserved. Select a placed
 item to move it or **Store** it for later. Occupants step off before it is lifted;
 raised rides and flying/climbing pets finish safely at ground level. Clear-route
 checks help keep the clinic usable. Existing saves retain their current furniture,
@@ -114,7 +119,8 @@ playground** supplies 84 tiles and a toy corner. Capacity grows from 4 to 6 to 8
 unlock more shop choices. Further tiles cost 3 coins each. Floor removal does not
 refund coins; moving stored furniture costs nothing. The entrance, counter and
 examination suite stay in place. The current editor joins floor into open rooms
-with automatic perimeter walls or fences; it has one copy/set per shop purchase.
+with automatic perimeter walls or fences. Room kits and equipment are one-time
+upgrades; extra furniture does not stack satisfaction bonuses.
 
 Hookville also fits the window: **Homes** pages through the household directory, **Home info** shows the selected family, and **Town news** pages through updates. **Back to the clinic** stays beside the map.
 

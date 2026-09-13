@@ -46,6 +46,16 @@ test('every pet attraction has a name and a reaction only during an active turn'
       attractionFeeling({ ...activity, station: station.id, phase: 'use' }),
       station.id,
     );
+    assert.equal(
+      attractionFeeling(
+        { ...activity, station: `${station.id}@${station.id}~2`, phase: 'use' },
+        'cat',
+      ),
+      attractionFeeling(
+        { ...activity, station: station.id, phase: 'use' },
+        'cat',
+      ),
+    );
     for (const phase of ['walk', 'queue', 'board', 'return', 'rest'] as const)
       assert.equal(
         attractionFeeling({ ...activity, station: station.id, phase }),
@@ -70,7 +80,7 @@ function setup(
   s.configureLeisure(owned);
   return s;
 }
-test('rooms and amusements require their parent module and charge only once', () => {
+test('rooms require their parent module, and each amusement copy costs coins', () => {
   const p = loadProgress();
   p.coins = 5000;
   assert.equal(purchase(p, 'pet-room'), false);
@@ -82,8 +92,10 @@ test('rooms and amusements require their parent module and charge only once', ()
   assert.equal(clinicCapacity(p.upgrades), 8);
   assert.ok(purchase(p, 'wheel'));
   const balance = p.coins;
-  assert.equal(purchase(p, 'wheel'), false);
-  assert.equal(balance, p.coins);
+  assert.equal(purchase(p, 'wheel'), true);
+  assert.equal(p.coins, balance - 110);
+  assert.equal(purchase(p, 'pet-room'), false);
+  assert.equal(p.coins, balance - 110);
 });
 test('owners use exclusive seats, books and games while eligible pets take real turns', () => {
   const s = setup();
@@ -323,7 +335,11 @@ test('new rides enforce purchases, take moving turns and unload before recall', 
       progress.coins,
       balance - upgrades.find((u) => u.id === id)!.price,
     );
-    assert.equal(purchase(progress, id), false);
+    assert.equal(purchase(progress, id), true);
+    assert.equal(
+      progress.coins,
+      balance - 2 * upgrades.find((u) => u.id === id)!.price,
+    );
     const s = setup(['Luna']);
     s.configureLeisure(['expansion', 'pet-room', id]);
     let rider: PetActivity | undefined;
@@ -401,7 +417,11 @@ test('extension purchases unlock six usable activities including bird flights an
       progress.coins,
       coins - upgrades.find((u) => u.id === id)!.price,
     );
-    assert.equal(purchase(progress, id), false);
+    assert.equal(purchase(progress, id), true);
+    assert.equal(
+      progress.coins,
+      coins - 2 * upgrades.find((u) => u.id === id)!.price,
+    );
   }
   assert.equal(clinicCapacity(progress.upgrades), 8);
   assert.equal(progress.stock, 3, 'dispensers do not spend retail stock');

@@ -426,6 +426,18 @@ export class ClinicBuildEditor {
         (this.filter === 'decor' && !r.stations.length)
       );
     });
+    // Keep every placed copy selectable. Stored copies share a card so a large
+    // collection stays browsable, with one owned copy selected per placement.
+    const cards: { id: string; name: string; stored: number }[] = [];
+    for (const i of items) {
+      const name = this.sim.build.recipe(i.id).name;
+      const stored =
+        !i.placement && cards.find((c) => c.name === name && c.stored > 0);
+      if (stored) {
+        stored.stored++;
+        if (i.id === this.selected) stored.id = i.id;
+      } else cards.push({ id: i.id, name, stored: i.placement ? 0 : 1 });
+    }
     const button = (
       text: string,
       action: string,
@@ -466,7 +478,7 @@ export class ClinicBuildEditor {
       )
       .join(
         '',
-      )}</nav><div class="build-list">${items.map((i) => button(`<strong>${this.sim.build.recipe(i.id).name}</strong><small>${i.placement ? 'Placed · pick up' : 'Stored · place'}</small>`, 'pick', `data-id="${i.id}" aria-pressed="${this.selected === i.id}"`, this.lifting)).join('') || '<p>Buy more lovely things in the shop.</p>'}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item">${[
+      )}</nav><div class="build-list">${cards.map((i) => button(`<strong>${i.name}</strong><small>${i.stored ? `Stored · ${i.stored} available · place one` : 'Placed · pick up'}</small>`, 'pick', `data-id="${i.id}" aria-pressed="${this.selected === i.id}"`, this.lifting)).join('') || '<p>Buy more lovely things in the shop.</p>'}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item">${[
       [-0.5, 0, '←'],
       [0.5, 0, '→'],
       [0, -0.5, '↑'],

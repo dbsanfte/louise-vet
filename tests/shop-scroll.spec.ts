@@ -35,7 +35,8 @@ test('buying courtyard upgrades and decorations retains shop scroll position and
       .evaluate((el) => el.scrollTop);
     expect(before).toBeGreaterThan(300);
     await button.click();
-    await expect(button).toBeDisabled();
+    if (id === 'sun-courtyard') await expect(button).toBeDisabled();
+    else await expect(button).toBeEnabled();
     const after = await page
       .locator('.modal.shop')
       .evaluate((el) => el.scrollTop);

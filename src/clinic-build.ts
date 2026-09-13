@@ -6,13 +6,13 @@ import {
   type Point,
 } from './town-map.ts';
 import { rescueTrees } from './emergency-map.ts';
-import type { UpgradeId } from './game.ts';
+import { upgrades, type UpgradeId } from './game.ts';
 
 export type Placement = Point & { rotation: number };
-export type BuildItem = { id: string; placement?: Placement };
+export type BuildItem = { id: string; recipe: string; placement?: Placement };
 export type FloorCell = Point & { surface: 'room' | 'garden'; paid?: boolean };
 export type BuildState = {
-  version: 1;
+  version: 2;
   customized: boolean;
   floorEdited: boolean;
   unlocked: string[];
@@ -21,6 +21,7 @@ export type BuildState = {
   credits: number;
 };
 export type BuildStation = {
+  itemId?: string;
   id: string;
   kind: string;
   x: number;
@@ -83,7 +84,7 @@ export const buildRecipes: BuildRecipe[] = [
   recipe('shelf', 'Treat shop shelf', '', 'base-shelf', -4.42, 1.85, 0.8, 2.8),
   recipe(
     'base-plant-0',
-    'Reception fern',
+    'Potted fern',
     '',
     'base-plant-0',
     -4.37,
@@ -93,7 +94,7 @@ export const buildRecipes: BuildRecipe[] = [
   ),
   recipe(
     'base-plant-1',
-    'Window fern',
+    'Potted fern',
     '',
     'base-plant-1',
     4.35,
@@ -152,7 +153,7 @@ export const buildRecipes: BuildRecipe[] = [
     const s = plan.stations.find((s) => s.id === `seat-${i}`)!;
     return recipe(
       s.id,
-      `Lounge chair ${i - 4}`,
+      'Lounge chair',
       'expansion',
       'chair',
       s.x,
@@ -381,14 +382,18 @@ const samePlacement = (a: Placement | undefined, b: Placement | undefined) =>
   JSON.stringify(a) === JSON.stringify(b);
 export class ClinicBuild {
   state: BuildState = {
-    version: 1,
+    version: 2,
     customized: false,
     floorEdited: false,
     unlocked: [],
     tiles: structuredClone(coreCells),
     items: buildRecipes
       .filter((r) => !r.upgrade)
-      .map((r) => ({ id: r.id, placement: { x: r.x, z: r.z, rotation: 0 } })),
+      .map((r) => ({
+        id: r.id,
+        recipe: r.id,
+        placement: { x: r.x, z: r.z, rotation: 0 },
+      })),
     credits: 0,
   };
   revision = 0;
@@ -411,7 +416,45 @@ export class ClinicBuild {
     return (this.stationCache ??= this.makeStations());
   }
   recipe(id: string) {
-    return buildRecipes.find((r) => r.id === id)!;
+    const type = this.items.find((i) => i.id === id)?.recipe ?? id;
+    return buildRecipes.find((r) => r.id === type)!;
+  }
+  copies(recipeId: string) {
+    const r = buildRecipes.find((r) => r.id === recipeId)!;
+    return this.items.filter((i) => this.recipe(i.id).name === r.name);
+  }
+  hasPlaced(recipeId: string) {
+    return this.copies(recipeId).some((i) => i.placement);
+  }
+  /** Each paid copy owns its placement and station reservations. */
+  private addCopy(r: BuildRecipe, placement?: Placement) {
+    let id = r.id,
+      serial = 1;
+    const used = new Set(this.items.map((i) => i.id));
+    while (used.has(id)) id = `${r.id}~${serial++}`;
+    const item: BuildItem = { id, recipe: r.id, placement };
+    this.items.push(item);
+    return item;
+  }
+  /** Call only after purchase() has charged the wallet, before saving both. */
+  buy(id: string) {
+    const product = upgrades.find((u) => u.id === id);
+    if (!product) return;
+    if (!('furniture' in product)) {
+      this.unlock(id);
+      return;
+    }
+    if (!this.state.unlocked.includes(id)) this.state.unlocked.push(id);
+    const item = this.addCopy(
+      buildRecipes.find((r) => r.id === product.furniture)!,
+    );
+    this.changed();
+    return item;
+  }
+  itemStations(id: string) {
+    return this.recipe(id).stations.map((station) =>
+      id === this.recipe(id).id ? station : `${station}@${id}`,
+    );
   }
   placement(id: string) {
     return this.items.find((i) => i.id === id)?.placement;
@@ -443,11 +486,12 @@ export class ClinicBuild {
             this.tiles.push(p);
       } else this.state.credits += room.width * room.depth;
     }
-    for (const r of buildRecipes.filter((r) => r.upgrade === id))
-      this.items.push({
-        id: r.id,
-        placement: migrate ? { x: r.x, z: r.z, rotation: 0 } : undefined,
-      });
+    const legacyRecipes = buildRecipes.filter((r) => r.upgrade === id);
+    for (const r of legacyRecipes)
+      this.addCopy(r, migrate ? { x: r.x, z: r.z, rotation: 0 } : undefined);
+    const product = upgrades.find((u) => u.id === id);
+    if (!legacyRecipes.length && product && 'furniture' in product)
+      this.addCopy(buildRecipes.find((r) => r.id === product.furniture)!);
     this.changed();
   }
   private makeStations() {
@@ -458,7 +502,7 @@ export class ClinicBuild {
       if (!item.placement) continue;
       const r = this.recipe(item.id),
         p = item.placement;
-      for (const id of r.stations) {
+      for (const [index, id] of r.stations.entries()) {
         const original = plan.stations.find((s) => s.id === id)!;
         const position = itemPoint(p, {
           x: original.x - r.x,
@@ -473,6 +517,8 @@ export class ClinicBuild {
             : undefined;
         result.push({
           ...original,
+          id: this.itemStations(item.id)[index],
+          itemId: item.id,
           ...position,
           facing: original.facing + p.rotation,
           queueX: q?.x,
@@ -503,8 +549,10 @@ export class ClinicBuild {
     return result;
   }
   stationRotation(s: { id: string }) {
-    const r = buildRecipes.find((r) => r.stations.includes(s.id));
-    return r ? (this.placement(r.id)?.rotation ?? 0) : 0;
+    const station = this.stations.find((st) => st.id === s.id);
+    return station?.itemId
+      ? (this.placement(station.itemId)?.rotation ?? 0)
+      : 0;
   }
   stationPoint(s: { id: string; x: number; z: number }, offset: Point) {
     const p = turnPoint(offset, this.stationRotation(s));
@@ -725,7 +773,7 @@ export class ClinicBuild {
   private port(s: BuildStation): Point {
     this.navigation();
     const pose = { ...s, rotation: this.stationRotation(s) },
-      r = buildRecipes.find((r) => r.stations.includes(s.id))!;
+      r = this.recipe(s.itemId!);
     const preferred =
       s.queueX !== undefined && s.queueZ !== undefined
         ? { x: s.queueX, z: s.queueZ }
@@ -1025,20 +1073,15 @@ export class ClinicBuild {
     if (value === undefined) return true;
     try {
       const s = structuredClone(value) as BuildState;
-      const knownUpgrades = new Set([
-        ...buildRecipes.map((r) => r.upgrade).filter(Boolean),
-        ...plan.rooms.map((r) => r.id),
-        'equipment',
-        'stock',
-      ]);
+      const version = (value as { version: number }).version;
+      const knownUpgrades = new Set<string>(upgrades.map((u) => u.id));
       if (
-        s.version !== 1 ||
+        ![1, 2].includes(version) ||
         typeof s.customized !== 'boolean' ||
         typeof s.floorEdited !== 'boolean' ||
         !Array.isArray(s.tiles) ||
         s.tiles.length > buildable.size ||
         !Array.isArray(s.items) ||
-        s.items.length > buildRecipes.length ||
         !Array.isArray(s.unlocked) ||
         !Number.isInteger(s.credits) ||
         s.credits < 0 ||
@@ -1048,10 +1091,27 @@ export class ClinicBuild {
       if (
         s.unlocked.some((id) => !knownUpgrades.has(id)) ||
         new Set(s.unlocked).size !== s.unlocked.length ||
+        (version === 1 &&
+          buildRecipes.some(
+            (r) =>
+              (!r.upgrade || s.unlocked.includes(r.upgrade)) !==
+              s.items.some((i) => i.id === r.id),
+          ))
+      )
+        return false;
+      if (version === 1) {
+        if (s.items.some((i) => !buildRecipes.some((r) => r.id === i.id)))
+          return false;
+        s.items.forEach((i) => {
+          i.recipe = i.id;
+        });
+        s.version = 2;
+      }
+      if (
         buildRecipes.some(
           (r) =>
-            (!r.upgrade || s.unlocked.includes(r.upgrade)) !==
-            s.items.some((i) => i.id === r.id),
+            !r.upgrade &&
+            !s.items.some((i) => i.id === r.id && i.recipe === r.id),
         )
       )
         return false;
@@ -1072,7 +1132,21 @@ export class ClinicBuild {
       if (
         s.items.some(
           (i) =>
-            !buildRecipes.some((r) => r.id === i.id) ||
+            typeof i.id !== 'string' ||
+            !/^[a-z0-9-]+(?:~[1-9][0-9]*)?$/.test(i.id) ||
+            !(i.id === i.recipe || i.id.startsWith(`${i.recipe}~`)) ||
+            !buildRecipes.some(
+              (r) =>
+                r.id === i.recipe &&
+                (!r.upgrade ||
+                  s.unlocked.includes(r.upgrade) ||
+                  upgrades.some(
+                    (u) =>
+                      'furniture' in u &&
+                      u.furniture === r.id &&
+                      s.unlocked.includes(u.id),
+                  )),
+            ) ||
             (i.placement &&
               (!Number.isFinite(i.placement.x) ||
                 !Number.isFinite(i.placement.z) ||

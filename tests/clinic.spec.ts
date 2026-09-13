@@ -87,21 +87,26 @@ test('examine, diagnose, place treatment, earn rewards, and keep progress', asyn
   ).toBe(false);
 });
 
-test('upgrades charge once and remain owned after reloading', async ({
+test('furniture charges per copy and remains available after reloading', async ({
   page,
 }) => {
   await openClinic(page);
   await page.getByRole('button', { name: /Clinic shop/ }).click();
   await page.locator('[data-upgrade="plants"]').click();
   await expect(page.getByTestId('coins')).toHaveText('60');
-  await expect(page.locator('[data-upgrade="plants"]')).toBeDisabled();
+  await expect(page.locator('[data-upgrade="plants"]')).toBeEnabled();
   await expect(page.locator('[data-upgrade="equipment"]')).toBeDisabled();
   await page.getByRole('button', { name: 'Close shop' }).click();
   await page.reload();
   await page.getByRole('button', { name: /Clinic shop/ }).click();
-  await expect(page.locator('[data-upgrade="plants"]')).toHaveText(
-    'In your collection',
+  await expect(page.locator('[data-upgrade="plants"]')).toContainText(
+    'Buy one',
   );
+  await expect(
+    page
+      .locator('.shop-card')
+      .filter({ has: page.locator('[data-upgrade="plants"]') }),
+  ).toContainText('0 placed · 1 stored');
   await expect(page.getByTestId('coins')).toHaveText('60');
 });
 

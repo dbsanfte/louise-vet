@@ -120,12 +120,8 @@ test('office controls stay inside short, full clinics without page scrolling', a
   await page.getByRole('button', { name: 'Cancel call', exact: true }).click();
   await expect(page.locator('.call-next')).toBeVisible();
   await page.getByRole('button', { name: /Clinic shop/ }).click();
-  await expect(page.locator('[data-upgrade="coaster"]')).toHaveText(
-    /In your collection/,
-  );
-  await expect(page.locator('[data-upgrade="ferris"]')).toHaveText(
-    /In your collection/,
-  );
+  await expect(page.locator('[data-upgrade="coaster"]')).toHaveText(/Buy one/);
+  await expect(page.locator('[data-upgrade="ferris"]')).toHaveText(/Buy one/);
 });
 test('coaster and Ferris wheel purchases remain in the collection after reload', async ({
   page,
@@ -158,7 +154,8 @@ test('coaster and Ferris wheel purchases remain in the collection after reload',
   for (const id of ['expansion', 'pet-room', 'coaster', 'ferris'])
     await page.locator(`[data-upgrade="${id}"]`).click();
   await expect(page.getByTestId('coins')).toHaveText('980');
-  await expect(page.locator('[data-upgrade="coaster"]')).toBeDisabled();
+  await expect(page.locator('[data-upgrade="coaster"]')).toBeEnabled();
+  await expect(page.locator('[data-upgrade="pet-room"]')).toBeDisabled();
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();
   await page.getByRole('button', { name: 'Build', exact: true }).click();
   for (const id of ['coaster', 'ferris'])
@@ -174,7 +171,5 @@ test('coaster and Ferris wheel purchases remain in the collection after reload',
   await expect(page.getByTestId('coins')).toHaveText('980');
   await page.getByRole('button', { name: /Clinic shop/ }).click();
   for (const id of ['coaster', 'ferris'])
-    await expect(page.locator(`[data-upgrade="${id}"]`)).toHaveText(
-      /In your collection/,
-    );
+    await expect(page.locator(`[data-upgrade="${id}"]`)).toHaveText(/Buy one/);
 });

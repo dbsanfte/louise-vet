@@ -1,7 +1,7 @@
 import { ClinicBuild, toClinic, type BuildStation } from './clinic-build.ts';
 import { walkRoute } from './movement.ts';
 import plan from './clinic-layout.json' with { type: 'json' };
-import type { UpgradeId, Visit } from './game.ts';
+import { upgrades, type UpgradeId, type Visit } from './game.ts';
 import type { Household, VisitTicket } from './town-simulation.ts';
 import {
   localToTown,
@@ -199,7 +199,7 @@ export class ClinicLeisure {
       : queueSpot(s, index);
   }
   beginMove(id: string) {
-    for (const s of this.build.recipe(id).stations) this.unavailable.add(s);
+    for (const s of this.build.itemStations(id)) this.unavailable.add(s);
   }
   endMove() {
     this.unavailable.clear();
@@ -210,12 +210,16 @@ export class ClinicLeisure {
     this.movedPets.clear();
   }
   movingReady(id: string, households: Household[]) {
-    const stations = this.build.recipe(id).stations;
+    const stations = this.build.itemStations(id);
     for (const p of this.pets.values())
       if (stations.includes(p.station)) {
         this.movedPets.add(p.ticket);
         p.called = true;
-        if (p.phase === 'use' && finishAtGround(p.station)) return false;
+        if (
+          p.phase === 'use' &&
+          finishAtGround(this.station(p.station)?.kind ?? '')
+        )
+          return false;
         const h = households.find((h) => h.ticket === p.ticket)!;
         p.station = '';
         p.phase = 'return';
@@ -256,16 +260,25 @@ export class ClinicLeisure {
   readonly owners = new Map<number, OwnerActivity>();
   readonly pets = new Map<number, PetActivity>();
   private owned: UpgradeId[] = [];
+  private ownedRecipes = new Set<string>();
   private serial = 0;
   configure(owned: UpgradeId[]) {
     this.owned = [...owned];
+    this.ownedRecipes = new Set(
+      upgrades.flatMap((u) =>
+        owned.includes(u.id) && 'furniture' in u ? [u.furniture] : [],
+      ),
+    );
     this.build.syncOwned(owned);
   }
   available(s: Station | undefined) {
     return Boolean(
       s &&
       !this.unavailable.has(s.id) &&
-      (!s.upgrade || this.owned.includes(s.upgrade as UpgradeId)),
+      (!s.upgrade ||
+        this.owned.includes(s.upgrade as UpgradeId) ||
+        // A chair bought separately also works before its original room kit.
+        (s.itemId && this.ownedRecipes.has(this.build.recipe(s.itemId).id))),
     );
   }
   stations(audience: 'owner' | 'pet') {
@@ -445,7 +458,10 @@ export class ClinicLeisure {
       if (!p.called) {
         p.called = true;
         // A raised cabin finishes its gentle lap before returning to the owner.
-        if (!(p.phase === 'use' && finishAtGround(p.station))) {
+        if (!(
+          p.phase === 'use' &&
+          finishAtGround(this.station(p.station)?.kind ?? '')
+        )) {
           p.station = '';
           p.phase = 'return';
           p.route = this.route(p.position, this.rest(h));
@@ -564,7 +580,7 @@ export class ClinicLeisure {
                 ? 'stand'
                 : station.kind === 'game'
                   ? 'game'
-                  : Boolean(this.build.placement('books'))
+                  : this.build.hasPlaced('books')
                     ? 'read'
                     : 'sit';
           }
@@ -582,7 +598,7 @@ export class ClinicLeisure {
               this.chooseOwner(h);
           } else {
             h.facing = station.facing + layout.clinic.rotation;
-            a.phase = Boolean(this.build.placement('books')) ? 'read' : 'sit';
+            a.phase = this.build.hasPlaced('books') ? 'read' : 'sit';
           }
         }
       }
@@ -593,7 +609,10 @@ export class ClinicLeisure {
         p?.station &&
         (!this.station(p.station) ||
           (!this.available(this.station(p.station)) &&
-            !(p.phase === 'use' && finishAtGround(p.station))))
+            !(
+              p.phase === 'use' &&
+              finishAtGround(this.station(p.station)?.kind ?? '')
+            )))
       ) {
         p.station = '';
         p.phase = 'return';
@@ -708,9 +727,13 @@ export class ClinicLeisure {
                   ['walk', 'queue'].includes(other.phase),
               ).length < 3,
           );
-          const station =
-            choices[(h.id + p.turns) % Math.max(1, choices.length)];
+          let station = choices[(h.id + p.turns) % Math.max(1, choices.length)];
           if (station) {
+            // Prefer a free copy of the same activity to joining a busy one.
+            const load = (s: Station) =>
+              [...this.pets.values()].filter((p) => p.station === s.id).length;
+            for (const copy of choices.filter((s) => s.kind === station!.kind))
+              if (load(copy) < load(station)) station = copy;
             p.station = station.id;
             p.joined = this.serial++;
             p.phase = 'walk';
@@ -756,6 +779,7 @@ export class ClinicLeisure {
       const all = [...this.pets.values()].filter((p) => p.station === s.id);
       return {
         id: s.id,
+        kind: s.kind,
         using: all.find((p) => ['use', 'board'].includes(p.phase))?.ticket,
         queued: all.filter((p) => ['walk', 'queue'].includes(p.phase)).length,
       };

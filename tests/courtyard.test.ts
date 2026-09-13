@@ -96,8 +96,8 @@ test('courtyard purchases charge once, require space, and preserve eight-patient
     assert.ok(purchase(p, id));
   assert.equal(clinicCapacity(p.upgrades), 8);
   const coins = p.coins;
-  assert.equal(purchase(p, 'bubbles'), false);
-  assert.equal(p.coins, coins);
+  assert.equal(purchase(p, 'bubbles'), true);
+  assert.equal(p.coins, coins - 130);
 });
 test('the courtyard stays off streets; all new activities are used, saved, and can be recalled for care', () => {
   const room = clinicPlan.rooms.find((r) => r.id === 'sun-courtyard')!;

@@ -891,12 +891,13 @@ export const zoneNames: Record<Zone, string> = {
 export const upgrades = [
   {
     id: 'plants',
-    name: 'A little more green',
+    furniture: 'plant-0',
+    name: 'Leafy plant',
     kind: 'Decoration',
     price: 60,
     icon: 'leaf',
     description:
-      'Leafy friends for a welcoming clinic. +3 happiness per visit.',
+      'One leafy plant for a welcoming clinic. Your first purchase adds +3 happiness per visit.',
   },
   {
     id: 'stock',
@@ -909,11 +910,13 @@ export const upgrades = [
   },
   {
     id: 'bench',
+    furniture: 'bench',
     name: 'Comfy waiting seats',
     kind: 'Furniture',
     price: 90,
     icon: 'chair',
-    description: 'A softer spot for little paws. +4 happiness per visit.',
+    description:
+      'One bench with two seats. Your first purchase adds +4 happiness per visit.',
   },
   {
     id: 'equipment',
@@ -926,6 +929,7 @@ export const upgrades = [
   },
   {
     id: 'poster',
+    furniture: 'poster',
     name: 'Tell the neighbourhood',
     kind: 'Advertising',
     price: 110,
@@ -943,6 +947,7 @@ export const upgrades = [
   },
   {
     id: 'books',
+    furniture: 'books',
     name: 'Books and magazines',
     kind: 'Owner pastime',
     price: 65,
@@ -952,6 +957,7 @@ export const upgrades = [
   },
   {
     id: 'table-games',
+    furniture: 'table-games',
     name: 'Tabletop games',
     kind: 'Owner pastime',
     price: 130,
@@ -971,6 +977,7 @@ export const upgrades = [
   },
   {
     id: 'scratch',
+    furniture: 'scratch',
     name: 'Scratching post',
     kind: 'Pet amusement',
     price: 85,
@@ -981,6 +988,7 @@ export const upgrades = [
   },
   {
     id: 'wheel',
+    furniture: 'wheel',
     name: 'Exercise wheel',
     kind: 'Pet amusement',
     price: 110,
@@ -991,6 +999,7 @@ export const upgrades = [
   },
   {
     id: 'carousel',
+    furniture: 'carousel',
     name: 'Gentle merry-go-round',
     kind: 'Pet amusement',
     price: 160,
@@ -1001,6 +1010,7 @@ export const upgrades = [
   },
   {
     id: 'coaster',
+    furniture: 'coaster',
     name: 'Pet rollercoaster',
     kind: 'Pet amusement',
     price: 260,
@@ -1011,6 +1021,7 @@ export const upgrades = [
   },
   {
     id: 'ferris',
+    furniture: 'ferris',
     name: 'Pet Ferris wheel',
     kind: 'Pet amusement',
     price: 220,
@@ -1031,6 +1042,7 @@ export const upgrades = [
   },
   {
     id: 'treat-dispenser',
+    furniture: 'treat-dispenser',
     name: 'Treat dispenser',
     kind: 'Pet amusement',
     price: 80,
@@ -1041,6 +1053,7 @@ export const upgrades = [
   },
   {
     id: 'water-dispenser',
+    furniture: 'water-dispenser',
     name: 'Water dispenser',
     kind: 'Pet amusement',
     price: 65,
@@ -1051,6 +1064,7 @@ export const upgrades = [
   },
   {
     id: 'toy-box',
+    furniture: 'toy-box',
     name: 'Bouncy toy box',
     kind: 'Pet amusement',
     price: 120,
@@ -1061,6 +1075,7 @@ export const upgrades = [
   },
   {
     id: 'yarn',
+    furniture: 'yarn',
     name: 'Yarn-ball corner',
     kind: 'Pet amusement',
     price: 75,
@@ -1070,6 +1085,7 @@ export const upgrades = [
   },
   {
     id: 'aviary',
+    furniture: 'aviary',
     name: 'Bird aviary',
     kind: 'Pet amusement',
     price: 200,
@@ -1080,6 +1096,7 @@ export const upgrades = [
   },
   {
     id: 'play-tree',
+    furniture: 'play-tree',
     name: 'Friendly play tree',
     kind: 'Pet amusement',
     price: 180,
@@ -1100,6 +1117,7 @@ export const upgrades = [
   },
   {
     id: 'puzzle-table',
+    furniture: 'puzzle-table',
     name: 'Puzzle picnic table',
     kind: 'Customer amusement',
     price: 150,
@@ -1110,6 +1128,7 @@ export const upgrades = [
   },
   {
     id: 'bubbles',
+    furniture: 'bubbles',
     name: 'Bubble chase',
     kind: 'Pet amusement',
     price: 130,
@@ -1120,6 +1139,7 @@ export const upgrades = [
   },
   {
     id: 'cat-nook',
+    furniture: 'cat-nook',
     name: 'Cosy cat nook',
     kind: 'Pet amusement',
     price: 95,
@@ -1130,6 +1150,7 @@ export const upgrades = [
   },
   {
     id: 'bird-chimes',
+    furniture: 'bird-chimes',
     name: 'Bird chime arch',
     kind: 'Pet amusement',
     price: 115,
@@ -1140,6 +1161,7 @@ export const upgrades = [
   },
   {
     id: 'flower-border',
+    furniture: 'flower-border',
     name: 'Blooming flower border',
     kind: 'Decoration',
     price: 85,
@@ -1150,6 +1172,7 @@ export const upgrades = [
   },
   {
     id: 'bunting',
+    furniture: 'bunting',
     name: 'Pawprint bunting',
     kind: 'Decoration',
     price: 70,
@@ -1159,6 +1182,7 @@ export const upgrades = [
   },
   {
     id: 'cosy-rug',
+    furniture: 'cosy-rug',
     name: 'Cosy welcome rug',
     kind: 'Decoration',
     price: 75,
@@ -1168,12 +1192,87 @@ export const upgrades = [
   },
   {
     id: 'wall-art',
+    furniture: 'wall-art',
     name: 'Happy pets gallery',
     kind: 'Decoration',
     price: 90,
     icon: 'paw',
     description:
       'Three cheerful framed pet pictures brighten the reception wall.',
+  },
+  {
+    id: 'lounge-chair',
+    furniture: 'seat-5',
+    name: 'Lounge chair',
+    kind: 'Furniture',
+    price: 45,
+    icon: 'chair',
+    description: 'One comfy chair. Buy a seat for every spot you have in mind.',
+  },
+  {
+    id: 'welcome-bench',
+    furniture: 'welcome-bench',
+    name: 'Welcome bench',
+    kind: 'Furniture',
+    price: 75,
+    icon: 'chair',
+    description: 'One three-seat bench, just like the one in reception.',
+  },
+  {
+    id: 'shelf',
+    furniture: 'shelf',
+    name: 'Treat shop shelf',
+    kind: 'Furniture',
+    price: 55,
+    icon: 'jar',
+    description:
+      'Another shelf for your shop. Treat stock is bought separately.',
+  },
+  {
+    id: 'fern',
+    furniture: 'base-plant-0',
+    name: 'Potted fern',
+    kind: 'Furniture',
+    price: 35,
+    icon: 'leaf',
+    description: 'A soft green fern in a terracotta pot.',
+  },
+  {
+    id: 'round-rug',
+    furniture: 'round-rug',
+    name: 'Round welcome rug',
+    kind: 'Furniture',
+    price: 40,
+    icon: 'heart',
+    description: 'A round rug to brighten a cosy corner.',
+  },
+  {
+    id: 'welcome-mat',
+    furniture: 'welcome-mat',
+    name: 'Welcome mat',
+    kind: 'Furniture',
+    price: 25,
+    icon: 'paw',
+    description: 'A friendly little mat for your clinic.',
+  },
+  {
+    id: 'paw-picture',
+    furniture: 'paw-picture',
+    name: 'Pawprint picture',
+    kind: 'Furniture',
+    price: 30,
+    icon: 'paw',
+    description: 'A framed pawprint to decorate your clinic.',
+  },
+  {
+    id: 'toys',
+    furniture: 'toys',
+    name: 'Toy corner',
+    kind: 'Furniture',
+    price: 60,
+    icon: 'star',
+    requires: 'pet-room',
+    description: 'Another soft play corner for dogs, cats and rabbits.',
   },
 ] as const;
 export type UpgradeId = (typeof upgrades)[number]['id'];
@@ -1253,13 +1352,15 @@ export function purchase(p: Progress, id: string): boolean {
     !item ||
     p.coins < item.price ||
     ('requires' in item && !p.upgrades.includes(item.requires)) ||
-    (id !== 'stock' && p.upgrades.includes(item.id)) ||
+    (id !== 'stock' &&
+      !('furniture' in item) &&
+      p.upgrades.includes(item.id)) ||
     (id === 'stock' && p.stock > 994)
   )
     return false;
   p.coins -= item.price;
   if (id === 'stock') p.stock += 6;
-  else p.upgrades.push(item.id);
+  else if (!p.upgrades.includes(item.id)) p.upgrades.push(item.id);
   return true;
 }
 export function reward(p: Progress, quality: number) {

@@ -60,6 +60,7 @@ window.buildTest = {
       x: o.position.x,
       z: o.position.z,
       rotation: o.rotation.y,
+      wheelRotation: o.getObjectByName('WheelRotor')?.rotation.x,
     })),
   doors: () =>
     world
@@ -85,6 +86,7 @@ declare global {
         x: number;
         z: number;
         rotation: number;
+        wheelRotation?: number;
       }[];
       doors: () => { visible: boolean; x: number; z: number }[];
     };

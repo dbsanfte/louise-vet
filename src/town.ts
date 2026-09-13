@@ -709,7 +709,8 @@ export class Town {
                   : 'Idle',
             );
         }
-        sleeping ||= play?.station === 'cat-nook' && play.phase === 'use';
+        sleeping ||=
+          play?.station.split('@')[0] === 'cat-nook' && play.phase === 'use';
         p.model.userData.sleeping = sleeping;
         p.placed = true;
         p.model.rotation.y = turnToward(previousFacing, p.model.rotation.y, dt);

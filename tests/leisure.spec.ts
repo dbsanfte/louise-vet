@@ -73,7 +73,7 @@ async function open(
   });
 }
 test.setTimeout(120000);
-test('shop unlocks room kits and stored amusements once, then preserves the collection on reload', async ({
+test('shop keeps room kits one-time and amusements repeatable, then preserves the collection on reload', async ({
   page,
 }, info) => {
   await open(page);
@@ -93,7 +93,8 @@ test('shop unlocks room kits and stored amusements once, then preserves the coll
     'carousel',
   ])
     await page.locator(`[data-upgrade="${id}"]`).click();
-  await expect(page.locator('[data-upgrade="carousel"]')).toBeDisabled();
+  await expect(page.locator('[data-upgrade="carousel"]')).toBeEnabled();
+  await expect(page.locator('[data-upgrade="pet-room"]')).toBeDisabled();
   await expect(page.getByTestId('coins')).toHaveText('820');
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();
   await page.getByRole('button', { name: 'Build', exact: true }).click();
