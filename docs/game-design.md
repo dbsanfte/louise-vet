@@ -221,7 +221,11 @@ object as it moves and shows the name, owner/species or role, and current feelin
 The name is bold; descriptions and messages use regular-weight, normal-case text.
 Owners and Louise use speech bubbles with a pointed wedge reaching toward their
 animated mouth. Animal feelings use scalloped thought clouds, with a trail of
-three shrinking circles toward the top of their head. Pets never speak English.
+three shrinking circles toward the top of their head. Thoughts are internal
+monologue: “I want to try that toy,” “One more ride!” or “This is a comfy spot.”
+Independent clinic play, exploring, eating and waiting do not address or repeatedly
+name an owner. An owner can feature in a relevant third-person thought, such as
+“Where is Max?” during a lost-pet search. Pets never speak English.
 When answering an owner's gathering, walk, desk call, chat or reunion message, pets may
 use a speech bubble containing only their own species-appropriate sounds. Each
 voiced pet has five distinct sound patterns; fish remain silent and use thoughts.
@@ -251,8 +255,9 @@ another turn or wonders where its owner went. Avoid forced name puns, baby talk,
 unrelated catchphrases and body or mood claims that do not fit the species or
 visible action. Worries and rescues use calm, reassuring language. Names fit
 naturally into the sentence; owners address the current companions, the clinic
-patient or the pet actually involved in a rescue. Pets sharing an owner use
-different sentence sets. Variants cycle per character and action without repeating
+patient or the pet actually involved in a rescue. Each pet has a different
+five-line selection from the activity's thought pool; short everyday phrases can
+appear in more than one pet's selection. Variants cycle per character and action without repeating
 until all five have been used. These small fictional thoughts are atmosphere,
 not clinical advice, personality scores or preferences.
 
@@ -1488,7 +1493,9 @@ Animal spoken replies contain only species-appropriate noises and no fish speech
 Food wording is species-specific. Every named pet/owner has at least five
 distinct messages per action/feeling, cycling before repetition. Read the complete
 rendered sentences for natural grammar, an appropriate species/action and correct
-companion names; do not attach generic slogans to otherwise useful messages. All household
+companion names; do not attach generic slogans to otherwise useful messages.
+Pet thoughts use an internal voice, with no direct address to an owner; independent
+clinic thoughts focus on the activity. All household
 routines and rescue phases have contextual pet/owner lines, with no shared rescue
 claim from an uninvolved pet. Inspection does not call pets, change scores or
 move controls below the viewport. [Bubble/content rules](../tests/speech-bubbles.test.ts)

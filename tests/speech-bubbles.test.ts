@@ -4,7 +4,11 @@ import { BubbleDirector } from '../src/speech-bubbles.ts';
 import { characterVoices, messagesFor } from '../src/character-voices.ts';
 import { dialogue } from '../src/character-dialogue.ts';
 import { characterFeeling, rescueFeelings } from '../src/character-feelings.ts';
-import { foodFeelings, attractionFeeling } from '../src/clinic-identity.ts';
+import {
+  clinicAttractions,
+  foodFeelings,
+  attractionFeeling,
+} from '../src/clinic-identity.ts';
 import { TownSimulation, type Routine } from '../src/town-simulation.ts';
 import { visits } from '../src/game.ts';
 import type { RescuePhase } from '../src/emergencies.ts';
@@ -52,6 +56,7 @@ test('every named pet and owner has five distinct personal lines per action and 
   assert.deepEqual(Object.keys(characterVoices).sort(), [...names].sort());
   for (const [action, bank] of Object.entries(dialogue)) {
     const all = new Set<string>();
+    const repertoires = new Set<string>();
     for (const name of names) {
       const kind = characterVoices[name].kind;
       if (
@@ -62,8 +67,20 @@ test('every named pet and owner has five distinct personal lines per action and 
       const lines = messagesFor(name, action);
       assert.equal(lines.length, 5, name);
       assert.equal(new Set(lines).size, 5, name);
+      const repertoire = JSON.stringify([...lines].sort());
+      assert.ok(
+        !repertoires.has(repertoire),
+        `shared repertoire: ${name}, ${action}`,
+      );
+      repertoires.add(repertoire);
       for (const line of lines) {
-        assert.ok(!all.has(line), `shared line: ${line}`);
+        if (kind === 'owner') assert.ok(!all.has(line), `shared line: ${line}`);
+        else
+          assert.doesNotMatch(
+            line,
+            /\b(?:you|your|yours)\b/i,
+            `internal thought: ${line}`,
+          );
         assert.ok(line.length <= 140, `keep bubbles short: ${line}`);
         assert.doesNotMatch(line, /[{}|]|undefined|\s{2}| ,|\.\./, line);
         assert.match(line, /^[A-Z].*[.!?]$/, line);
@@ -71,6 +88,29 @@ test('every named pet and owner has five distinct personal lines per action and 
       }
     }
   }
+});
+
+test('independent clinic thoughts focus on the activity without addressing or naming an owner', () => {
+  const actions = [
+    ...Object.values(clinicAttractions).map((a) => a.feeling),
+    ...Object.values(foodFeelings),
+    'My turn soon!',
+    'All aboard!',
+    'Ooh! Let us try this!',
+    'Happy to wait with you.',
+    'Hello, cosy clinic!',
+  ];
+  for (const pet of visits)
+    for (const action of actions)
+      for (const line of messagesFor(pet.name, action)) {
+        assert.ok(!line.includes(pet.owner), `${pet.name}: ${line}`);
+        assert.doesNotMatch(line, /\b(?:you|your|yours)\b/i, line);
+      }
+  assert.ok(
+    messagesFor('Ziggy', 'Where did everyone go?').some((line) =>
+      line.includes('Max'),
+    ),
+  );
 });
 
 test('a character cycles through five messages before repeating an action', () => {

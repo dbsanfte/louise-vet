@@ -4,7 +4,7 @@ import { dialogue } from './character-dialogue.ts';
 type Voice = {
   kind: 'pet' | 'owner';
   friend: string;
-  variation: 0 | 1;
+  variation: number;
 };
 export const characterVoices: Record<string, Voice> = {
   Louise: { kind: 'owner', friend: '', variation: 0 },
@@ -14,13 +14,35 @@ for (const pet of visits) {
   characterVoices[pet.name] = {
     kind: 'pet',
     friend: pet.owner,
-    variation: (family.indexOf(pet) % 2) as 0 | 1,
+    variation: visits.indexOf(pet),
   };
   characterVoices[pet.owner] = {
     kind: 'owner',
     friend: family.map((p) => p.name).join(' and '),
     variation: 0,
   };
+}
+
+// Different five-line selections let pets have individual repertoires without
+// forcing a name or catchphrase into every thought. Build each pool only once.
+const thoughtChoices = new Map<readonly string[], string[][]>();
+function thoughts(pool: readonly string[], variation: number): string[] {
+  let choices = thoughtChoices.get(pool);
+  if (!choices) {
+    const lines = [...new Set(pool.flatMap((part) => part.split('|')))];
+    choices = [];
+    const choose = (from: number, selected: string[]) => {
+      if (selected.length === 5) {
+        choices!.push(selected);
+        return;
+      }
+      for (let i = from; i <= lines.length - (5 - selected.length); i++)
+        choose(i + 1, [...selected, lines[i]]);
+    };
+    choose(0, []);
+    thoughtChoices.set(pool, choices);
+  }
+  return choices[(variation * 37) % choices.length];
 }
 
 /** Pick complete sentences for this situation, never append a stock catchphrase.
@@ -35,9 +57,11 @@ export function messagesFor(
   if (!voice) throw new Error(`Missing character voice: ${name}`);
   const bank = dialogue[action];
   const lines =
-    voice.kind === 'pet' ? bank?.pet?.[voice.variation] : bank?.owner;
+    voice.kind === 'pet'
+      ? bank?.pet && thoughts(bank.pet, voice.variation)
+      : bank?.owner?.split('|');
   if (!lines) throw new Error(`Missing ${voice.kind} dialogue: ${action}`);
-  return lines
-    .split('|')
-    .map((line) => line.replaceAll('{friend}', companion ?? voice.friend));
+  return lines.map((line) =>
+    line.replaceAll('{friend}', companion ?? voice.friend),
+  );
 }

@@ -122,6 +122,10 @@ test('head bubbles identify people, companions and every attraction without repl
         ? 'speech'
         : 'label';
     await expect(bubble(page)).toHaveAttribute('data-kind', kind);
+    if (pet)
+      await expect(bubble(page).locator('.bubble-feeling')).not.toContainText(
+        pet.owner,
+      );
     await expect(bubble(page).locator('.bubble-name')).toHaveCSS(
       'font-weight',
       '800',
