@@ -606,7 +606,13 @@ function renderModal() {
   let title = '';
   if (modal === 'visit' && patient) {
     title = `${patient.name}’s visit`;
-    content = `<p class="modal-intro">${patient.breed} · ${patient.age}</p>${byId('sidebar').querySelector('.case-details')?.innerHTML ?? ''}<p>Choose a tool, then hold and drag it over ${patient.name}, or tap a labelled body guide. Use Look around to turn your patient. Your discoveries stay in Key clues and Care notes.</p>`;
+    const help =
+      patient.treatment === 'vaccine'
+        ? 'The vaccine is ready. Find the soft patch on the upper body, or tap the Coat guide. Then follow the gentle-pressure activity. There is no diagnosis to choose today.'
+        : patient.purpose === 'checkup'
+          ? 'Follow the two standard checks. Choose a check, then use its tool at the listed spot or tap a labelled body guide. Both ticks unlock Finish healthy checkup.'
+          : `Choose a tool, then hold and drag it over ${patient.name}, or tap a labelled body guide. Your discoveries stay in Key clues and Care notes. Both key clues unlock Choose a diagnosis.`;
+    content = `<p class="modal-intro">${patient.breed} · ${patient.age}</p>${byId('sidebar').querySelector('.case-details')?.innerHTML ?? ''}<p>${help}</p><p>Use Look around to turn your patient. Stop visit returns you to the office; your patient can try again later.</p>`;
   } else if (modal === 'shop') {
     title = 'Make it feel like home';
     content = `<p class="modal-intro">Buy things for your collection, then place them in Build mode. Room kits give you free floor tiles to use anywhere on your plot.</p><div class="shop-balance">${icon('coin')} <strong>${progress.coins}</strong> coins to spend</div><div class="shop-grid">${upgrades

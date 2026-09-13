@@ -196,6 +196,12 @@ test('small-phone vaccination keeps guidance and exit visible without a diagnost
     'data-mode',
     'place-vaccine',
   );
+  await page.getByRole('button', { name: 'About Hazel’s visit' }).tap();
+  await expect(page.getByRole('dialog')).toContainText(
+    'gentle-pressure activity',
+  );
+  await expect(page.getByRole('dialog')).not.toContainText('Key clues');
+  await page.getByRole('button', { name: 'Close visit', exact: true }).tap();
   await expect(page.locator('#clue-summary')).toBeHidden();
   await expectCompactLayout(page);
   await page
