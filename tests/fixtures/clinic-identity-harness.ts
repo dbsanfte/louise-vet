@@ -42,7 +42,9 @@ declare global {
 }
 function named(name: string) {
   let target: Object3D | undefined;
-  world.scene.traverse((o) => {
+  // Stored copies share the same player-facing name. Target a rendered copy,
+  // just as the real pointer picker ignores hidden collection items.
+  world.scene.traverseVisible((o) => {
     if (o.userData.clinicInfo?.name === name) target = o;
   });
   if (!target) throw Error('Missing clinic object: ' + name);
