@@ -210,8 +210,8 @@ test('one bubble follows its rider, changes feeling when the turn ends, and leav
     await cdp.detach();
     await expect(bubble(page).locator('.bubble-name')).toHaveText('Luna');
   } else await pointAt(page, 'Luna', false);
-  await expect(bubble(page).locator('.bubble-feeling')).toContainText(
-    clinicAttractions.coaster.feeling,
+  expect(messagesFor('Luna', clinicAttractions.coaster.feeling)).toContain(
+    await bubble(page).locator('.bubble-feeling').textContent(),
   );
   const before = await bubble(page).getAttribute('data-anchor-x');
   await page.evaluate(() => window.clinicAdvance(1));
@@ -332,7 +332,7 @@ test('Hookville rescue feelings appear automatically above the actual owners and
       family.pets.find((p) => p.name === speaker),
     );
     expect(feeling.priority).toBe(4);
-    expect(messagesFor(speaker, feeling.text, true)).toContain(
+    expect(messagesFor(speaker, feeling.text, feeling.companion)).toContain(
       await speech.locator('.bubble-feeling').textContent(),
     );
     await expect(page.locator('.world-bubble:visible')).toHaveCount(1);

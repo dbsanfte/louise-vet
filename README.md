@@ -127,7 +127,7 @@ People speak in bubbles pointing to their mouths; pets think in fluffy clouds
 and only make animal noises when replying. Pets and owners also share reactions
 while playing, eating, walking and taking part in Hookville's rescue stories.
 Every named pet and owner has at least five individual message variants for
-each action or feeling.
+each action or feeling, written in simple, natural language about what they are doing.
 
 Owners check in once on arrival, then stay at their waiting seat or game table until called. Place a book trolley for seated reading and a
 board-game table for games. The playground includes a toy corner; add a

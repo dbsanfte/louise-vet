@@ -3,7 +3,12 @@ import type { Visit } from './game.ts';
 import type { RescuePhase } from './emergencies.ts';
 import { attractionFeeling } from './clinic-identity.ts';
 
-export type Feeling = { key: string; text: string; priority: number };
+export type Feeling = {
+  key: string;
+  text: string;
+  priority: number;
+  companion?: string;
+};
 // Pet / owner lines for every stage. Hidden pets inside houses remain hidden;
 // these lines only speak when their actual rendered character is visible.
 export const rescueFeelings: Record<RescuePhase, readonly [string, string]> = {
@@ -43,10 +48,23 @@ export function characterFeeling(
   h: Household,
   pet?: Visit,
 ): Feeling {
+  const patient =
+    h.inClinic && h.ticket !== undefined
+      ? s.tickets.get(h.ticket)?.pet
+      : undefined;
+  const companions = h.pets
+    .filter((p) => h.companions.includes(p.name))
+    .map((p) => p.name);
   const say = (key: string, text: string, priority = 1): Feeling => ({
     key,
     text,
     priority,
+    companion: pet
+      ? undefined
+      : (patient ??
+        (companions.length ? companions : h.pets.map((p) => p.name)).join(
+          ' and ',
+        )),
   });
   const e = s.emergencies.active;
   if (
@@ -70,16 +88,25 @@ export function characterFeeling(
       else if (e.recalled) text = 'Here I am! I will wait.';
       else if (pet.species === 'bird') text = 'Flap, flap! Another tree!';
     }
-    return say(
+    const feeling = say(
       `rescue:${e.kind}:${e.phase}:${e.trapped}:${e.recalled}:${e.rescued}`,
       text,
       4,
     );
+    if (!pet)
+      feeling.companion = h.pets
+        .filter((p) => e.pets.includes(p.name))
+        .map((p) => p.name)
+        .join(' and ');
+    return feeling;
   }
   if (e?.chaser === h.id && pet?.name === e.chaserPet && e.chase)
     return say('chasing', 'Oops! I got a bit too bouncy!', 3);
   if (e?.chaser === h.id && !pet && e.chase)
-    return say('calling-chaser', 'Come back! Gentle play, please.', 3);
+    return {
+      ...say('calling-chaser', 'Come back! Gentle play, please.', 3),
+      companion: e.chaserPet,
+    };
   if (
     h.busyUntil !== undefined &&
     s.time < h.busyUntil &&

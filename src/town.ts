@@ -350,7 +350,7 @@ export class Town {
       ...info,
       bubble: pet ? 'thought' : 'speech',
       feeling: feeling.text,
-      messages: messagesFor(info.name, feeling.text, feeling.priority >= 3),
+      messages: messagesFor(info.name, feeling.text, feeling.companion),
     };
   }
   reactions(inside: boolean): BubbleCandidate<THREE.Object3D>[] {
@@ -398,7 +398,7 @@ export class Town {
               description: '',
               bubble: pet ? ('thought' as const) : ('speech' as const),
               feeling: feeling.text,
-              messages: messagesFor(name, feeling.text, feeling.priority >= 3),
+              messages: messagesFor(name, feeling.text, feeling.companion),
             },
           };
         });
