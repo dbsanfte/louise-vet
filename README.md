@@ -111,7 +111,9 @@ in the shop. Existing kit chairs and furniture are preserved. Select a placed
 item to move it or **Store** it for later. Occupants step off before it is lifted;
 raised rides and flying/climbing pets finish safely at ground level. Clear-route
 checks help keep the clinic usable. Existing saves retain their current furniture,
-rooms and activities, ready to rearrange whenever you like.
+rooms and activities, ready to rearrange whenever you like. If saved town activity
+needs to restart, a valid furniture layout and all its paid copies are recovered
+independently.
 
 **Room for more paws** supplies 48 free floor tiles and three chairs; **Pet
 playground** supplies 84 tiles and a toy corner. Capacity grows from 4 to 6 to 8.

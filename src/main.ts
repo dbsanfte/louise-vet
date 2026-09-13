@@ -38,7 +38,14 @@ type Mode =
 const app = document.querySelector<HTMLDivElement>('#app')!;
 const progress = loadProgress();
 const simulation = new TownSimulation(visits);
-if (!simulation.restore(progress.town)) simulation.seedClinic();
+if (!simulation.restore(progress.town)) {
+  // A rejected ambient-town snapshot must not cost the player paid furniture.
+  // The layout has its own strict validation and can be recovered independently.
+  const town = progress.town;
+  if (town && typeof town === 'object' && 'build' in town)
+    simulation.build.restore(town.build);
+  simulation.seedClinic();
+}
 let townRevision = simulation.revision;
 let lastTownSave = 0;
 const audio = new Audio();

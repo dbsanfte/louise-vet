@@ -444,3 +444,56 @@ test('paid furniture copies have ordinary names, counts and independent placemen
   await expect(page.locator('[data-upgrade="wheel"]')).toBeEnabled();
   expect(errors).toEqual([]);
 });
+
+test('recovering rejected town activity keeps all paid furniture, placements and floor credits', async ({
+  page,
+}, info) => {
+  await open(page, false, ['expansion', 'pet-room']);
+  await page.locator('[data-build="shop"]').click();
+  for (let i = 0; i < 4; i++)
+    await page.locator('[data-upgrade="lounge-chair"]').click();
+  for (let i = 0; i < 2; i++)
+    await page.locator('[data-upgrade="wheel"]').click();
+  await page.locator('[data-upgrade="play-annex"]').click();
+  await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  await page.locator('[data-build="pick"][data-id="seat-5~1"]').click();
+  await tap(page, -8, 0, info.project.name === 'mobile');
+  await expect(page.locator('#build-feedback')).toContainText('Lovely');
+  await page.locator('[data-build="done"]').click();
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('louises-vet-office-v1')!),
+  );
+  const bad = structuredClone(saved);
+  bad.town.households[0].remaining = -100;
+  expect(new TownSimulation(visits).restore(bad.town)).toBe(false);
+  await page.evaluate(
+    (bad) => localStorage.setItem('louises-vet-office-v1', JSON.stringify(bad)),
+    bad,
+  );
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    saved.town.build,
+  );
+  await expect(page.getByTestId('coins')).toHaveText('4,300');
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  await expect(page.locator('.build-price')).toContainText(
+    '48 free floor tiles',
+  );
+  await expect(
+    page.locator('[data-build="pick"][data-id="seat-5~2"]'),
+  ).toContainText('3 available');
+  await expect(
+    page.locator('[data-build="pick"][data-id="wheel"]'),
+  ).toContainText('2 available');
+  await page.locator('[data-build="done"]').click();
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    saved.town.build,
+  );
+});
