@@ -95,35 +95,42 @@ notebook without moving the page. See the
 
 ## Expand the clinic
 
-Choose **Build** in the office to shape your clinic on a grid. Draw **Room** or
-**Garden** space by dragging or tapping two opposite grid corners. A live outline
-shows the snapped rectangle on desktop and touch screens, with a fixed first
-corner and snapping to nearby room edges. Overlapping an existing row is fine:
-old floor stays intact and only new tiles are charged. Release to plan; a clear
-door connects automatically. Confirm with **Build space**, or tap outside the
-outline to cancel. Nothing is spent until confirmation. Choose **With walls**/**Picket fence** for a separate space,
-or **Open space** to extend the existing floor. Room and garden guides suggest
-uses; furnish each space however you like. Their pictured **Waiting room**, **Pet
-playground**, **Adventure room** and **Garden** floor plans can also be dragged into
-the scene. They snap beside existing floor, preview before release and build on a
-valid drop, with automatic doors. Or tap a card, rotate/nudge it, then tap a scene
-spot or **Place space**. Invalid drops spend nothing; drop outside to cancel.
-These are reusable empty shells using floor credits, then 3 coins per tile;
-add furniture separately. Customize their floor and doors with the usual tools. **Doors** lets you add or close a
-doorway, or remove a shared wall section. Every space must keep a clear way in.
-Choose **Furniture** to return to the collection and place items. Rotate with **R** or **Rotate**, use the nudge
-buttons for fine adjustments, and choose **Done** to resume the day. **Camera**
-lets you orbit and pan; desktop arrow keys and camera buttons stay available. **Whole plot**
-shows the surrounding buildable greenspace, clear of roads and neighbouring homes.
+Choose **Build**, then **Place furniture** or **Build spaces**. Build spaces has
+separate **Floor** and **Garden** choices. Drag a rectangle and release to build it
+immediately, or tap two corners. The live outline stays anchored and snaps to
+nearby room edges. Doors connect automatically; overlapping old floor preserves it
+and charges only for the new tiles. Invalid rectangles spend nothing and can be
+redrawn. There is no Build space confirmation button.
+
+The dedicated controls row has a back-arrow **Undo**, **Erase**, **Doors** and
+**Camera**. Undo reverses consecutive space edits and restores their coins/floor
+credits, including prefabs, door changes and erased floor. It saves immediately. Picking furniture,
+opening Shop, leaving Build or reloading clears that space history.
+Ctrl/Cmd+Z also undoes; desktop nudge arrows plus **C** set each rectangle corner.
+**Cancel** or Escape abandons an unfinished stroke. Erase still asks you to review
+and choose **Remove floor** before deleting floor.
+
+**Interior** adds walls, or a garden fence; **Exterior** leaves the new space open.
+The pictured floor plans lead each space catalogue: **Waiting room** and
+**Adventure room** under Floor, **Garden** and **Pet playground** under Garden.
+Drag a picture into the scene to preview and build on a valid drop, or tap it,
+rotate/nudge, and tap a scene spot or **Place space**. These are reusable empty
+shells using kit credits, then 3 coins per tile; add furniture separately. Purchased
+kits with unused credits come first in their surface list.
+
+**Doors** edits entrances and shared wall sections while keeping every space
+reachable. Two fingers pan/pinch/twist in every tool; **Camera** additionally lets
+one finger orbit. Desktop arrow keys and camera buttons remain available.
+**Whole plot** frames the buildable grounds; **Done** returns to the clinic.
 
 Buy furniture in **Clinic shop** to add it to your collection. Every purchase
 buys one copy: add as many lounge chairs, exercise wheels or other furnishings as
 you can afford, with room to place them. The shop shows placed/stored counts;
 Build shows one illustrated card per type with spare copies **available** to
-place. Already-placed items are absent from the inventory: choose **Furniture**
+place. Already-placed items are absent from the inventory: choose **Place furniture**
 and click/tap the item itself in the clinic to pick it up. Placing the last spare
 removes its card; **Store** adds the picked-up item to the inventory. Unused room
-kits still lead the list with pictured floor plans, remaining credits and cost.
+kits appear in Build spaces with pictured floor plans, remaining credits and cost.
 Shop pictures match the game's models too.
 Individual lounge chairs cost 45 coins, and starter furnishings are also available
 in the shop. Existing kit chairs and furniture are preserved. Select a placed

@@ -30,6 +30,7 @@ async function open(
   items: UpgradeId[] = owned,
   legacy = false,
   patients = ['Luna', 'Milo', 'Peanut', 'Pico'],
+  coins = 5000,
 ) {
   const s = new TownSimulation(visits, () => 0.5);
   s.seedClinic(
@@ -43,13 +44,13 @@ async function open(
   const index = await (await page.request.get('/')).text(),
     css = index.match(/href="([^"]+\.css)"/)![1];
   await page.addInitScript(
-    ({ town, owned }) => {
+    ({ town, owned, coins }) => {
       if (!localStorage.getItem('louises-vet-office-v1'))
         localStorage.setItem(
           'louises-vet-office-v1',
           JSON.stringify({
             version: 1,
-            coins: 5000,
+            coins,
             earned: 0,
             happiness: 100,
             treated: 0,
@@ -60,7 +61,7 @@ async function open(
           }),
         );
     },
-    { town: legacy ? legacyTown : town, owned: items },
+    { town: legacy ? legacyTown : town, owned: items, coins },
   );
   await page.route('**/build-test.html', (r) =>
     r.fulfill({
@@ -80,6 +81,15 @@ async function open(
   });
   await page.getByRole('button', { name: 'Build', exact: true }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-building', 'true');
+}
+async function chooseTool(page: Page, tool: string) {
+  if (tool === 'items') {
+    await page.locator('[data-build="mode"][data-value="items"]').click();
+    return;
+  }
+  if (tool !== 'camera')
+    await page.locator('[data-build="mode"][data-value="spaces"]').click();
+  await page.locator(`[data-build="tool"][data-value="${tool}"]`).click();
 }
 async function tap(
   page: Page,
@@ -105,7 +115,7 @@ async function visibleDoors(page: Page) {
   });
 }
 async function movePlaced(page: Page, id: string) {
-  await page.locator('[data-build="tool"][data-value="items"]').click();
+  await chooseTool(page, 'items');
   const point = await page.evaluate((id) => window.buildTest.itemPoint(id), id);
   if (await page.evaluate(() => matchMedia('(pointer:coarse)').matches))
     await page.touchscreen.tap(point.x, point.y);
@@ -129,26 +139,20 @@ test('fresh clinics and unbuilt room kits have no doors standing outside the bui
   for (const id of ['expansion', 'pet-room', 'play-annex', 'sun-courtyard'])
     await page.locator(`[data-upgrade="${id}"]`).click();
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  await expect(page.locator('.build-room-kit')).toHaveCount(0);
+  await chooseTool(page, 'room');
   const kits = page.locator('.build-room-kit');
-  await expect(kits).toHaveCount(4);
-  await expect(page.locator('.build-list > article').nth(0)).toHaveAttribute(
-    'data-kit',
-    'expansion',
-  );
-  await expect(page.locator('.build-list > article').nth(3)).toHaveAttribute(
-    'data-kit',
-    'sun-courtyard',
-  );
-  await expect(page.locator('.build-list > article').nth(4)).toHaveAttribute(
-    'data-recipe',
-    'seat-5',
-  );
+  await expect(kits).toHaveCount(2);
+  await expect(kits.nth(0)).toHaveAttribute('data-kit', 'expansion');
+  await expect(kits.nth(1)).toHaveAttribute('data-kit', 'play-annex');
+  await expect(page.locator('[data-build="pick"]')).toHaveCount(0);
   const before = await page.evaluate(() => window.buildTest.snapshot().build);
   await kits.locator('[data-id="expansion"]').click();
   await expect(
     page.locator('[data-build="tool"][data-value="room"]'),
   ).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('[data-build="tool"][data-value="items"]').click();
+  await chooseTool(page, 'garden');
+  await expect(kits).toHaveCount(2);
   await kits.locator('[data-id="sun-courtyard"]').click();
   await expect(
     page.locator('[data-build="tool"][data-value="garden"]'),
@@ -164,7 +168,10 @@ test('fresh clinics and unbuilt room kits have no doors standing outside the bui
   });
   expect(await visibleDoors(page)).toEqual([[-5.14, 0]]);
   await page.getByRole('button', { name: 'Build', exact: true }).click();
-  await expect(page.locator('.build-room-kit')).toHaveCount(4);
+  await chooseTool(page, 'room');
+  await expect(kits).toHaveCount(2);
+  await chooseTool(page, 'garden');
+  await expect(kits).toHaveCount(2);
 });
 const doorStages: { items: UpgradeId[]; doors: number[][] }[] = [
   {
@@ -205,11 +212,10 @@ for (const [i, { items, doors }] of doorStages.entries())
       await page.screenshot({
         path: info.outputPath('migrated-lounge-doors.png'),
       });
-      await page.locator('[data-build="tool"][data-value="garden"]').click();
+      await chooseTool(page, 'garden');
       await page.locator('[data-build="boundary"][data-value="open"]').click();
       await tap(page, -12, -3, info.project.name === 'mobile');
       await tap(page, -12, -1, info.project.name === 'mobile');
-      await page.locator('[data-build="place"]').click();
       await expect(page.locator('#build-feedback')).toContainText('ready');
       expect(await visibleDoors(page)).toEqual([]);
     }
@@ -289,11 +295,10 @@ test('build a connected garden and room, reject unsafe furniture, and cancel wit
 }, info) => {
   await open(page);
   const touch = info.project.name === 'mobile';
-  await page.locator('[data-build="tool"][data-value="garden"]').click();
+  await chooseTool(page, 'garden');
   await page.locator('[data-build="boundary"][data-value="open"]').click();
   await tap(page, -18, -7, touch);
   await tap(page, -17, 0, touch);
-  await page.locator('[data-build="place"]').click();
   await expect(page.locator('#build-feedback')).toContainText('ready');
   let state = await page.evaluate(() => window.buildTest.snapshot().build);
   const gardenCoins = await page.getByTestId('coins').textContent();
@@ -305,13 +310,12 @@ test('build a connected garden and room, reject unsafe furniture, and cancel wit
       .filter((t) => t.x === -18 && t.z >= -7 && t.z <= -1)
       .every((t) => t.surface === 'garden'),
   ).toBe(true);
-  await page.locator('[data-build="tool"][data-value="room"]').click();
+  await chooseTool(page, 'room');
   await page.locator('[data-build="boundary"][data-value="open"]').click();
   // Repaint the same explicit rectangle. A zero-width boundary stroke would
   // now grow outward into new floor, rather than selecting the old strip.
   await tap(page, -18, -7, touch);
   await tap(page, -17, 0, touch);
-  await page.locator('[data-build="place"]').click();
   state = await page.evaluate(() => window.buildTest.snapshot().build);
   expect(
     state.tiles
@@ -319,7 +323,7 @@ test('build a connected garden and room, reject unsafe furniture, and cancel wit
       .every((t) => t.surface === 'room'),
   ).toBe(true);
   await expect(page.getByTestId('coins')).toHaveText(gardenCoins!);
-  await page.locator('[data-build="tool"][data-value="items"]').click();
+  await chooseTool(page, 'items');
   await movePlaced(page, 'bench');
   await page.evaluate(() => window.buildTest.step(20));
   await tap(page, 3.5, -4, touch);
@@ -660,7 +664,7 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
         .querySelector('.build-list')!
         .getBoundingClientRect();
       const tools = document
-        .querySelector('.build-tools')!
+        .querySelector('.build-controls')!
         .getBoundingClientRect();
       const feedback = document
         .querySelector('#build-feedback')!
@@ -701,7 +705,7 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
   const camera = await page.evaluate(() => window.buildTest.camera());
   if (mobile) {
     await expect(page.locator('#scene-controls')).toBeHidden();
-    await page.locator('[data-build="tool"][data-value="camera"]').click();
+    await chooseTool(page, 'camera');
     await touchCamera(page, 'orbit');
     const orbit = await page.evaluate(() => window.buildTest.camera());
     expect(orbit.position).not.toEqual(camera.position);
@@ -750,7 +754,7 @@ test('room rectangles preview while held, connect automatically and survive came
   await page
     .locator('.build-list')
     .evaluate((el) => (el.scrollTop = el.scrollHeight));
-  await page.locator('[data-build="tool"][data-value="room"]').click();
+  await chooseTool(page, 'room');
   await expect(page.locator('.space-guide')).toContainText(
     'Doors connect automatically',
   );
@@ -803,12 +807,11 @@ test('room rectangles preview while held, connect automatically and survive came
   await expect(page.locator('#build-feedback')).toContainText('6 × 8 tiles');
   await page.screenshot({ path: info.outputPath('room-drag-held.png') });
   await move('touchEnd');
-  await expect(page.locator('.space-guide h3')).toHaveText('Ready to build');
-  await expect(page.locator('[data-build="place"]')).toBeEnabled();
+  await expect(page.locator('#build-feedback')).toContainText('ready');
+  await expect(page.locator('[data-build="place"]')).toHaveCount(0);
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
   await expect(page.locator('[data-build="next-door"]')).toHaveCount(0);
-  await expect(page.locator('.build-nudges')).toBeHidden();
-  expect(await page.evaluate(() => window.buildTest.scenery().hints)).toBe(1);
-  const planned = await page.evaluate(() => window.buildTest.preview());
+  const released = await page.evaluate(() => window.buildTest.snapshot().build);
   if (touch) {
     const camera = await page.evaluate(() => window.buildTest.camera());
     await touchCamera(page, 'pan-zoom');
@@ -820,16 +823,9 @@ test('room rectangles preview while held, connect automatically and survive came
       (await page.evaluate(() => window.buildTest.camera())).position,
     ).not.toEqual(moved.position);
   }
-  expect(await page.evaluate(() => window.buildTest.preview())).toEqual(
-    planned,
-  );
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
-    before,
+    released,
   );
-  await expect(page.locator('[data-build="place"]')).toBeEnabled();
-  await page.screenshot({ path: info.outputPath('room-door-plan.png') });
-  await page.locator('[data-build="place"]').click();
-  await expect(page.locator('#build-feedback')).toContainText('ready');
   let built = await page.evaluate(() => window.buildTest.snapshot().build);
   expect(built.tiles.length).toBe(before.tiles.length + 48);
   expect(built.doors).toHaveLength(1);
@@ -853,7 +849,7 @@ test('room rectangles preview while held, connect automatically and survive came
     false,
   );
   await page.screenshot({ path: info.outputPath('room-built.png') });
-  await page.locator('[data-build="tool"][data-value="door"]').click();
+  await chooseTool(page, 'door');
   const door = built.doors[0];
   await tap(
     page,
@@ -925,7 +921,7 @@ test('interrupted drawing and cancelled invalid plans keep the clinic and coins 
   const touch = info.project.name === 'mobile';
   await open(page, false, []);
   const before = await page.evaluate(() => window.buildTest.snapshot().build);
-  await page.locator('[data-build="tool"][data-value="garden"]').click();
+  await chooseTool(page, 'garden');
   await page.evaluate(() => window.buildTest.point(-8, 0, true));
   const [a, b] = await page.evaluate(() =>
     [
@@ -974,7 +970,7 @@ test('interrupted drawing and cancelled invalid plans keep the clinic and coins 
   expect(await page.evaluate(() => window.buildTest.preview().color)).toBe(
     0xd36f58,
   );
-  await expect(page.locator('[data-build="place"]')).toBeDisabled();
+  await expect(page.locator('[data-build="place"]')).toHaveCount(0);
   await page.locator('[data-build="cancel"]').click();
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     before,
@@ -982,34 +978,139 @@ test('interrupted drawing and cancelled invalid plans keep the clinic and coins 
   await expect(page.locator('.build-price')).toContainText('5000 coins');
 });
 
-test('tapping outside a proposed floor cancels it without spending and allows a new plan', async ({
+test('space modes show Garden prefabs and Undo refunds consecutive builds without confirmation', async ({
   page,
 }, info) => {
   const touch = info.project.name === 'mobile';
+  if (touch) await page.setViewportSize({ width: 360, height: 640 });
   await open(page, false, []);
+  await expect(
+    page.locator('[data-build="mode"][data-value="items"]'),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    page.locator('[data-build="tool"][data-value="garden"]'),
+  ).toHaveCount(0);
+  await page.locator('[data-build="shop"]').click();
+  await page.locator('[data-upgrade="expansion"]').click();
+  await page.getByRole('button', { name: 'Close shop', exact: true }).click();
   const before = await page.evaluate(() => window.buildTest.snapshot().build);
-  await page.locator('[data-build="tool"][data-value="room"]').click();
+  const coins = Number(
+    (await page.getByTestId('coins').textContent())!.replaceAll(',', ''),
+  );
+  expect(before.credits).toBe(48);
+  await chooseTool(page, 'garden');
+  await expect(
+    page.locator('[data-build="mode"][data-value="spaces"]'),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-build="pick"]')).toHaveCount(0);
+  await expect(page.locator('[data-build="place"]')).toHaveCount(0);
+  await expect(page.locator('.prefab-grid > article')).toHaveCount(2);
+  await expect(
+    page.locator('.prefab-grid [data-prefab="sun-courtyard"]'),
+  ).toBeVisible();
+  await expect(
+    page.locator('.prefab-grid [data-prefab="pet-room"]'),
+  ).toBeVisible();
+  // Both garden pictures are actually in the list's visible area, not buried below help.
+  const originalSize = page.viewportSize()!;
+  for (const size of touch
+    ? [originalSize, { width: 844, height: 390 }]
+    : [originalSize]) {
+    await page.setViewportSize(size);
+    const visible = await page
+      .locator('.prefab-grid img')
+      .evaluateAll((images) => {
+        const list = document
+          .querySelector('.build-list')!
+          .getBoundingClientRect();
+        return images.every((img) => {
+          const r = img.getBoundingClientRect();
+          return r.top >= list.top && r.bottom <= list.bottom + 1;
+        });
+      });
+    expect(visible).toBe(true);
+  }
+  await page.setViewportSize(originalSize);
+  await expect(
+    page.locator('.build-controls [data-build="undo"] svg'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('.build-controls [data-value="erase"] svg'),
+  ).toHaveCount(1);
+  await expect(page.locator('.space-options')).toContainText('Interior');
+  await expect(page.locator('.space-options')).toContainText('Exterior');
+  await expect(page.locator('.space-options')).not.toContainText(
+    /With walls|Open space/,
+  );
+  await page.screenshot({
+    path: info.outputPath('garden-prefabs-and-controls.png'),
+  });
+  await chooseTool(page, 'room');
   await tap(page, -11, -4, touch);
   await tap(page, -5, 4, touch);
-  await expect(page.locator('.space-guide h3')).toHaveText('Ready to build');
-  await tap(page, 1, 1, touch);
-  await expect(page.locator('.space-guide h3')).toHaveText(
-    'Draw or drop a space',
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
+  const first = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(first.tiles.length).toBe(before.tiles.length + 48);
+  expect(first.credits).toBe(0);
+  expect(first.doors).toHaveLength(1);
+  await expect(page.getByTestId('coins')).toHaveText(coins.toLocaleString());
+  // The following space uses coins, and must keep its new doorway when saved.
+  await chooseTool(page, 'garden');
+  await tap(page, -11, -3, touch);
+  await tap(page, -15, 3, touch);
+  await expect(page.getByTestId('coins')).toHaveText(
+    (coins - 72).toLocaleString(),
   );
-  expect(await page.evaluate(() => window.buildTest.preview().visible)).toBe(
-    false,
+  const second = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(second.tiles.length).toBe(first.tiles.length + 24);
+  await page.screenshot({ path: info.outputPath('released-space-built.png') });
+  await chooseTool(page, 'camera');
+  await expect(page.locator('[data-build="store"]')).toHaveCount(0);
+  if (touch) await touchCamera(page, 'pan-zoom');
+  await page.locator('[data-build="undo"]').click();
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    first,
   );
+  await expect(page.getByTestId('coins')).toHaveText(coins.toLocaleString());
+  if (touch) await page.locator('[data-build="undo"]').click();
+  else await page.keyboard.press('Control+z');
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     before,
   );
-  await expect(page.locator('.build-price')).toContainText('5000 coins');
-  await tap(page, -11, -4, touch);
-  await tap(page, -5, 4, touch);
-  await expect(page.locator('[data-build="place"]')).toBeEnabled();
-  await page.locator('[data-build="place"]').click();
+  await expect(page.locator('[data-build="undo"]')).toBeDisabled();
+  await page.keyboard.press('Control+z');
+  await expect(page.getByTestId('coins')).toHaveText(coins.toLocaleString());
   expect(
-    (await page.evaluate(() => window.buildTest.snapshot().build)).tiles.length,
-  ).toBe(before.tiles.length + 48);
+    await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem('louises-vet-office-v1')!).town.build,
+    ),
+  ).toEqual(before);
+  // Prefabs use the same undo history, including restored credits.
+  await chooseTool(page, 'garden');
+  const picture = page.locator('[data-prefab="sun-courtyard"] img');
+  if (touch) await picture.tap();
+  else await picture.click();
+  await tap(page, -8, 0, touch);
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
+  expect(
+    (await page.evaluate(() => window.buildTest.snapshot().build)).credits,
+  ).toBe(0);
+  await page.locator('[data-build="undo"]').click();
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  await page.locator('[data-build="done"]').click();
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  await chooseTool(page, 'room');
+  await expect(page.locator('[data-build="undo"]')).toBeDisabled();
 });
 
 test('a second finger interrupts drawing and the remaining finger cannot build accidentally', async ({
@@ -1019,7 +1120,7 @@ test('a second finger interrupts drawing and the remaining finger cannot build a
   await page.setViewportSize({ width: 360, height: 640 });
   await open(page, false, []);
   const before = await page.evaluate(() => window.buildTest.snapshot().build);
-  await page.locator('[data-build="tool"][data-value="room"]').click();
+  await chooseTool(page, 'room');
   await page.evaluate(() => window.buildTest.point(-8, 0, true));
   const [a, b] = await page.evaluate(() =>
     [
@@ -1070,12 +1171,10 @@ test('a second finger interrupts drawing and the remaining finger cannot build a
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     before,
   );
-  await expect(page.locator('.space-guide h3')).toHaveText(
-    'Draw or drop a space',
-  );
+  await expect(page.locator('.space-guide h3')).toHaveText('Floor shapes');
   await tap(page, -11, -4, true);
   await tap(page, -5, 4, true);
-  await expect(page.locator('[data-build="place"]')).toBeEnabled();
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
 });
 
 test('pictured prefabs drag into a snapped connected room and remain editable after reload', async ({
@@ -1093,7 +1192,8 @@ test('pictured prefabs drag into a snapped connected room and remain editable af
     /^\d+ coins/,
   )![0];
   const before = await page.evaluate(() => window.buildTest.snapshot().build);
-  // An unused room kit leads the collection and can be dragged directly.
+  // An unused room kit leads its surface's prefab list in Build spaces.
+  await chooseTool(page, 'room');
   const picture = page.locator('[data-prefab="expansion"] img');
   await picture.scrollIntoViewIfNeeded();
   await expect(picture).toBeVisible();
@@ -1158,7 +1258,7 @@ test('pictured prefabs drag into a snapped connected room and remain editable af
     built,
   );
   await page.getByRole('button', { name: 'Build', exact: true }).click();
-  await page.locator('[data-build="tool"][data-value="door"]').click();
+  await chooseTool(page, 'door');
   await tap(page, -5, -2.5, touch);
   await page.locator('[data-build="place"]').click();
   expect(
@@ -1174,7 +1274,7 @@ test('prefab cards support tap placement, rotation, invalid retries and outside-
   if (touch) await page.setViewportSize({ width: 360, height: 640 });
   await open(page, false, []);
   const before = await page.evaluate(() => window.buildTest.snapshot().build);
-  await page.locator('[data-build="tool"][data-value="room"]').click();
+  await chooseTool(page, 'room');
   const picture = page.locator('[data-prefab="expansion"] img');
   await picture.scrollIntoViewIfNeeded();
   if (touch) await picture.tap();
@@ -1226,13 +1326,11 @@ test('prefab cards support tap placement, rotation, invalid retries and outside-
   expect(await page.evaluate(() => window.buildTest.preview().visible)).toBe(
     false,
   );
-  await expect(page.locator('.space-guide h3')).toHaveText(
-    'Draw or drop a space',
-  );
+  await expect(page.locator('.space-guide h3')).toHaveText('Floor shapes');
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     before,
   );
-  await page.locator('[data-build="tool"][data-value="garden"]').click();
+  await chooseTool(page, 'garden');
   const garden = page.locator('[data-prefab="sun-courtyard"] img');
   await garden.scrollIntoViewIfNeeded();
   if (touch) await garden.tap();
@@ -1255,7 +1353,7 @@ test('adjoining rectangles keep their anchor and full footprint through dragging
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await open(page, false, []);
-  await page.locator('[data-build="tool"][data-value="room"]').click();
+  await chooseTool(page, 'room');
   const picture = page.locator('[data-prefab="expansion"] img');
   await picture.scrollIntoViewIfNeeded();
   if (touch) await picture.tap();
@@ -1299,7 +1397,7 @@ test('adjoining rectangles keep their anchor and full footprint through dragging
       [-11.65, 3],
     ],
   ]) {
-    await page.locator('[data-build="tool"][data-value="garden"]').click();
+    await chooseTool(page, 'garden');
     await page.evaluate(() => window.buildTest.point(-13, 0, true));
     const camera = await page.evaluate(() => window.buildTest.camera());
     const points = await page.evaluate(
@@ -1339,12 +1437,15 @@ test('adjoining rectangles keep their anchor and full footprint through dragging
       await page.evaluate(() => window.buildTest.snapshot().build),
     ).toEqual(original);
     await input('touchEnd');
-    await expect(page.locator('[data-build="place"]')).toBeEnabled();
-    await page.locator('[data-build="cancel"]').click();
+    await expect(page.locator('[data-build="undo"]')).toBeEnabled();
+    await page.locator('[data-build="undo"]').click();
+    expect(
+      await page.evaluate(() => window.buildTest.snapshot().build),
+    ).toEqual(original);
   }
   // Intentionally overlap a whole row: keep every requested tile and open the
   // existing wall, rather than placing a new wall through the older floor.
-  await page.locator('[data-build="tool"][data-value="garden"]').click();
+  await chooseTool(page, 'garden');
   await page.evaluate(() => window.buildTest.point(-13, 0, true));
   const [start, mid, end] = await page.evaluate(() =>
     [
@@ -1385,8 +1486,7 @@ test('adjoining rectangles keep their anchor and full footprint through dragging
   });
   await input('touchEnd');
   await cdp?.detach();
-  await expect(page.locator('[data-build="place"]')).toBeEnabled();
-  await page.locator('[data-build="place"]').click();
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
   const built = await page.evaluate(() => window.buildTest.snapshot().build);
   expect(built.tiles.length).toBe(original.tiles.length + 24);
   expect(built.doors.some((d) => d.axis === 'z' && d.x === -11)).toBe(true);
@@ -1416,20 +1516,144 @@ test('a migrated room accepts north and south additions with automatic connectin
   const touch = info.project.name === 'mobile';
   await open(page, false, ['expansion']);
   const original = await page.evaluate(() => window.buildTest.snapshot().build);
-  await page.locator('[data-build="tool"][data-value="room"]').click();
+  await chooseTool(page, 'room');
   // Start one old row inside the room, then grow north using two corner taps.
   await tap(page, -10, -3, touch);
   await tap(page, -6, -8, touch);
-  await expect(page.locator('[data-build="place"]')).toBeEnabled();
-  await page.locator('[data-build="place"]').click();
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
   // Reverse the direction and end slightly short of the south edge.
   await tap(page, -6, 7, touch);
   await tap(page, -10, 4.65, touch);
-  await expect(page.locator('[data-build="place"]')).toBeEnabled();
-  await page.locator('[data-build="place"]').click();
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
   const built = await page.evaluate(() => window.buildTest.snapshot().build);
   expect(built.tiles.length).toBe(original.tiles.length + 28);
   expect(built.doors.some((d) => d.axis === 'x' && d.z === -4)).toBe(true);
   expect(built.doors.some((d) => d.axis === 'x' && d.z === 4)).toBe(true);
   await expect(page.locator('.build-price')).toContainText('4916 coins');
+});
+
+test('Undo reverses door and erase edits but never removes later purchases or placed furniture', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  await open(page, false, []);
+  const original = await page.evaluate(() => window.buildTest.snapshot().build);
+  await chooseTool(page, 'room');
+  await tap(page, -11, -4, touch);
+  await tap(page, -5, 4, touch);
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
+  const room = await page.evaluate(() => window.buildTest.snapshot().build);
+  await chooseTool(page, 'door');
+  await tap(page, -5, -2.5, touch);
+  await page.locator('[data-build="place"]').click();
+  expect(
+    (await page.evaluate(() => window.buildTest.snapshot().build)).doors,
+  ).toHaveLength(2);
+  await page.locator('[data-build="undo"]').click();
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    room,
+  );
+  await chooseTool(page, 'erase');
+  await tap(page, -11, -4, touch);
+  await tap(page, -10, 4, touch);
+  // Erasing still reviews the marked floor before removal.
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    room,
+  );
+  await expect(page.locator('[data-build="place"]')).toHaveText('Remove floor');
+  await page.locator('[data-build="place"]').click();
+  expect(
+    (await page.evaluate(() => window.buildTest.snapshot().build)).tiles,
+  ).toHaveLength(room.tiles.length - 8);
+  await expect(page.getByTestId('coins')).toHaveText('4,856');
+  await page.locator('[data-build="undo"]').click();
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    room,
+  );
+  await page.locator('[data-build="undo"]').click();
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    original,
+  );
+  await expect(page.getByTestId('coins')).toHaveText('5,000');
+  await chooseTool(page, 'room');
+  if (touch) {
+    await tap(page, -11, -4, true);
+    await tap(page, -5, 4, true);
+  } else {
+    for (const [x, z] of [
+      [-11, -4],
+      [-5, 4],
+    ]) {
+      const p = await page.evaluate(
+        ({ x, z }) => window.buildTest.point(x, z, true),
+        { x, z },
+      );
+      await page.mouse.move(p.x, p.y);
+      await page.keyboard.press('c');
+    }
+  }
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
+  // Use the global Shop entry, not just the editor's button: both must end history.
+  await page.getByRole('button', { name: /Clinic shop/ }).click();
+  await page.locator('[data-upgrade="lounge-chair"]').click();
+  await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  await expect(page.locator('[data-build="undo"]')).toBeDisabled();
+  const purchased = await page.evaluate(
+    () => window.buildTest.snapshot().build,
+  );
+  await page.keyboard.press('Control+z');
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    purchased,
+  );
+  await expect(page.getByTestId('coins')).toHaveText('4,811');
+  await chooseTool(page, 'items');
+  await page
+    .locator('.build-card[data-recipe="seat-5"] [data-build="pick"]')
+    .click();
+  await tap(page, -8, 0, touch);
+  await expect(page.locator('#build-feedback')).toContainText('Lovely');
+  const furnished = await page.evaluate(
+    () => window.buildTest.snapshot().build,
+  );
+  await chooseTool(page, 'garden');
+  await tap(page, -11, -3, touch);
+  await tap(page, -15, 3, touch);
+  await expect(page.getByTestId('coins')).toHaveText('4,739');
+  await page.locator('[data-build="undo"]').click();
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    furnished,
+  );
+  await expect(page.getByTestId('coins')).toHaveText('4,811');
+});
+
+test('unaffordable releases stay unbuilt and can be redrawn directly', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  await open(page, false, [], false, [], 0);
+  const before = await page.evaluate(() => window.buildTest.snapshot().build);
+  await chooseTool(page, 'room');
+  await tap(page, -11, -4, touch);
+  await tap(page, -5, 4, touch);
+  await expect(page.locator('#build-feedback')).toContainText('144 coins');
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  await expect(page.locator('[data-build="place"]')).toHaveCount(0);
+  await expect(page.locator('[data-build="undo"]')).toBeDisabled();
+  // Replace the red rejected rectangle without a confirmation/cancel round trip.
+  await tap(page, -6, -1, touch);
+  await tap(page, -5, 1, touch);
+  await expect(page.locator('#build-feedback')).toContainText('6 coins');
+  expect(await page.evaluate(() => window.buildTest.preview().color)).toBe(
+    0xd36f58,
+  );
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  await expect(page.getByTestId('coins')).toHaveText('0');
+  await page.locator('[data-build="cancel"]').click();
+  expect(await page.evaluate(() => window.buildTest.preview().visible)).toBe(
+    false,
+  );
 });

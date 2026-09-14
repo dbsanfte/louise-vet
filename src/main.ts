@@ -1182,7 +1182,7 @@ app.addEventListener('click', (event) => {
     action === 'visit'
   ) {
     if (mode === 'result') return;
-    if (builder?.active) builder.cancel();
+    if (builder?.active) builder.cancel(action === 'shop');
     modal = action;
     renderModal();
     renderVisitActions();

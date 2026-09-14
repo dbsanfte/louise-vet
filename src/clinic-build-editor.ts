@@ -11,6 +11,7 @@ import {
   toClinic,
   type Placement,
   type FloorCell,
+  type BuildState,
 } from './clinic-build';
 import {
   nearestWall,
@@ -25,6 +26,7 @@ import {
   type ClinicPrefab,
 } from './clinic-prefabs';
 import { catalogueImage } from './catalogue';
+import { icon } from './icons';
 import type { Point } from './town-map';
 import { shelterTrees } from './town-weather';
 
@@ -33,6 +35,9 @@ const buildLand = new Set(buildableCells.map((p) => `${p.x},${p.z}`));
 /** The editor pauses town time; only safe unloading runs while an item is lifted. */
 export class ClinicBuildEditor {
   active = false;
+  private mode: 'items' | 'spaces' = 'items';
+  private spaceTool: FloorCell['surface'] = 'room';
+  private spaceHistory: { state: BuildState; cost: number }[] = [];
   private tool: 'items' | 'camera' | 'door' | FloorCell['surface'] | 'erase' =
     'items';
   private selected?: string;
@@ -199,6 +204,7 @@ export class ClinicBuildEditor {
         if (!e.isPrimary || this.lifting) return;
         const p = world.buildHit(e.clientX, e.clientY, false).point;
         if (!p) return;
+        if (this.draft && this.draft.surface !== 'erase') this.cancel();
         this.press = {
           id: e.pointerId,
           x: e.clientX,
@@ -304,7 +310,7 @@ export class ClinicBuildEditor {
           if (!this.selected && hit.id) this.pick(hit.id);
           else this.place();
         } else if (dragged || press.corner) this.finishDrawing();
-        else this.render(); // First tap anchors the rectangle; the second plans it.
+        else this.render(); // First tap anchors; the second builds a valid space.
       },
       { capture: true },
     );
@@ -319,6 +325,27 @@ export class ClinicBuildEditor {
       );
     document.addEventListener('keydown', (e) => {
       if (!this.active || document.querySelector('[role="dialog"]')) return;
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === 'z' &&
+        !e.shiftKey
+      ) {
+        e.preventDefault();
+        this.undoSpace();
+        return;
+      }
+      if (
+        e.key.toLowerCase() === 'c' &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        ['room', 'garden'].includes(this.tool) &&
+        !this.prefab
+      ) {
+        e.preventDefault();
+        if (this.draft) this.cancel();
+        this.place();
+        return;
+      }
       if (e.key.toLowerCase() === 'r' && (this.selected || this.prefab)) {
         e.preventDefault();
         this.rotate();
@@ -346,6 +373,7 @@ export class ClinicBuildEditor {
   }
   exit() {
     this.cancel();
+    this.spaceHistory = [];
     this.touch.reset();
     this.active = false;
     delete document.getElementById('app')!.dataset.building;
@@ -363,12 +391,24 @@ export class ClinicBuildEditor {
     if (action === 'prefab' || action === 'kit') {
       if (performance.now() - this.lastPrefabPointer > 300)
         this.choosePrefab(b.dataset.id!);
+    } else if (action === 'mode') {
+      this.cancel();
+      this.mode = b.dataset.value as typeof this.mode;
+      this.tool = this.mode === 'items' ? 'items' : this.spaceTool;
+      this.preview();
+      this.render();
+      document.querySelector('.build-list')!.scrollTop = 0;
     } else if (action === 'pick') this.pick(b.dataset.id!);
     else if (action === 'filter') {
       this.filter = b.dataset.value!;
       this.render();
     } else if (action === 'tool') {
       const next = b.dataset.value as typeof this.tool;
+      if (next === 'room' || next === 'garden') {
+        this.mode = 'spaces';
+        this.spaceTool = next;
+      }
+      if (next === 'items') this.mode = 'items';
       if (!(this.draft && (next === 'camera' || next === this.draft.surface)))
         this.cancel();
       this.tool = next;
@@ -412,6 +452,7 @@ export class ClinicBuildEditor {
       document.querySelector('.build-list')!.scrollTop = 0;
     } else if (action === 'rotate') this.rotate();
     else if (action === 'place') this.place();
+    else if (action === 'undo') this.undoSpace();
     else if (action === 'cancel') {
       this.cancel();
       if (this.tool === 'door') this.preview();
@@ -420,6 +461,7 @@ export class ClinicBuildEditor {
     else if (action === 'done') this.exit();
     else if (action === 'shop') {
       this.cancel();
+      this.spaceHistory = [];
       this.shop();
     } else if (action === 'plot') this.world.focusBuildPlot();
     else if (action === 'nudge') {
@@ -476,6 +518,8 @@ export class ClinicBuildEditor {
   }
   private pick(id: string) {
     this.cancel();
+    this.spaceHistory = [];
+    this.mode = 'items';
     const item = this.sim.build.items.find((i) => i.id === id);
     if (!item) return;
     this.tool = 'items';
@@ -540,7 +584,8 @@ export class ClinicBuildEditor {
       this.ghost = undefined;
     }
   }
-  cancel() {
+  cancel(resetSpaceHistory = false) {
+    if (resetSpaceHistory) this.spaceHistory = [];
     this.releasePress();
     this.releasePrefabPress();
     this.prefab = undefined;
@@ -610,7 +655,8 @@ export class ClinicBuildEditor {
     };
     this.doorway = undefined;
     this.preview();
-    this.render();
+    if (this.draft.surface !== 'erase') this.place();
+    else this.render();
     document.querySelector('.build-list')!.scrollTop = 0;
   }
   private floor(start: Point, end: Point, apply = false) {
@@ -751,7 +797,7 @@ export class ClinicBuildEditor {
         !this.error,
       );
       const surface = this.draft?.surface ?? this.tool;
-      this.message = `${width} × ${depth} tiles · ${result.cost} coins. ${this.draft ? 'Ready to build. Tap outside to cancel.' : this.corner ? (this.press ? 'Release to plan.' : 'Choose the opposite corner.') : 'Draw a rectangle.'}`;
+      this.message = `${width} × ${depth} tiles · ${result.cost} coins. ${this.draft ? (surface === 'erase' ? 'Review the floor to remove.' : 'Draw again to build. Nothing spent.') : this.corner ? (this.press ? (surface === 'erase' ? 'Release to mark floor.' : 'Release to build.') : 'Choose the opposite corner.') : 'Draw a rectangle.'}`;
       scenery.showDoorHints(
         surface !== 'erase' && !this.error ? this.automaticDoors : [],
         this.automaticDoors,
@@ -795,8 +841,7 @@ export class ClinicBuildEditor {
   private placeLabel() {
     if (this.prefab) return 'Place space';
     if (this.selected) return 'Place item';
-    if (this.draft)
-      return this.draft.surface === 'erase' ? 'Remove floor' : 'Build space';
+    if (this.draft) return 'Remove floor';
     if (this.tool === 'door')
       return this.removeWall
         ? 'Remove wall'
@@ -834,6 +879,7 @@ export class ClinicBuildEditor {
         return;
       }
       const plan = this.draft ?? this.prefabLayout!;
+      const before = this.sim.build.snapshot();
       const result = this.floor(plan.start, plan.end, true);
       if (result.error) {
         this.error = result.error;
@@ -841,14 +887,17 @@ export class ClinicBuildEditor {
         return;
       }
       const erased = this.draft?.surface === 'erase';
+      if (JSON.stringify(before) !== JSON.stringify(this.sim.build.state))
+        this.spaceHistory.push({ state: before, cost: result.cost });
       this.progress.coins -= result.cost;
       this.cancel();
       this.afterChange(
         erased
           ? 'Floor removed. Your items are safe in the clinic or collection.'
-          : 'Your new space is ready. Choose Furniture to make it yours!',
+          : 'Your new space is ready! Undo returns its coins and floor tiles.',
       );
     } else if (this.tool === 'door' && this.doorway) {
+      const before = this.sim.build.snapshot();
       const error = this.sim.build.editDoor(
         this.doorway,
         this.removeWall,
@@ -859,6 +908,7 @@ export class ClinicBuildEditor {
         this.render();
         return;
       }
+      this.spaceHistory.push({ state: before, cost: 0 });
       this.doorway = undefined;
       this.afterChange('Entrance updated. Everyone can still get through.');
       this.world.town!.furniture.scenery.showDoorHints(this.doorOptions());
@@ -871,6 +921,19 @@ export class ClinicBuildEditor {
     }
   }
 
+  private undoSpace() {
+    const previous = this.spaceHistory.at(-1);
+    if (!previous || this.lifting || this.mode !== 'spaces') return;
+    this.cancel();
+    if (!this.sim.build.restore(previous.state)) {
+      this.error = 'This space cannot be undone. Your clinic has not changed.';
+      this.render();
+      return;
+    }
+    this.spaceHistory.pop();
+    this.progress.coins += previous.cost;
+    this.afterChange('Change undone. Your coins and floor tiles are back.');
+  }
   private store() {
     if (!this.selected || this.lifting) return;
     const error = this.sim.build.place(this.selected, undefined, this.actors());
@@ -900,8 +963,10 @@ export class ClinicBuildEditor {
       disabled?: boolean,
     ) => string,
   ) {
-    if (!this.drawing && !this.draft && this.tool !== 'door') return undefined;
-    const surface = this.draft?.surface ?? this.tool;
+    if (this.mode !== 'spaces') return undefined;
+    const surface =
+      this.draft?.surface ??
+      (this.tool === 'camera' ? this.spaceTool : this.tool);
     const options = this.doorOptions();
     const entrance = button(
       this.doorway ? 'Next entrance' : 'Suggested door',
@@ -911,22 +976,24 @@ export class ClinicBuildEditor {
     );
     if (surface === 'door')
       return `<section class="space-guide"><h3>Make a way through</h3><div class="space-options">${button('Doorways', 'door-mode', `data-value="door" aria-pressed="${!this.removeWall}"`)}${button('Remove wall', 'door-mode', `data-value="wall" aria-pressed="${this.removeWall}"`)}</div><p>Tap a blue wall frame, or choose a suggestion.</p>${entrance}<p>Confirm below to change this entrance. Doorways cost no extra coins. Keep a clear way into every space.</p><p>The front door and examination route stay in place.</p></section>`;
-    const erase = surface === 'erase',
-      garden = surface === 'garden';
-    if (erase && !this.draft)
-      return `<section class="space-guide"><h3>Erase floor</h3><p>Drag a rectangle, or tap two corners, to mark floor for removal.</p><p>Move furniture and let people step clear first. Review the outline, then choose <strong>Remove floor</strong>. Removing floor does not refund coins.</p><p>Pinch to zoom, drag two fingers to pan, and twist to turn.</p></section>`;
-    const boundaries = !erase
-      ? `<div class="space-options">${button(garden ? 'Picket fence' : 'With walls', 'boundary', `data-value="enclosed" aria-pressed="${this.enclosed}"`)}${button('Open space', 'boundary', `data-value="open" aria-pressed="${!this.enclosed}"`)}</div>`
-      : '';
-    if (this.draft)
-      return `<section class="space-guide"><h3>${this.error ? 'Check your plan' : 'Ready to build'}</h3><p>${erase ? 'Check the marked floor before removing it.' : 'The doorway is added automatically when you build. You can move it later with Doors.'}</p>${boundaries}<p>Choose <strong>${erase ? 'Remove floor' : 'Build space'}</strong> to confirm. Tap outside the outline to cancel. Two fingers move the camera.</p></section>`;
-    return `<section class="space-guide"><h3>${this.prefab ? this.prefab.name : 'Draw or drop a space'}</h3>${boundaries}<p>${this.prefab ? 'Drag the picture into the scene, or tap a clear spot to place it. Rotate turns the plan.' : 'Drag between grid corners, or tap two corners. Doors connect automatically.'}</p><p>Pinch to zoom, drag two fingers to pan, and twist to turn.</p></section>${clinicPrefabs
-      .filter((p) => p.surface === surface)
-      .map((p) => this.prefabCard(p, button))
-      .join(
-        '',
-      )}<p class="prefab-note">Floor plans only. Add your own furniture and toys.</p>`;
+    const erase = surface === 'erase';
+    if (erase)
+      return `<section class="space-guide"><h3>Erase floor</h3><p>${this.draft ? 'Review the marked floor, then choose <strong>Remove floor</strong>. Tap outside to cancel.' : 'Drag a rectangle, or tap two corners, to mark floor for removal.'}</p><p>Move furniture and let people step clear first. Removing floor does not refund coins.</p></section>`;
+    const boundaries = `<div class="space-options" aria-label="Space boundary">${button('Interior', 'boundary', `data-value="enclosed" aria-pressed="${this.enclosed}"`)}${button('Exterior', 'boundary', `data-value="open" aria-pressed="${!this.enclosed}"`)}</div>`;
+    const plans = clinicPrefabs
+      .filter((p) => p.surface === this.spaceTool)
+      .sort((a, b) => {
+        const credits = (id: string) =>
+          this.sim.build.unusedRoomKits.some((kit) => kit.id === id);
+        return (
+          Number(credits(b.id)) - Number(credits(a.id)) ||
+          Number(b.id === 'sun-courtyard') - Number(a.id === 'sun-courtyard')
+        );
+      });
+    const cards = `<div class="prefab-grid" aria-label="${this.spaceTool === 'garden' ? 'Garden' : 'Floor'} prefabs">${plans.map((p) => this.prefabCard(p, button, this.sim.build.unusedRoomKits.find((kit) => kit.id === p.id)?.credits)).join('')}</div>`;
+    return `${cards}<section class="space-guide"><h3>${this.prefab ? this.prefab.name : this.draft ? 'Check your plan' : this.spaceTool === 'garden' ? 'Garden shapes' : 'Floor shapes'}</h3>${boundaries}<p class="space-instruction">${this.draft ? 'Nothing was built. Draw another rectangle to try again.' : this.prefab ? 'Tap a clear spot or drag to place. Doors connect automatically.' : 'Draw and release to build, or tap two corners. Doors connect automatically.'}</p></section><section class="space-help"><p>Undo returns the last space and its cost. Interior adds walls or a garden fence; Exterior leaves the new space open.</p><p>Pinch to zoom, drag two fingers to pan, and twist to turn.</p>${!matchMedia('(pointer: coarse)').matches ? '<p>Keyboard: C sets each corner; nudge arrows position it. Ctrl/Cmd+Z undoes a space.</p>' : ''}<p>Floor plans only. Add furniture in Place furniture mode.</p></section>`;
   }
+
   private prefabCard(
     prefab: ClinicPrefab,
     button: (
@@ -943,6 +1010,8 @@ export class ClinicBuildEditor {
     this.cancel();
     this.prefab = clinicPrefabs.find((p) => p.id === id);
     if (!this.prefab) return;
+    this.mode = 'spaces';
+    this.spaceTool = this.prefab.surface;
     this.tool = this.prefab.surface;
     this.enclosed = true;
     this.cursor = { x: -5 - this.prefab.width / 2, z: 0, rotation: 0 };
@@ -1025,34 +1094,35 @@ export class ClinicBuildEditor {
       </article>`;
       })
       .join('');
-    const rooms = this.sim.build.unusedRoomKits
-      .map((room) =>
-        this.prefabCard(
-          clinicPrefabs.find((p) => p.id === room.id)!,
-          button,
-          room.credits,
-        ),
-      )
-      .join('');
-    sidebar.setAttribute('aria-label', 'Build collection');
-    sidebar.innerHTML = `<div class="build-heading"><h2>Build your clinic</h2>${button('Shop', 'shop')}</div><nav class="build-tools" aria-label="Build tools">${[
-      ['items', 'Furniture'],
-      ['room', 'Room'],
-      ['garden', 'Garden'],
-      ['door', 'Doors'],
-      ['erase', 'Erase'],
-      ['camera', 'Camera'],
-    ]
-      .map(([v, n]) =>
-        button(
-          n,
-          'tool',
-          `data-value="${v}" aria-pressed="${this.tool === v}"`,
-        ),
-      )
-      .join(
-        '',
-      )}</nav><p class="build-price">${this.progress.coins} coins · ${this.sim.build.state.credits} free floor tiles · then ${floorPrice} coins/tile</p><nav class="build-filters" aria-label="Collection filters" ${this.drawing || this.draft || this.tool === 'door' ? 'hidden' : ''}>${[
+    const modeButton = (
+      value: 'items' | 'spaces',
+      name: string,
+      glyph: string,
+    ) =>
+      button(
+        `${icon(glyph)}<span>${name}</span>`,
+        'mode',
+        `data-value="${value}" aria-pressed="${this.mode === value}"`,
+      );
+    const control = (
+      name: string,
+      glyph: string,
+      action: string,
+      extra = '',
+      disabled = false,
+    ) => button(`${icon(glyph)}<span>${name}</span>`, action, extra, disabled);
+    const controls =
+      this.mode === 'spaces'
+        ? `${control('Undo', 'undo', 'undo', 'aria-label="Undo last space"', !this.spaceHistory.length || this.lifting)}${control('Erase', 'erase', 'tool', `data-value="erase" aria-pressed="${this.tool === 'erase'}"`)}${this.prefab ? control('Rotate', 'rotate', 'rotate') : control('Doors', 'door', 'tool', `data-value="door" aria-pressed="${this.tool === 'door'}"`)}${control('Camera', 'search', 'tool', `data-value="camera" aria-pressed="${this.tool === 'camera'}"`)}`
+        : control(
+            'Camera',
+            'search',
+            'tool',
+            `data-value="camera" aria-pressed="${this.tool === 'camera'}"`,
+          );
+    sidebar.setAttribute('aria-label', 'Build editor');
+    sidebar.dataset.buildMode = this.mode;
+    sidebar.innerHTML = `<div class="build-heading"><h2>Build your clinic</h2>${button('Shop', 'shop')}</div><nav class="build-modes" aria-label="Build mode">${modeButton('items', 'Place furniture', 'chair')}${modeButton('spaces', 'Build spaces', 'grid')}</nav>${this.mode === 'spaces' ? `<nav class="build-surfaces" aria-label="Space surface">${button(`${icon('grid')}<span>Floor</span>`, 'tool', `data-value="room" aria-pressed="${this.tool === 'room'}"`)}${button(`${icon('leaf')}<span>Garden</span>`, 'tool', `data-value="garden" aria-pressed="${this.tool === 'garden'}"`)}</nav>` : ''}<nav class="build-controls" aria-label="${this.mode === 'spaces' ? 'Space editing' : 'Furniture'} controls">${controls}</nav><p class="build-price">${this.progress.coins} coins · ${this.sim.build.state.credits} free floor tiles · then ${floorPrice} coins/tile</p><nav class="build-filters" aria-label="Collection filters" ${this.mode === 'spaces' ? 'hidden' : ''}>${[
       ['all', 'All'],
       ['seats', 'Seats'],
       ['pets', 'Pets'],
@@ -1067,7 +1137,7 @@ export class ClinicBuildEditor {
       )
       .join(
         '',
-      )}</nav><div class="build-list" tabindex="0" aria-label="Build collection">${this.spaceGuide(button) ?? (rooms + collection || '<p>Nothing stored yet. Tap furniture in the clinic to move it, or buy something in Shop.</p>')}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item" ${this.draft || this.tool === 'door' ? 'hidden' : ''}>${[
+      )}</nav><div class="build-list" tabindex="0" aria-label="Build collection">${this.spaceGuide(button) ?? (collection || '<p>Nothing stored yet. Tap furniture in the clinic to move it, or buy something in Shop.</p>')}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item" ${this.draft || this.tool === 'door' ? 'hidden' : ''}>${[
       [-0.5, 0, '←'],
       [0.5, 0, '→'],
       [0, -0.5, '↑'],
@@ -1085,7 +1155,7 @@ export class ClinicBuildEditor {
       )
       .join(
         '',
-      )}${this.drawing && !this.prefab ? '' : button('Rotate ↻', 'rotate', '', (!this.selected && !this.prefab) || this.lifting)}</div>`;
+      )}${this.mode === 'spaces' ? '' : button('Rotate ↻', 'rotate', '', !this.selected || this.lifting)}</div>`;
     sidebar.querySelector('.build-list')!.scrollTop = old;
     if (focused?.build) {
       const target = [
@@ -1098,12 +1168,12 @@ export class ClinicBuildEditor {
       if (target && !target.disabled) target.focus({ preventScroll: true });
     }
     document.getElementById('scene-title')!.innerHTML =
-      '<span class="eyebrow">BUILD MODE</span><h2>Make room for happy paws</h2>';
+      `<span class="eyebrow">BUILD MODE</span><h2>${this.mode === 'spaces' ? 'Build spaces' : 'Place furniture'}</h2>`;
     document.getElementById('scene-goal')!.innerHTML = '';
     document.getElementById('scene-caption')!.innerHTML = '';
     document.getElementById('zones')!.innerHTML = '';
     document.getElementById('precision')!.innerHTML = '';
     document.getElementById('stage-footer')!.innerHTML =
-      `<div class="build-actions">${button('Whole plot', 'plot')}${button(this.placeLabel(), 'place', '', this.placeDisabled())}${this.drawing || this.draft || this.tool === 'door' ? '' : button('Store', 'store', '', !this.selected || this.lifting)}${button('Cancel', 'cancel')}${button('Done', 'done')}</div>`;
+      `<div class="build-actions">${button('Whole plot', 'plot')}${this.mode === 'spaces' && !this.prefab && this.tool !== 'erase' && this.tool !== 'door' ? '' : button(this.placeLabel(), 'place', '', this.placeDisabled())}${this.mode === 'items' ? button('Store', 'store', '', !this.selected || this.lifting) : ''}${button('Cancel', 'cancel')}${button('Done', 'done')}</div>`;
   }
 }
