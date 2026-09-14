@@ -876,7 +876,7 @@ export class ClinicBuildEditor {
       ? `<div class="space-options">${button(garden ? 'Picket fence' : 'With walls', 'boundary', `data-value="enclosed" aria-pressed="${this.enclosed}"`)}${button('Open space', 'boundary', `data-value="open" aria-pressed="${!this.enclosed}"`)}</div>`
       : '';
     if (this.draft)
-      return `<section class="space-guide"><h3>Ready to build</h3><p>${erase ? 'Check the marked floor before removing it.' : 'A clear doorway connects this space automatically. You can move it later with Doors.'}</p>${boundaries}<p>Choose <strong>${erase ? 'Remove floor' : 'Build space'}</strong> to confirm. Tap outside the outline to cancel. Two fingers move the camera.</p></section>`;
+      return `<section class="space-guide"><h3>${this.error ? 'Check your plan' : 'Ready to build'}</h3><p>${erase ? 'Check the marked floor before removing it.' : 'The doorway is added automatically when you build. You can move it later with Doors.'}</p>${boundaries}<p>Choose <strong>${erase ? 'Remove floor' : 'Build space'}</strong> to confirm. Tap outside the outline to cancel. Two fingers move the camera.</p></section>`;
     return `<section class="space-guide"><h3>${this.prefab ? this.prefab.name : 'Draw or drop a space'}</h3>${boundaries}<p>${this.prefab ? 'Drag the picture into the scene, or tap a clear spot to place it. Rotate turns the plan.' : 'Drag between grid corners, or tap two corners. Doors connect automatically.'}</p><p>Pinch to zoom, drag two fingers to pan, and twist to turn.</p></section>${clinicPrefabs
       .filter((p) => p.surface === surface)
       .map((p) => this.prefabCard(p, button))

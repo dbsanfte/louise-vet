@@ -979,6 +979,7 @@ test('interrupted drawing and cancelled invalid plans keep the clinic and coins 
   await tap(page, 9, 2, touch);
   await tap(page, 11, 4, touch);
   await expect(page.locator('#build-feedback')).toContainText('greenspace');
+  await expect(page.locator('.space-guide h3')).toHaveText('Check your plan');
   expect(await page.evaluate(() => window.buildTest.preview().color)).toBe(
     0xd36f58,
   );
