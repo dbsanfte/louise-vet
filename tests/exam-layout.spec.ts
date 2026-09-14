@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { showPatient, waitForExamination } from './browser-helpers';
 import { TownSimulation } from '../src/town-simulation';
 import { visits } from '../src/game';
+import { touchCamera } from './touch-camera';
 
 test.setTimeout(120000);
 
@@ -165,7 +166,15 @@ test('mobile examination keeps tools, ECG and notes separate across phone and ta
   await page.getByRole('button', { name: 'Stop visit' }).tap();
   await expect(page.locator('#app')).toHaveAttribute('data-mode', 'reception');
   await expect(page.locator('.body-spot')).toHaveCount(0);
-  await expect(page.locator('#world > #scene-controls')).toBeVisible();
+  await expect(page.locator('#world > #scene-controls')).toBeHidden();
+  const reception = page.getByRole('button', {
+    name: 'Reception',
+    exact: true,
+  });
+  await reception.tap();
+  await expect(reception).toHaveAttribute('aria-pressed', 'true');
+  await touchCamera(page, 'orbit');
+  await expect(reception).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('small-phone vaccination keeps guidance and exit visible without a diagnostic notebook', async ({
