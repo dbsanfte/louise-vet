@@ -50,7 +50,7 @@ test('a customer arriving with a small patient and a second dog brings both insi
   await page.locator('#world').scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath('two-pets-entering.png') });
   await page
-    .getByRole('button', { name: 'While you wait', exact: true })
+    .getByRole('button', { name: 'Who’s waiting', exact: true })
     .click();
   await expect(
     page
@@ -68,7 +68,7 @@ test('a customer arriving with a small patient and a second dog brings both insi
     timeout: 45000,
   });
   await page
-    .getByRole('button', { name: 'While you wait', exact: true })
+    .getByRole('button', { name: 'Who’s waiting', exact: true })
     .click();
   await expect(
     page

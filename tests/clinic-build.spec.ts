@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { build } from 'vite';
 import { TownSimulation } from '../src/town-simulation';
 import { visits, upgrades, type UpgradeId } from '../src/game';
+import { touchCamera } from './touch-camera';
 import { furnitureType } from '../src/clinic-build';
 const owned = upgrades.filter((u) => u.id !== 'stock').map((u) => u.id);
 let script = '';
@@ -123,6 +124,7 @@ test('fresh clinics and unbuilt room kits have no doors standing outside the bui
   page,
 }, info) => {
   await open(page, false, []);
+  await expect(page.locator('.build-room-kit')).toHaveCount(0);
   expect(await page.evaluate(() => window.buildTest.doors())).toHaveLength(4);
   await page.evaluate(() => window.buildTest.point(-8, -6, true));
   await page.waitForTimeout(900);
@@ -133,12 +135,41 @@ test('fresh clinics and unbuilt room kits have no doors standing outside the bui
   for (const id of ['expansion', 'pet-room', 'play-annex', 'sun-courtyard'])
     await page.locator(`[data-upgrade="${id}"]`).click();
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  const kits = page.locator('.build-room-kit');
+  await expect(kits).toHaveCount(4);
+  await expect(page.locator('.build-list > article').nth(0)).toHaveAttribute(
+    'data-kit',
+    'expansion',
+  );
+  await expect(page.locator('.build-list > article').nth(3)).toHaveAttribute(
+    'data-kit',
+    'sun-courtyard',
+  );
+  await expect(page.locator('.build-list > article').nth(4)).toHaveAttribute(
+    'data-recipe',
+    'seat-5',
+  );
+  const before = await page.evaluate(() => window.buildTest.snapshot().build);
+  await kits.locator('[data-id="expansion"]').click();
+  await expect(
+    page.locator('[data-build="tool"][data-value="room"]'),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await kits.locator('[data-id="sun-courtyard"]').click();
+  await expect(
+    page.locator('[data-build="tool"][data-value="garden"]'),
+  ).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  await page.screenshot({ path: info.outputPath('unused-room-kits.png') });
   expect(await visibleDoors(page)).toEqual([[-5.14, 0]]);
   await page.reload();
   await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
     timeout: 45000,
   });
   expect(await visibleDoors(page)).toEqual([[-5.14, 0]]);
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  await expect(page.locator('.build-room-kit')).toHaveCount(4);
 });
 const doorStages: { items: UpgradeId[]; doors: number[][] }[] = [
   {
@@ -531,9 +562,15 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
   await expect(chair).toContainText('3 placed');
   await expect(chair.locator('[data-build="pick"]')).toBeDisabled();
   await expect(chair.locator('[data-build="move"]')).toBeEnabled();
-  await expect(
-    page.locator('.build-card[data-recipe="wheel"] [data-build="pick"]'),
-  ).toBeDisabled();
+  await expect(page.locator('.build-card[data-recipe="wheel"]')).toHaveCount(0);
+  const ownedTypes = await page.evaluate(() =>
+    window.buildTest.snapshot().build!.items.map((item) => item.recipe),
+  );
+  expect(
+    await cards.evaluateAll((cards) =>
+      cards.map((c) => (c as HTMLElement).dataset.recipe).sort(),
+    ),
+  ).toEqual([...new Set(ownedTypes.map(furnitureType))].sort());
 
   await page.locator('[data-build="shop"]').click();
   const products = page.locator('.shop-card');
@@ -568,9 +605,17 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
   ).toBe(true);
   for (let i = 0; i < 2; i++)
     await page.locator('[data-upgrade="lounge-chair"]').click();
+  await page.locator('[data-upgrade="wheel"]').click();
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();
   await expect(chair).toHaveCount(1);
   await expect(chair).toContainText('2 available');
+  await expect(cards.first()).toHaveAttribute('data-recipe', 'seat-5');
+  await expect(cards.nth(1)).toHaveAttribute('data-recipe', 'wheel');
+  await expect(cards.nth(1)).toContainText('1 available');
+  const availability = await cards.evaluateAll((cards) =>
+    cards.map((c) => Number((c as HTMLElement).dataset.available)),
+  );
+  expect(availability.slice(2).every((count) => count === 0)).toBe(true);
   await expect(chair.locator('[data-build="pick"]')).toBeEnabled();
   await expect(page.locator('#toast')).not.toHaveClass(/show/);
   await chair.scrollIntoViewIfNeeded();
@@ -638,8 +683,12 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
       '[data-build="done"]',
       '[data-build="shop"]',
       '[data-build="rotate"]',
-      '[data-action="clinic-rotate-left"]',
-      '[data-action="clinic-rotate-right"]',
+      ...(mobile
+        ? []
+        : [
+            '[data-action="clinic-rotate-left"]',
+            '[data-action="clinic-rotate-right"]',
+          ]),
     ]) {
       const box = (await page.locator(selector).boundingBox())!;
       expect(box.y).toBeGreaterThanOrEqual(0);
@@ -650,18 +699,33 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
   }
   const before = await page.evaluate(() => window.buildTest.snapshot().build);
   const camera = await page.evaluate(() => window.buildTest.camera());
-  await page
-    .getByRole('button', { name: 'Rotate clinic camera left', exact: true })
-    .click();
-  const left = await page.evaluate(() => window.buildTest.camera());
-  expect(left.position).not.toEqual(camera.position);
-  expect(left.target).toEqual(camera.target);
-  expect(left.zoom).toBe(camera.zoom);
-  await page
-    .getByRole('button', { name: 'Rotate clinic camera right', exact: true })
-    .click();
-  const back = await page.evaluate(() => window.buildTest.camera());
-  back.position.forEach((n, i) => expect(n).toBeCloseTo(camera.position[i], 5));
+  if (mobile) {
+    await expect(page.locator('#scene-controls')).toBeHidden();
+    await page.locator('[data-build="tool"][data-value="camera"]').click();
+    await touchCamera(page, 'orbit');
+    const orbit = await page.evaluate(() => window.buildTest.camera());
+    expect(orbit.position).not.toEqual(camera.position);
+    expect(orbit.target).toEqual(camera.target);
+    await touchCamera(page, 'pan-zoom');
+    const moved = await page.evaluate(() => window.buildTest.camera());
+    expect(moved.target).not.toEqual(orbit.target);
+    expect(moved.zoom).toBeGreaterThan(orbit.zoom);
+  } else {
+    await page
+      .getByRole('button', { name: 'Rotate clinic camera left', exact: true })
+      .click();
+    const left = await page.evaluate(() => window.buildTest.camera());
+    expect(left.position).not.toEqual(camera.position);
+    expect(left.target).toEqual(camera.target);
+    expect(left.zoom).toBe(camera.zoom);
+    await page
+      .getByRole('button', { name: 'Rotate clinic camera right', exact: true })
+      .click();
+    const back = await page.evaluate(() => window.buildTest.camera());
+    back.position.forEach((n, i) =>
+      expect(n).toBeCloseTo(camera.position[i], 5),
+    );
+  }
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     before,
   );

@@ -99,14 +99,17 @@ Choose **Build** in the office to shape your clinic on a grid. Draw **Room** or
 **Garden** space by dragging or tapping two opposite corners, then pick furniture
 from the sidebar and place it. Rotate with **R** or **Rotate**, use the nudge
 buttons for fine adjustments, and choose **Done** to resume the day. **Camera**
-lets you orbit and pan; arrow keys and zoom buttons stay available. **Whole plot**
+lets you orbit and pan; desktop arrow keys and camera buttons stay available. **Whole plot**
 shows the surrounding buildable greenspace, clear of roads and neighbouring homes.
 
 Buy furniture in **Clinic shop** to add it to your collection. Every purchase
 buys one copy: add as many lounge chairs, exercise wheels or other furnishings as
 you can afford, with room to place them. The shop shows placed/stored counts;
 Build shows one illustrated card per item type, with **available** and **placed**
-counts. Cards with no available copies are greyed out. Choose **Move placed** to
+counts. Available types come first, followed by fully placed types with greyed-out
+placement buttons. Unused room kits lead the list; their cards open the Room or
+Garden drawing tool and show the remaining floor tiles. Items you haven't bought
+appear only in Shop. Choose **Move placed** to
 find an existing copy; press again to cycle through its placed copies, or select
 the exact item in the clinic. Shop pictures match the game's models too.
 Individual lounge chairs cost 45 coins, and starter furnishings are also available
@@ -127,13 +130,15 @@ examination suite stay in place. The current editor joins floor into open rooms
 with automatic perimeter walls or fences. Room kits and equipment are one-time
 upgrades; extra furniture does not stack satisfaction bonuses.
 
-Use the **↶ / ↷ camera buttons** to turn your view in the office or Build, alongside
-the pan and zoom buttons. **Rotate** (or **R**) turns the selected furniture;
-camera rotation keeps the item facing the same way.
+On desktop, use the **↶ / ↷ camera buttons** to turn your view in the office or
+Build, alongside pan and zoom buttons. Phones and tablets hide that button row:
+drag one finger to turn, or use two fingers to pan and pinch to zoom. Select
+**Camera** first when building. Room shortcuts remain visible. **Rotate** (or
+**R**) turns selected furniture; camera rotation keeps the item facing the same way.
 
 Hookville also fits the window: **Homes** pages through the household directory, **Home info** shows the selected family, and **Town news** pages through updates. **Back to the clinic** stays beside the map.
 
-The office fits the browser window: bottom navigation stays visible, with two patients per page and a **While you wait** tab for paged activities. The larger playground stays inside the clinic grounds and offers a purchasable **Pet rollercoaster** and **Pet Ferris wheel**. Pets queue and ride in moving cars/cabins; a called rider finishes its lap before getting out.
+The office fits the browser window: bottom navigation stays visible, with two patients per page and a **Who’s waiting** tab for paged activities. The larger playground stays inside the clinic grounds and offers a purchasable **Pet rollercoaster** and **Pet Ferris wheel**. Pets queue and ride in moving cars/cabins; a called rider finishes its lap before getting out.
 
 Hover or tap people, pets and attractions in the clinic for a little bubble
 above their head, following them as they move. It disappears after five seconds

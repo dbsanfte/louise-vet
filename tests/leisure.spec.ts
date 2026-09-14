@@ -137,7 +137,7 @@ test('owners sit, read and play while pets queue for rendered moving amusements'
     /reading|board game/,
   );
   await page
-    .getByRole('button', { name: 'While you wait', exact: true })
+    .getByRole('button', { name: 'Who’s waiting', exact: true })
     .click();
   await page
     .getByRole('button', { name: 'Pet playground', exact: true })

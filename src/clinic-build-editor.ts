@@ -162,7 +162,7 @@ export class ClinicBuildEditor {
     } else if (action === 'filter') {
       this.filter = b.dataset.value!;
       this.render();
-    } else if (action === 'tool') {
+    } else if (action === 'tool' || action === 'kit') {
       this.cancel();
       this.tool = b.dataset.value as typeof this.tool;
       this.message =
@@ -423,7 +423,8 @@ export class ClinicBuildEditor {
       ? { ...(document.activeElement as HTMLElement).dataset }
       : undefined;
     const cards = buildRecipes.filter((r) => {
-      if (furnitureType(r.id) !== r.id) return false;
+      if (furnitureType(r.id) !== r.id || !this.sim.build.copies(r.id).length)
+        return false;
       return (
         this.filter === 'all' ||
         (this.filter === 'stored' &&
@@ -445,6 +446,13 @@ export class ClinicBuildEditor {
         (this.filter === 'decor' && !r.stations.length)
       );
     });
+    // Keep catalogue order within each group so buying extra copies does not
+    // shuffle available types. Owned types with every copy placed follow them.
+    cards.sort(
+      (a, b) =>
+        Number(this.sim.build.copies(b.id).some((i) => !i.placement)) -
+        Number(this.sim.build.copies(a.id).some((i) => !i.placement)),
+    );
     const button = (
       text: string,
       action: string,
@@ -464,6 +472,17 @@ export class ClinicBuildEditor {
         ${placed ? button('Move placed' + (placed > 1 ? ' · Next copy' : ''), 'move', `data-recipe="${r.id}" aria-label="Move placed ${r.name}"`, this.lifting) : ''}
       </article>`;
       })
+      .join('');
+    // Floor kits lead every filter while any of their shared allowance remains.
+    // They open the existing drawing tools; rooms are not movable furniture.
+    const rooms = this.sim.build.unusedRoomKits
+      .map(
+        (
+          room,
+        ) => `<article class="build-card build-room-kit" data-kit="${room.id}">
+        ${button(`${catalogueImage(room.id)}<span class="build-card-text"><strong>${room.name}</strong><span class="build-available">${room.credits} floor tiles available</span><small>Draw a ${room.surface === 'garden' ? 'garden' : 'room'}</small></span>`, 'kit', `data-id="${room.id}" data-value="${room.surface}"`)}
+      </article>`,
+      )
       .join('');
     sidebar.setAttribute('aria-label', 'Build collection');
     sidebar.innerHTML = `<div class="build-heading"><h2>Build your clinic</h2>${button('Shop', 'shop')}</div><nav class="build-tools" aria-label="Build tools">${[
@@ -498,7 +517,7 @@ export class ClinicBuildEditor {
       )
       .join(
         '',
-      )}</nav><div class="build-list" tabindex="0" aria-label="Furniture catalogue">${collection || '<p>No spare items here yet. Buy a copy in Shop, or store something from the clinic.</p>'}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item">${[
+      )}</nav><div class="build-list" tabindex="0" aria-label="Build collection">${rooms + collection || '<p>No spare items here yet. Buy a copy in Shop, or store something from the clinic.</p>'}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item">${[
       [-0.5, 0, '←'],
       [0.5, 0, '→'],
       [0, -0.5, '↑'],

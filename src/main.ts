@@ -176,7 +176,7 @@ function renderReception() {
   );
   const sidebarMarkup = `
     <div class="panel-heading louise-welcome"><img class="louise-portrait" src="/images/louise-portrait.png" alt="Louise in her mint vet coat and pink headband" width="76" height="76" /><div><p class="eyebrow">MADE JUST FOR YOU</p><h2>Welcome, <br />Louise.</h2></div></div>
-    <nav class="office-tabs" aria-label="Waiting room information"><button class="secondary" data-action="office-tab" data-tab="patients" aria-pressed="${officeTab === 'patients'}">Patients · ${queue.length}</button><button class="secondary" data-action="office-tab" data-tab="activities" aria-pressed="${officeTab === 'activities'}">While you wait</button></nav>
+    <nav class="office-tabs" aria-label="Waiting room information"><button class="secondary" data-action="office-tab" data-tab="patients" aria-pressed="${officeTab === 'patients'}">Patients · ${queue.length}</button><button class="secondary" data-action="office-tab" data-tab="activities" aria-pressed="${officeTab === 'activities'}">Who’s waiting</button></nav>
     <div id="clinic-call" aria-live="polite"></div><section class="office-patients" ${officeTab !== 'patients' ? 'hidden' : ''}><div class="queue-heading"><h3>In the waiting room</h3><span class="count">${queue.length}</span></div>
     <div class="patient-list">${
       queue
@@ -328,7 +328,7 @@ function renderLeisure() {
       '<strong>A cosy place to wait</strong><p>Add books, games and rides in the clinic shop.</p>',
     );
   activityPage = Math.min(activityPage, Math.ceil(activities.length / 2) - 1);
-  const content = `<h3>While you wait</h3><ul>${activities.map((entry, i) => `<li ${Math.floor(i / 2) !== activityPage ? 'hidden' : ''}>${entry}</li>`).join('')}</ul><nav class="office-pages" aria-label="Activity pages"><button class="secondary" data-action="activity-page" data-step="-1" ${activityPage === 0 ? 'disabled' : ''} aria-label="Previous activities">←</button><span>${activityPage + 1} / ${Math.ceil(activities.length / 2)}</span><button class="secondary" data-action="activity-page" data-step="1" ${activityPage >= Math.ceil(activities.length / 2) - 1 ? 'disabled' : ''} aria-label="Next activities">→</button></nav>`;
+  const content = `<h3>Who’s waiting</h3><ul>${activities.map((entry, i) => `<li ${Math.floor(i / 2) !== activityPage ? 'hidden' : ''}>${entry}</li>`).join('')}</ul><nav class="office-pages" aria-label="Activity pages"><button class="secondary" data-action="activity-page" data-step="-1" ${activityPage === 0 ? 'disabled' : ''} aria-label="Previous activities">←</button><span>${activityPage + 1} / ${Math.ceil(activities.length / 2)}</span><button class="secondary" data-action="activity-page" data-step="1" ${activityPage >= Math.ceil(activities.length / 2) - 1 ? 'disabled' : ''} aria-label="Next activities">→</button></nav>`;
   if (panel.dataset.content !== content) {
     const focused = panel.contains(document.activeElement)
       ? (document.activeElement as HTMLElement)?.dataset.step

@@ -437,6 +437,28 @@ export class ClinicBuild {
       (i) => furnitureType(i.recipe) === furnitureType(recipeId),
     );
   }
+  /** The pooled tile allowance is shown against kits in purchase order.
+   * Already-built legacy rooms have no unused allowance to list. */
+  get unusedRoomKits() {
+    let remaining = this.state.credits;
+    return [...this.state.unlocked]
+      .reverse()
+      .flatMap((id) => {
+        const room = plan.rooms.find((r) => r.id === id);
+        if (!room || !remaining) return [];
+        const credits = Math.min(remaining, room.width * room.depth);
+        remaining -= credits;
+        return [
+          {
+            ...room,
+            credits,
+            surface:
+              id === 'sun-courtyard' ? ('garden' as const) : ('room' as const),
+          },
+        ];
+      })
+      .reverse();
+  }
   hasPlaced(recipeId: string) {
     return this.copies(recipeId).some((i) => i.placement);
   }

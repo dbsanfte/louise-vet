@@ -80,6 +80,40 @@ test('new purchases stay stored, room kits pay for connected floor, and previews
   );
   assert.ok(new ClinicBuild().restore(b.snapshot()));
 });
+test('unused room entries track shared credits through building and reload without granting legacy rooms twice', () => {
+  const b = new ClinicBuild();
+  b.syncOwned(['expansion']);
+  assert.deepEqual(b.unusedRoomKits, []);
+  b.buy('pet-room');
+  b.buy('sun-courtyard');
+  const allowances = () =>
+    b.unusedRoomKits.map(({ id, credits }) => [id, credits]);
+  assert.deepEqual(allowances(), [
+    ['pet-room', 84],
+    ['sun-courtyard', 48],
+  ]);
+  const before = b.snapshot();
+  // A preview cannot consume allowance; committed flooring can use either kit.
+  const from = { x: -17, z: -5 },
+    to = { x: -12, z: 1 };
+  assert.equal(b.floor(from, to, 'garden', 0).error, undefined);
+  assert.deepEqual(b.snapshot(), before);
+  assert.deepEqual(b.floor(from, to, 'garden', 0, [], true), { cost: 0 });
+  assert.deepEqual(allowances(), [
+    ['pet-room', 42],
+    ['sun-courtyard', 48],
+  ]);
+  assert.deepEqual(
+    b.floor({ x: -17, z: -12 }, { x: -12, z: -6 }, 'garden', 0, [], true),
+    { cost: 0 },
+  );
+  assert.deepEqual(allowances(), [['sun-courtyard', 48]]);
+  const restored = new ClinicBuild();
+  assert.ok(restored.restore(b.snapshot()));
+  restored.syncOwned(['expansion', 'pet-room', 'sun-courtyard']);
+  assert.deepEqual(restored.unusedRoomKits, b.unusedRoomKits);
+  assert.equal(restored.state.credits, 48);
+});
 test('placement rejects collisions, clinical access, people and missing floor without losing the previous placement', () => {
   const b = new ClinicBuild();
   b.syncOwned(owned);

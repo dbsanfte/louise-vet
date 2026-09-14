@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { build } from 'vite';
+import { touchCamera } from './touch-camera';
 import { TownSimulation } from '../src/town-simulation';
 import { upgrades, visits } from '../src/game';
 const owned = upgrades.filter((u) => u.id !== 'stock').map((u) => u.id);
@@ -135,7 +136,7 @@ test('clinic gestures orbit and pan within the grounds, zoom, and release room j
   expect(errors).toEqual([]);
 });
 
-test('office arrow keys and touch buttons free the camera without interfering with shop dialogs', async ({
+test('office camera uses desktop buttons or touch gestures without interfering with shop dialogs', async ({
   page,
 }, info) => {
   await page.addInitScript(
@@ -171,19 +172,43 @@ test('office arrow keys and touch buttons free the camera without interfering wi
     await expect(courtyard).toHaveAttribute('aria-pressed', 'false');
     await expect(page.locator('.room-pill')).toContainText('YOUR CLINIC');
   }
-  for (const name of [
-    'Rotate clinic camera left',
-    'Rotate clinic camera right',
-    'Pan clinic left',
-    'Pan clinic right',
-    'Pan clinic up',
-    'Pan clinic down',
-    'Zoom into clinic',
-    'Zoom out of clinic',
-  ]) {
-    await courtyard.click();
-    await page.getByRole('button', { name, exact: true }).click();
-    await expect(courtyard).toHaveAttribute('aria-pressed', 'false');
+  const mobile = info.project.name === 'mobile';
+  const controls = page.locator('#scene-controls');
+  if (mobile) {
+    // Pointer capabilities, not window width, decide whether buttons are needed.
+    for (const size of [
+      { width: 360, height: 640 },
+      { width: 844, height: 390 },
+      { width: 1024, height: 768 },
+    ]) {
+      await page.setViewportSize(size);
+      await expect(controls).toBeHidden();
+      await expect(courtyard).toBeVisible();
+      await courtyard.click();
+      await touchCamera(page, 'orbit');
+      await expect(courtyard).toHaveAttribute('aria-pressed', 'false');
+      await courtyard.click();
+      await touchCamera(page, 'pan-zoom');
+      await expect(courtyard).toHaveAttribute('aria-pressed', 'false');
+    }
+    await page.setViewportSize({ width: 360, height: 640 });
+  } else {
+    await page.setViewportSize({ width: 600, height: 720 });
+    await expect(controls).toBeVisible();
+    for (const name of [
+      'Rotate clinic camera left',
+      'Rotate clinic camera right',
+      'Pan clinic left',
+      'Pan clinic right',
+      'Pan clinic up',
+      'Pan clinic down',
+      'Zoom into clinic',
+      'Zoom out of clinic',
+    ]) {
+      await courtyard.click();
+      await page.getByRole('button', { name, exact: true }).click();
+      await expect(courtyard).toHaveAttribute('aria-pressed', 'false');
+    }
   }
   await courtyard.click();
   await page.getByRole('button', { name: /Clinic shop/ }).click();

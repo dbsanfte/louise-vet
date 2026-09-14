@@ -96,7 +96,7 @@ test('office controls stay inside short, full clinics without page scrolling', a
     await fits();
   }
   await page
-    .getByRole('button', { name: 'While you wait', exact: true })
+    .getByRole('button', { name: 'Who’s waiting', exact: true })
     .click();
   do {
     await fits();

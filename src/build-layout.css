@@ -95,7 +95,9 @@
 .build-card[data-selected='true'] {
   box-shadow: inset 0 0 0 2px #377d66;
 }
-#app[data-building='true'] .build-card > [data-build='pick'] {
+#app[data-building='true']
+  .build-card
+  > :is([data-build='pick'], [data-build='kit']) {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);
   align-items: center;
@@ -286,5 +288,15 @@
   }
   #app[data-building='true'] #build-feedback {
     height: 2.6em;
+  }
+}
+
+/* Touch devices use gestures; keep desktop camera buttons even in small windows. */
+@media (hover: none) and (pointer: coarse) {
+  #app[data-mode='reception'] .scene-controls {
+    display: none;
+  }
+  #app[data-mode='reception'] .scene-caption {
+    bottom: 6px;
   }
 }
