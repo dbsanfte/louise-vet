@@ -872,6 +872,8 @@ export class ClinicBuildEditor {
       return `<section class="space-guide"><h3>Make a way through</h3><div class="space-options">${button('Doorways', 'door-mode', `data-value="door" aria-pressed="${!this.removeWall}"`)}${button('Remove wall', 'door-mode', `data-value="wall" aria-pressed="${this.removeWall}"`)}</div><p>Tap a blue wall frame, or choose a suggestion.</p>${entrance}<p>Confirm below to change this entrance. Doorways cost no extra coins. Keep a clear way into every space.</p><p>The front door and examination route stay in place.</p></section>`;
     const erase = surface === 'erase',
       garden = surface === 'garden';
+    if (erase && !this.draft)
+      return `<section class="space-guide"><h3>Erase floor</h3><p>Drag a rectangle, or tap two corners, to mark floor for removal.</p><p>Move furniture and let people step clear first. Review the outline, then choose <strong>Remove floor</strong>. Removing floor does not refund coins.</p><p>Pinch to zoom, drag two fingers to pan, and twist to turn.</p></section>`;
     const boundaries = !erase
       ? `<div class="space-options">${button(garden ? 'Picket fence' : 'With walls', 'boundary', `data-value="enclosed" aria-pressed="${this.enclosed}"`)}${button('Open space', 'boundary', `data-value="open" aria-pressed="${!this.enclosed}"`)}</div>`
       : '';
