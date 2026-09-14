@@ -800,3 +800,164 @@ test('prefab snapping stays near the pointer and respects quarter-turn dimension
     assert.equal(p.end.z - p.start.z, 6);
   }
 });
+
+test('an extension can overlap an old floor row and connects at the actual shared wall', () => {
+  const b = new ClinicBuild();
+  assert.equal(
+    b.autoSpace(
+      { x: -11, z: -4 },
+      { x: -5, z: 4 },
+      'room',
+      true,
+      5000,
+      [],
+      true,
+    ).error,
+    undefined,
+  );
+  const before = b.snapshot();
+  const plan = b.autoSpace(
+    { x: -10, z: -3 },
+    { x: -15, z: 3 },
+    'garden',
+    true,
+    5000,
+  );
+  assert.equal(plan.error, undefined);
+  assert.equal(plan.cost, 72);
+  assert.equal(
+    plan.door?.x,
+    -11,
+    'door belongs on the old outer wall, not through its floor',
+  );
+  assert.deepEqual(b.snapshot(), before);
+  assert.equal(
+    b.autoSpace(
+      { x: -10, z: -3 },
+      { x: -15, z: 3 },
+      'garden',
+      true,
+      5000,
+      [],
+      true,
+    ).error,
+    undefined,
+  );
+  for (let x = -15; x < -10; x++)
+    for (let z = -3; z < 3; z++)
+      assert.ok(
+        b.contains({ x: x + 0.5, z: z + 0.5 }),
+        `complete rectangle ${x},${z}`,
+      );
+  for (const cell of before.tiles)
+    assert.deepEqual(
+      b.tiles.find((t) => t.x === cell.x && t.z === cell.z),
+      cell,
+    );
+  assert.ok(b.route(localToTown(3, 1), localToTown(-14, 0)).length);
+  assert.ok(new ClinicBuild().restore(b.snapshot()));
+});
+
+for (const enclosed of [true, false])
+  test(`extensions join all sides and drag directions, enclosed=${enclosed}`, () => {
+    const rectangles = [
+      [
+        { x: -10, z: -3 },
+        { x: -15, z: 3 },
+      ], // overlaps the west row
+      [
+        { x: -10, z: -3 },
+        { x: -6, z: -8 },
+      ], // overlaps the north row
+      [
+        { x: -10, z: 3 },
+        { x: -6, z: 7 },
+      ], // overlaps the south row
+      [
+        { x: -15, z: -6 },
+        { x: -9, z: 0 },
+      ], // wraps around an old corner
+    ];
+    for (const [a, end] of rectangles)
+      for (const [start, finish] of [
+        [a, end],
+        [end, a],
+        [
+          { x: a.x, z: end.z },
+          { x: end.x, z: a.z },
+        ],
+        [
+          { x: end.x, z: a.z },
+          { x: a.x, z: end.z },
+        ],
+      ]) {
+        const b = new ClinicBuild();
+        assert.equal(
+          b.autoSpace(
+            { x: -11, z: -4 },
+            { x: -5, z: 4 },
+            'room',
+            true,
+            5000,
+            [],
+            true,
+          ).error,
+          undefined,
+        );
+        const before = b.snapshot(),
+          revision = b.revision;
+        const p = b.autoSpace(start, finish, 'garden', enclosed, 5000);
+        assert.equal(p.error, undefined, JSON.stringify([start, finish]));
+        assert.deepEqual(b.snapshot(), before);
+        assert.equal(b.revision, revision);
+        const result = b.autoSpace(
+          start,
+          finish,
+          'garden',
+          enclosed,
+          5000,
+          [],
+          true,
+        );
+        assert.equal(result.error, undefined);
+        assert.equal(result.cost, (b.tiles.length - before.tiles.length) * 3);
+        const rect = floorRectangle(start, finish);
+        for (let x = rect.from.x; x <= rect.to.x; x++)
+          for (let z = rect.from.z; z <= rect.to.z; z++)
+            assert.ok(b.contains({ x: x + 0.5, z: z + 0.5 }));
+        assert.ok(new ClinicBuild().restore(b.snapshot()));
+      }
+  });
+
+test('one rectangle spanning existing floor opens each new patch and preserves old doors', () => {
+  const b = new ClinicBuild();
+  b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 4 }, 'room', true, 5000, [], true);
+  const old = b.snapshot();
+  const result = b.autoSpace(
+    { x: -10, z: -7 },
+    { x: -6, z: 7 },
+    'room',
+    true,
+    5000,
+    [],
+    true,
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.doors.length, 2);
+  assert.equal(b.state.doors.length, old.doors.length + 2);
+  assert.ok(b.route(localToTown(-8, -6), localToTown(-8, 6)).length);
+  assert.ok(new ClinicBuild().restore(b.snapshot()));
+  const before = b.snapshot();
+  assert.ok(
+    b.autoSpace(
+      { x: -10, z: -7 },
+      { x: 100, z: 100 },
+      'room',
+      true,
+      5000,
+      [],
+      true,
+    ).error,
+  );
+  assert.deepEqual(b.snapshot(), before);
+});

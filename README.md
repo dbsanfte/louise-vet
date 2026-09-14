@@ -97,7 +97,9 @@ notebook without moving the page. See the
 
 Choose **Build** in the office to shape your clinic on a grid. Draw **Room** or
 **Garden** space by dragging or tapping two opposite grid corners. A live outline
-shows the snapped rectangle on desktop and touch screens. Release to plan; a clear
+shows the snapped rectangle on desktop and touch screens, with a fixed first
+corner and snapping to nearby room edges. Overlapping an existing row is fine:
+old floor stays intact and only new tiles are charged. Release to plan; a clear
 door connects automatically. Confirm with **Build space**, or tap outside the
 outline to cancel. Nothing is spent until confirmation. Choose **With walls**/**Picket fence** for a separate space,
 or **Open space** to extend the existing floor. Room and garden guides suggest
@@ -117,13 +119,12 @@ shows the surrounding buildable greenspace, clear of roads and neighbouring home
 Buy furniture in **Clinic shop** to add it to your collection. Every purchase
 buys one copy: add as many lounge chairs, exercise wheels or other furnishings as
 you can afford, with room to place them. The shop shows placed/stored counts;
-Build shows one illustrated card per item type, with **available** and **placed**
-counts. Available types come first, followed by fully placed types with greyed-out
-placement buttons. Unused room kits lead the list; their cards select a matching
-draggable floor plan and show the remaining floor tiles and coin cost. Items you haven't bought
-appear only in Shop. Choose **Move placed** to
-find an existing copy; press again to cycle through its placed copies, or select
-the exact item in the clinic. Shop pictures match the game's models too.
+Build shows one illustrated card per type with spare copies **available** to
+place. Already-placed items are absent from the inventory: choose **Furniture**
+and click/tap the item itself in the clinic to pick it up. Placing the last spare
+removes its card; **Store** adds the picked-up item to the inventory. Unused room
+kits still lead the list with pictured floor plans, remaining credits and cost.
+Shop pictures match the game's models too.
 Individual lounge chairs cost 45 coins, and starter furnishings are also available
 in the shop. Existing kit chairs and furniture are preserved. Select a placed
 item to move it or **Store** it for later. Occupants step off before it is lifted;

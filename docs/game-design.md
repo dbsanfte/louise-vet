@@ -129,7 +129,7 @@ pauses while building. Finish or stop a visit before entering; cancel a pending
 patient call first. **Done** returns to the same waiting room and resumes town time.
 Vaccinations still skip diagnosis, and examination/Stop visit/rewards are unchanged.
 
-The sidebar contains the player's **collection**, with All, Available, Seats, Pets and
+The sidebar contains the player's **collection**, with All, Seats, Pets and
 Decor filters on larger screens. Every furniture purchase in **Shop** buys one
 additional copy; there is no per-type ownership limit. Chairs, benches, wheels,
 other amusements and decorations remain available to buy again while the player
@@ -137,26 +137,24 @@ has enough coins and the required room kit. Starter furnishings can also be boug
 again. Lounge chairs have one ordinary name, never numbered catalogue variants.
 Shop and Build show pictures rendered from the actual furniture models, including
 recognisable seating, rides and decorations. Shop also pictures its room kits,
-stock and equipment. Build has exactly one card per furnishing type, combining
-starter, migrated, placed and stored copies. Each card shows **available** and
-**placed** counts. Selecting an available card takes one stored copy; a card with
-zero available is greyed out and cannot place anything. Only owned types appear:
-those with available copies come first, followed by types whose copies are all
-placed. Catalogue order stays stable within each group. Unpurchased types appear
-only in Shop. Purchased room kits with unused floor tiles lead the collection,
+stock and equipment. Build has one card per furnishing type with stored copies,
+combining spare starter, migrated and newly purchased items. Each card shows the number **available** to place.
+Only stored copies appear in this inventory, with one picture per type and stable
+catalogue order. Placing the last spare removes its card; storing a physical item
+adds it back. Already-placed furniture is picked up directly in the scene while
+using **Furniture**. There are no Move placed buttons or zero-stock entries in
+Build. Shop still shows placed/stored totals when buying another copy. Purchased room kits with unused floor tiles lead the collection,
 above available furniture in every filter. Their pictured cards show the remaining
 tile allowance and select a matching prefab; drag the picture directly into the
 scene or tap to choose it. Tiles remain a shared allowance, displayed against kits in purchase
 order as the oldest allowance is used first. Partly used kits remain at the top;
 fully used kits and already-built legacy rooms do not add empty entries.
-**Move placed** selects and frames an existing copy without spending coins;
-repeated presses cycle through that type's placed copies. It remains usable when
-all copies are placed. Players can also select the exact item directly in the scene.
 Names never include internal instance IDs. New furniture starts stored rather
 than appearing in a fixed location. Select an available collection card or tap
 an item in the scene, choose a built tile, rotate in quarter turns, and place it.
 Furniture snaps to half-tile steps; original fractional positions remain intact
-until moved. Benches and game tables move with their attached seats as a unit;
+until moved. Clicking/tapping a placed item lifts that exact copy; its current
+position, rotation and safe unloading rules are preserved. Benches and game tables move with their attached seats as a unit;
 individual lounge chairs can move separately. **Store** returns an item to the
 collection without selling it. **Cancel** or Escape restores a lifted item to its
 previous position. Leaving Build also cancels any unfinished placement. Accepted
@@ -174,12 +172,18 @@ Drawing has two steps on desktop and touch screens:
 1. Drag between two grid corners, or tap the first and opposite corners. The
    first corner is fixed on pointer-down; the translucent footprint and strong
    outline update as grid lines are crossed while the pointer remains held.
-   Corners snap to the same whole-tile edges as the existing structure. Width,
+   The initial marker shows the fixed first corner. Corners snap to whole grid
+   edges and nearby existing boundaries (within 0.8 tile); the first corner never
+   shifts as the rectangle grows or reverses direction. Width,
    depth and cost update in the feedback area; invalid plans are red and explain
    the obstruction. A single-width/depth stroke makes a one-tile strip.
 2. Release the drag or tap the second corner to hold a plan. A clear entrance is
-   chosen automatically on a shared edge, trying central openings first and
-   checking routes, furniture and occupants. A green frame marks the opening.
+   chosen automatically where old and new floor actually meet, including when
+   the drawn rectangle overlaps existing tiles. New boundaries follow only newly
+   added floor; an overlap does not add a partition through the old room or
+   change its surface. Only new tiles cost coins or credits. Rectangles that add
+   separate patches connect each patch. The builder tries central openings first and
+   checks routes, furniture and occupants. A green frame marks the opening.
    **Build space** commits floor, boundary and entrance together. Until then
    coins, floor credits and saved layout are unchanged. Tap outside the outline
    to dismiss the plan; tapping inside does not build. **Cancel**, Escape, Done,
@@ -1253,7 +1257,9 @@ automatically on visit completion when treats are available.
 
 In Build, a new room or garden tile costs **3 coins** after free kit tiles are used.
 The rectangle limit is 250 tiles per action. Changing an existing tile's surface
-is free; removing floor returns neither coins nor kit credit. Stored items can be
+is free when repainting an already-built rectangle; additions preserve any
+overlapped old surfaces and charge only for new cells. Removing floor returns
+neither coins nor kit credit. Stored items can be
 placed again without charge. Invalid previews/placements spend nothing. Purchases
 retain their existing satisfaction, advertising and capacity effects once per upgrade, regardless of copy count; storing
 furniture does not revoke an earned upgrade bonus. Reading requires at least one book
@@ -1512,7 +1518,7 @@ Development milestones group work; they are not player levels or release dates:
 | V2-10 | Police, fire service and rescue stories    | Implemented | Visible owner pursuits with an initial pet speed boost, distance-triggered police reports, lost-pet searches, dog chases, tree flights/climbs and ladder handovers, driver collection, safely extinguished house fires, every resident pet’s care, service cameras and saved phases. [Director checks](../tests/emergencies.test.ts), [rendering and care checks](../tests/emergencies.spec.ts), [authored rescue scene checks](../tests/emergency-visual.spec.ts). Named pets and owners express contextual feelings throughout the story using the shared bubble system. First opportunity at 35 seconds, then 100–160 seconds between starts with a twenty-second rest after responders return. Pending clinic care does not block the next story. One story at a time; authored public rescue trees, distance-based noticing and exterior-only house rescues.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | V2-11 | Street furniture and dog stops             | Implemented | Seventeen lamps, six hydrants, reserved sniffing stops, male-only leg-lift wees and owner poo pickup before resuming outdoor walks. One poo per dog on outings of twelve town units at the next safe spot, more frequent random poos, 45–90-second random-stop cooldowns and sniffing opportunities; saved outing progress/phases/cooldowns; no clinic or road stops, litter buildup or rewards. [Rules and save checks](../tests/dog-walks.test.ts), [rendered poses](../tests/street-visual.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | V2-12 | Textured town, weather and cat shelter     | Implemented | Textured ground/wood/roof/plaster, glossy car paint, mostly sunny active-time weather with brief rain, saved off-road cat/owner shelter detours and automatic return. [Weather rules and saves](../tests/weather.test.ts), [materials and rendered scenes](../tests/weather-visual.spec.ts). No storms, weather injuries or rain effects inside examinations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| V2-13 | Grid construction and furniture collection | Implemented | Room/garden grid expansion across available clinic grounds, pictured owned-only catalogue with unused room kits first (selecting draggable floor plans), then available furniture before fully placed types, one card per type, available/placed counts, disabled zero-stock placement and cycling Move placed, stored shop items, quarter-turn placement, picking/moving/storing, occupied-item unloading, custom routes, exact legacy migration, saved layouts and recovery of paid furniture when town activity is rejected. Live snapped rectangle previews on desktop/touch, held custom plans with automatic safe entrances, outside-tap dismissal and confirmation, reusable pictured drag/drop prefabs, two-finger pan/pinch/twist in every Build tool, flexible room/garden guides, enclosed or open extensions, shared doorway placement/closing and wall-section removal, saved walls and route safety. Counter, entrance and treatment suite anchored; paid copies with independent seating/queues/animations and no per-type ownership cap. No standalone wall drawing, upper floors or movable clinical suites. [Layout and unloading checks](../tests/clinic-build.test.ts), [desktop/touch editor checks](../tests/clinic-build.spec.ts).                                                                                                                                                                                                                                                                                                                        |
+| V2-13 | Grid construction and furniture collection | Implemented | Room/garden grid expansion across available clinic grounds, pictured spare-only inventory with unused room kits first (selecting draggable floor plans), one card per stored type, available counts and direct scene pickup for existing furniture, stored shop items, quarter-turn placement, picking/moving/storing, occupied-item unloading, custom routes, exact legacy migration, saved layouts and recovery of paid furniture when town activity is rejected. Live snapped rectangle previews on desktop/touch, held custom plans with fixed anchors, nearby edge snapping, overlap-aware boundaries and automatic safe entrances for every added patch, outside-tap dismissal and confirmation, reusable pictured drag/drop prefabs, two-finger pan/pinch/twist in every Build tool, flexible room/garden guides, enclosed or open extensions, shared doorway placement/closing and wall-section removal, saved walls and route safety. Counter, entrance and treatment suite anchored; paid copies with independent seating/queues/animations and no per-type ownership cap. No standalone wall drawing, upper floors or movable clinical suites. [Layout and unloading checks](../tests/clinic-build.test.ts), [desktop/touch editor checks](../tests/clinic-build.spec.ts).                                                                                                                                                                                                                                                                                            |
 
 V2 connects navigation and ambient routines to actual appointments, bounded road
 incidents, care outcomes, return journeys, and cross-reload saving. Later campaign
@@ -1692,14 +1698,14 @@ layout, including stored copies and unused floor credits, through later reloads.
 Copies have separate seats, queues, animation and rotations. Moving one occupied
 copy unloads only that copy safely; other copies remain available. Stored copy
 counts decrease on placement and increase on storage. Each type appears once in
-Build with a model preview and distinct available/placed counts. Types with a
-stored copy precede fully placed types, and never-owned types are absent.
+Build with a model preview and an available count. Types with a
+stored copy appear in the inventory; placed-only and never-owned types are absent.
 Purchased room kits with remaining tile allowance lead every filter and open the
 matching pictured prefab without spending or changing the layout until placement. Remaining
 allowance persists through partial use and reload; legacy rooms never gain it
-twice. Zero-available placement buttons for owned types stay grey and disabled.
-Move placed cycles through existing
-copies without displaying instance numbers. Shop pictures every purchase, and
+twice. Placing the last spare removes its card; storing a scene item brings it back.
+Clicking/tapping the actual model selects the exact placed copy without an
+inventory move control or displayed instance number. Shop pictures every purchase, and
 image loading/purchasing does not shift its scroll position. Card images/text,
 fixed editor tools and desktop camera-turn buttons stay separate and within the
 viewport. Phones use two fingers to pan/pinch/twist in every Build tool; Camera
@@ -1725,7 +1731,11 @@ Cancelling, capture loss and interrupted drawing spend nothing. Pictured prefabs
 preview and snap before release, charge once on valid drop, and reject overlapping
 or disconnected placement. Invalid drops remain retryable; dropping outside cancels.
 A built prefab survives reload and its doors/floor/furniture remain editable. Invalid plots remain red and cannot confirm.
-Rooms remain reachable through saved doors; the last entrance cannot be closed,
+Test additions against existing constructed rooms and migrated clinics: edge
+contact, a one-row overlap, wrapping a corner, and multiple new patches must keep
+the complete rectangle and provide actual routes. During all four drag directions,
+the first corner, camera and old layout stay fixed; near-edge pointer positions
+snap without leaving a gap. Only newly added cells are charged. Rooms remain reachable through saved doors; the last entrance cannot be closed,
 and a wall cannot be closed through a person or solid furnishing. Room purpose
 suggestions never restrict furniture choices. Shop scrolling remains stable and phone users can always reach
 Rotate, Place/Build space, Cancel and Done without page scrolling.
@@ -1752,10 +1762,11 @@ for routine implementation choices.
 
 Furniture is owned by the copy, with a price for each purchase and no per-type
 cap. Internal instance IDs keep copies independent; children see ordinary names
-and available counts. Room kits retain their original grants, and old saves keep
+and available counts for stored items. Room kits retain their original grants, and old saves keep
 every paid item. Collection ownership no longer acts as a one-time furniture unlock.
-Build presents one pictured card per type so a growing collection remains readable;
-the separate Move placed action reaches physical copies without multiplying cards.
+Build now shows only spare copies, stacked by type. Direct scene pickup replaces
+the Move placed inventory controls so children distinguish buying/placing spare
+items from rearranging what is already there.
 
 Compact examinations use one viewport grid instead of independently floating
 readouts, notes and tool lists. This keeps targeting and the next action stable
@@ -1764,7 +1775,9 @@ on phones while allowing unhurried reading inside the notebook and Visit info.
 Space construction uses draw → confirm with automatic safe entrances, superseding
 the manual entrance-selection step. Pictured drag/drop floor plans provide an
 easier starting point without prescribing room use or granting extra furniture.
-Two fingers navigate in any Build tool so small screens do not lock children into
+Construction tolerates overlaps at old edges, preserving existing rooms and
+opening the actual shared boundary. A fixed anchor and nearby edge snapping make
+attachment forgiving without silently shrinking the rectangle. Two fingers navigate in any Build tool so small screens do not lock children into
 a drawing view. Shared-wall editing keeps doors customizable; the clinical core
 stays anchored.
 

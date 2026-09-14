@@ -3,7 +3,6 @@ import { build } from 'vite';
 import { TownSimulation } from '../src/town-simulation';
 import { visits, upgrades, type UpgradeId } from '../src/game';
 import { touchCamera } from './touch-camera';
-import { furnitureType } from '../src/clinic-build';
 const owned = upgrades.filter((u) => u.id !== 'stock').map((u) => u.id);
 let script = '';
 test.setTimeout(120000);
@@ -106,19 +105,14 @@ async function visibleDoors(page: Page) {
   });
 }
 async function movePlaced(page: Page, id: string) {
-  const items = (await page.evaluate(() => window.buildTest.snapshot())).build
-    .items;
-  const type = furnitureType(items.find((i) => i.id === id)!.recipe);
-  const copies = items.filter(
-    (i) => furnitureType(i.recipe) === type && i.placement,
-  );
-  for (let n = 0; n < copies.length; n++) {
-    await page.locator(`[data-build="move"][data-recipe="${type}"]`).click();
-    if (await page.evaluate((id) => window.buildTest.selection() === id, id))
-      return;
-    await page.evaluate(() => window.buildTest.step(45));
-  }
-  throw new Error(`Could not select the placed copy ${id}`);
+  await page.locator('[data-build="tool"][data-value="items"]').click();
+  const point = await page.evaluate((id) => window.buildTest.itemPoint(id), id);
+  if (await page.evaluate(() => matchMedia('(pointer:coarse)').matches))
+    await page.touchscreen.tap(point.x, point.y);
+  else await page.mouse.click(point.x, point.y);
+  await expect
+    .poll(() => page.evaluate(() => window.buildTest.selection()))
+    .toBe(id);
 }
 test('fresh clinics and unbuilt room kits have no doors standing outside the building', async ({
   page,
@@ -298,10 +292,14 @@ test('build a connected garden and room, reject unsafe furniture, and cancel wit
   await page.locator('[data-build="tool"][data-value="garden"]').click();
   await page.locator('[data-build="boundary"][data-value="open"]').click();
   await tap(page, -18, -7, touch);
-  await tap(page, -18, 0, touch);
+  await tap(page, -17, 0, touch);
   await page.locator('[data-build="place"]').click();
   await expect(page.locator('#build-feedback')).toContainText('ready');
   let state = await page.evaluate(() => window.buildTest.snapshot().build);
+  const gardenCoins = await page.getByTestId('coins').textContent();
+  expect(
+    state.tiles.filter((t) => t.x === -18 && t.z >= -7 && t.z < 0),
+  ).toHaveLength(7);
   expect(
     state.tiles
       .filter((t) => t.x === -18 && t.z >= -7 && t.z <= -1)
@@ -309,8 +307,10 @@ test('build a connected garden and room, reject unsafe furniture, and cancel wit
   ).toBe(true);
   await page.locator('[data-build="tool"][data-value="room"]').click();
   await page.locator('[data-build="boundary"][data-value="open"]').click();
+  // Repaint the same explicit rectangle. A zero-width boundary stroke would
+  // now grow outward into new floor, rather than selecting the old strip.
   await tap(page, -18, -7, touch);
-  await tap(page, -18, 0, touch);
+  await tap(page, -17, 0, touch);
   await page.locator('[data-build="place"]').click();
   state = await page.evaluate(() => window.buildTest.snapshot().build);
   expect(
@@ -318,6 +318,7 @@ test('build a connected garden and room, reject unsafe furniture, and cancel wit
       .filter((t) => t.x === -18 && t.z >= -7 && t.z <= -1)
       .every((t) => t.surface === 'room'),
   ).toBe(true);
+  await expect(page.getByTestId('coins')).toHaveText(gardenCoins!);
   await page.locator('[data-build="tool"][data-value="items"]').click();
   await movePlaced(page, 'bench');
   await page.evaluate(() => window.buildTest.step(20));
@@ -426,6 +427,7 @@ test('paid furniture copies have ordinary names, counts and independent placemen
   await expect(
     page.locator('[data-build="pick"][data-id="seat-5~2"]'),
   ).toContainText('3 available');
+  await expect(page.locator('.build-card[data-recipe="wheel"]')).toHaveCount(0);
   const placed = await page.evaluate(() => window.buildTest.snapshot().build);
   const models = await page.evaluate(() => window.buildTest.models());
   for (const id of ['seat-5~1', 'wheel', 'wheel~1']) {
@@ -469,6 +471,9 @@ test('paid furniture copies have ordinary names, counts and independent placemen
   await movePlaced(page, 'wheel~1');
   await page.evaluate(() => window.buildTest.step(45));
   await page.locator('[data-build="store"]').click();
+  await expect(page.locator('.build-card[data-recipe="wheel"]')).toContainText(
+    '1 available',
+  );
   const stored = await page.evaluate(() => window.buildTest.snapshot().build);
   expect(
     stored.items.find((i) => i.id === 'wheel~1')!.placement,
@@ -565,21 +570,12 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
   const names = await cards.locator('strong').allTextContents();
   expect(new Set(names).size).toBe(names.length);
   const chair = page.locator('.build-card[data-recipe="seat-5"]');
-  await expect(chair).toHaveCount(1);
-  await expect(chair).toContainText('0 available');
-  await expect(chair).toContainText('3 placed');
-  await expect(chair.locator('[data-build="pick"]')).toBeDisabled();
-  await expect(chair.locator('[data-build="move"]')).toBeEnabled();
-  await expect(page.locator('.build-card[data-recipe="wheel"]')).toHaveCount(0);
-  const ownedTypes = await page.evaluate(() =>
-    window.buildTest.snapshot().build!.items.map((item) => item.recipe),
+  await expect(chair).toHaveCount(0);
+  await expect(cards).toHaveCount(0);
+  await expect(page.locator('[data-build="move"]')).toHaveCount(0);
+  await expect(page.locator('.build-list')).toContainText(
+    'Tap furniture in the clinic',
   );
-  expect(
-    await cards.evaluateAll((cards) =>
-      cards.map((c) => (c as HTMLElement).dataset.recipe).sort(),
-    ),
-  ).toEqual([...new Set(ownedTypes.map(furnitureType))].sort());
-
   await page.locator('[data-build="shop"]').click();
   const products = page.locator('.shop-card');
   await expect(products.locator('img')).toHaveCount(upgrades.length);
@@ -623,13 +619,13 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
   const availability = await cards.evaluateAll((cards) =>
     cards.map((c) => Number((c as HTMLElement).dataset.available)),
   );
-  expect(availability.slice(2).every((count) => count === 0)).toBe(true);
+  expect(availability).toEqual([2, 1]);
   await expect(chair.locator('[data-build="pick"]')).toBeEnabled();
   await expect(page.locator('#toast')).not.toHaveClass(/show/);
   await chair.scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath('illustrated-build.png') });
 
-  // Every card's image, words and move button have their own space. Its internal
+  // Every spare-item card has separate space for its picture and words. Its internal
   // list may scroll, but neither its contents nor fixed tools overlap each other.
   for (const size of mobile
     ? [
@@ -653,14 +649,10 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
         const pick = card
           .querySelector('[data-build="pick"]')!
           .getBoundingClientRect();
-        const move = card
-          .querySelector('[data-build="move"]')
-          ?.getBoundingClientRect();
         if (
           img.right > words.left + 1 ||
           words.right > pick.right + 1 ||
-          words.bottom > pick.bottom + 1 ||
-          (move && pick.bottom > move.top + 1)
+          words.bottom > pick.bottom + 1
         )
           errors.push(card.dataset.recipe!);
       }
@@ -737,14 +729,13 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     before,
   );
-  // The non-pointer Move placed action can reach every existing chair without
-  // duplicating catalogue rows or showing internal instance numbers.
+  // Pick the actual chair in the scene; storing it adds a spare to the one card.
   await movePlaced(page, 'seat-7');
   await page.evaluate(() => window.buildTest.step(20));
   await expect(chair).toHaveCount(1);
   await page.locator('[data-build="store"]').click();
   await expect(chair).toContainText('3 available');
-  await expect(chair).toContainText('2 placed');
+  await expect(chair).not.toContainText('placed');
 });
 
 test('room rectangles preview while held, connect automatically and survive camera gestures', async ({
@@ -1254,4 +1245,191 @@ test('prefab cards support tap placement, rotation, invalid retries and outside-
   expect(built.tiles.filter((t) => t.surface === 'garden')).toHaveLength(48);
   await expect(page.locator('.build-price')).toContainText('4856 coins');
   await page.screenshot({ path: info.outputPath('prefab-garden.png') });
+});
+
+test('adjoining rectangles keep their anchor and full footprint through dragging, doors and reload', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  if (touch) await page.setViewportSize({ width: 360, height: 640 });
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await open(page, false, []);
+  await page.locator('[data-build="tool"][data-value="room"]').click();
+  const picture = page.locator('[data-prefab="expansion"] img');
+  await picture.scrollIntoViewIfNeeded();
+  if (touch) await picture.tap();
+  else await picture.click();
+  await page.locator('[data-build="place"]').click();
+  const original = await page.evaluate(() => window.buildTest.snapshot().build);
+  const cdp = touch ? await page.context().newCDPSession(page) : undefined;
+  const input = async (
+    type: 'touchStart' | 'touchMove' | 'touchEnd',
+    p?: { x: number; y: number },
+  ) => {
+    if (cdp)
+      await cdp.send('Input.dispatchTouchEvent', {
+        type,
+        touchPoints: p ? [{ ...p, id: 1 }] : [],
+      });
+    else if (type === 'touchStart') {
+      await page.mouse.move(p!.x, p!.y);
+      await page.mouse.down();
+    } else if (type === 'touchMove')
+      await page.mouse.move(p!.x, p!.y, { steps: 5 });
+    else await page.mouse.up();
+  };
+  // Deliberately start/end slightly outside the existing edge, in all four
+  // directions. These are pointer positions, not pre-snapped grid coordinates.
+  for (const [start, end] of [
+    [
+      [-11.65, -3],
+      [-15, 3],
+    ],
+    [
+      [-15, 3],
+      [-11.65, -3],
+    ],
+    [
+      [-11.65, 3],
+      [-15, -3],
+    ],
+    [
+      [-15, -3],
+      [-11.65, 3],
+    ],
+  ]) {
+    await page.locator('[data-build="tool"][data-value="garden"]').click();
+    await page.evaluate(() => window.buildTest.point(-13, 0, true));
+    const camera = await page.evaluate(() => window.buildTest.camera());
+    const points = await page.evaluate(
+      ({ start, end }) =>
+        [start, end].map(([x, z]) => window.buildTest.point(x, z)),
+      { start, end },
+    );
+    await input('touchStart', points[0]);
+    await expect
+      .poll(() => page.evaluate(() => window.buildTest.preview()))
+      .toMatchObject({ visible: true, width: 0.18, depth: 0.18 });
+    if (start[0] === -11.65 && start[1] === -3) {
+      const first = await page.evaluate(() =>
+        window.buildTest.point(-12.2, -2),
+      );
+      await input('touchMove', first);
+      await expect
+        .poll(() => page.evaluate(() => window.buildTest.preview()))
+        .toMatchObject({ x: -11.5, z: -2.5, width: 1, depth: 1 });
+    }
+    await input('touchMove', points[1]);
+    await expect
+      .poll(() => page.evaluate(() => window.buildTest.preview()))
+      .toMatchObject({
+        visible: true,
+        x: -13,
+        z: 0,
+        width: 4,
+        depth: 6,
+        color: 0x76b873,
+      });
+    expect(await page.evaluate(() => window.buildTest.camera())).toEqual(
+      camera,
+    );
+    expect(await page.evaluate(() => window.buildTest.scenery().hints)).toBe(1);
+    expect(
+      await page.evaluate(() => window.buildTest.snapshot().build),
+    ).toEqual(original);
+    await input('touchEnd');
+    await expect(page.locator('[data-build="place"]')).toBeEnabled();
+    await page.locator('[data-build="cancel"]').click();
+  }
+  // Intentionally overlap a whole row: keep every requested tile and open the
+  // existing wall, rather than placing a new wall through the older floor.
+  await page.locator('[data-build="tool"][data-value="garden"]').click();
+  await page.evaluate(() => window.buildTest.point(-13, 0, true));
+  const [start, mid, end] = await page.evaluate(() =>
+    [
+      [-10, -3],
+      [-12, 0],
+      [-15, 3],
+    ].map(([x, z]) => window.buildTest.point(x, z)),
+  );
+  await input('touchStart', start);
+  await input('touchMove', mid);
+  await expect
+    .poll(() => page.evaluate(() => window.buildTest.preview()))
+    .toMatchObject({
+      x: -11,
+      z: -1.5,
+      width: 2,
+      depth: 3,
+      color: 0x76b873,
+    });
+  await input('touchMove', end);
+  await expect
+    .poll(() => page.evaluate(() => window.buildTest.preview()))
+    .toMatchObject({
+      x: -12.5,
+      z: 0,
+      width: 5,
+      depth: 6,
+      color: 0x76b873,
+    });
+  // Check a rendered frame while still holding the pointer, not just the
+  // updated scene graph before the software renderer presents that frame.
+  const changedAt = await page.evaluate(() => performance.now());
+  await expect
+    .poll(() => page.evaluate(() => window.buildTest.scenery().renderedAt))
+    .toBeGreaterThan(changedAt);
+  await page.screenshot({
+    path: info.outputPath('adjoining-overlap-held.png'),
+  });
+  await input('touchEnd');
+  await cdp?.detach();
+  await expect(page.locator('[data-build="place"]')).toBeEnabled();
+  await page.locator('[data-build="place"]').click();
+  const built = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(built.tiles.length).toBe(original.tiles.length + 24);
+  expect(built.doors.some((d) => d.axis === 'z' && d.x === -11)).toBe(true);
+  expect(built.walls.some((d) => d.axis === 'z' && d.x === -10)).toBe(false);
+  for (const tile of original.tiles)
+    expect(built.tiles.find((t) => t.x === tile.x && t.z === tile.z)).toEqual(
+      tile,
+    );
+  await expect(page.locator('.build-price')).toContainText('4784 coins');
+  await page.screenshot({
+    path: info.outputPath('adjoining-overlap-built.png'),
+  });
+  await page.locator('[data-build="done"]').click();
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    built,
+  );
+  expect(errors).toEqual([]);
+});
+
+test('a migrated room accepts north and south additions with automatic connecting doors', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  await open(page, false, ['expansion']);
+  const original = await page.evaluate(() => window.buildTest.snapshot().build);
+  await page.locator('[data-build="tool"][data-value="room"]').click();
+  // Start one old row inside the room, then grow north using two corner taps.
+  await tap(page, -10, -3, touch);
+  await tap(page, -6, -8, touch);
+  await expect(page.locator('[data-build="place"]')).toBeEnabled();
+  await page.locator('[data-build="place"]').click();
+  // Reverse the direction and end slightly short of the south edge.
+  await tap(page, -6, 7, touch);
+  await tap(page, -10, 4.65, touch);
+  await expect(page.locator('[data-build="place"]')).toBeEnabled();
+  await page.locator('[data-build="place"]').click();
+  const built = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(built.tiles.length).toBe(original.tiles.length + 28);
+  expect(built.doors.some((d) => d.axis === 'x' && d.z === -4)).toBe(true);
+  expect(built.doors.some((d) => d.axis === 'x' && d.z === 4)).toBe(true);
+  await expect(page.locator('.build-price')).toContainText('4916 coins');
 });

@@ -4,7 +4,7 @@ import {
   edgeCentre,
   floorRectangle,
   joinWalls,
-  rectangleWalls,
+  spaceFootprint,
   wallKey,
   type WallEdge,
 } from './clinic-spaces.ts';
@@ -1094,29 +1094,9 @@ export class ClinicBuild {
     this.changed();
   }
   doorOptions(a: Point, b: Point) {
-    const { from, to } = floorRectangle(a, b);
-    const inside = (p: Point) =>
-      p.x >= from.x && p.x <= to.x && p.z >= from.z && p.z <= to.z;
-    return rectangleWalls(a, b)
-      .filter((edge) =>
-        edgeCells(edge).some(
-          (p) => !inside(p) && this.contains({ x: p.x + 0.5, z: p.z + 0.5 }),
-        ),
-      )
-      .sort((a, b) => {
-        const centre = {
-          x: (from.x + to.x + 1) / 2,
-          z: (from.z + to.z + 1) / 2,
-        };
-        const gap = (edge: WallEdge) =>
-          Math.hypot(
-            edgeCentre(edge).x - centre.x,
-            edgeCentre(edge).z - centre.z,
-          );
-        return gap(a) - gap(b);
-      });
+    return spaceFootprint(this.tiles, a, b).connections.flat();
   }
-  /** Choose a reachable opening, trying the middle of each shared side first. */
+  /** Use the true old/new boundary, including when a rectangle overlaps old floor. */
   autoSpace(
     a: Point,
     b: Point,
@@ -1126,31 +1106,86 @@ export class ClinicBuild {
     actors: Point[] = [],
     apply = false,
   ) {
-    const options: (WallEdge | undefined)[] = enclosed
-      ? this.doorOptions(a, b)
-      : [undefined, ...this.doorOptions(a, b)];
-    if (!options.length)
+    const { width, depth, from, to } = floorRectangle(a, b);
+    if (width * depth > 250)
+      return {
+        cost: 0,
+        error: 'Build up to 250 tiles at a time.',
+        door: undefined,
+        doors: [] as WallEdge[],
+      };
+    for (let x = from.x; x <= to.x; x++)
+      for (let z = from.z; z <= to.z; z++)
+        if (!buildable.has(gridKey(x, z)))
+          return {
+            cost: 0,
+            error:
+              'Stay on the clinic greenspace, clear of paths and neighbours.',
+            door: undefined,
+            doors: [] as WallEdge[],
+          };
+    const footprint = spaceFootprint(this.tiles, a, b);
+    if (!footprint.added)
+      return {
+        ...this.floor(from, to, surface, coins, actors, apply),
+        door: undefined,
+        doors: [] as WallEdge[],
+      };
+    if (footprint.connections.some((group) => !group.length))
       return {
         cost: 0,
         error: 'Draw beside the clinic so a doorway can connect your space.',
         door: undefined,
+        doors: [] as WallEdge[],
       };
-    let first:
-      { cost: number; error?: string; door: WallEdge | undefined } | undefined;
-    for (const door of options) {
-      const result = this.space(a, b, surface, enclosed, door, coins, actors);
-      first ??= { ...result, door };
-      if (!result.error)
-        return {
-          ...(apply
-            ? this.space(a, b, surface, enclosed, door, coins, actors, true)
-            : result),
-          door,
-        };
-      if (result.cost > coins) return { ...result, door };
+    const check = (doors: WallEdge[], commit = false) => ({
+      ...this.space(
+        a,
+        b,
+        surface,
+        enclosed,
+        doors[0],
+        coins,
+        actors,
+        commit,
+        doors.slice(1),
+      ),
+      door: doors[0],
+      doors,
+    });
+    const finish = (result: ReturnType<typeof check>) =>
+      !result.error && apply ? check(result.doors, true) : result;
+    const first = check(
+      enclosed ? footprint.connections.map((group) => group[0]) : [],
+    );
+    if (!first.error || first.cost > coins) return finish(first);
+    if (footprint.connections.length === 1) {
+      for (const door of footprint.connections[0]) {
+        const result = check([door]);
+        if (!result.error || result.cost > coins) return finish(result);
+      }
     }
-    return first!;
+    // Several patches, or several people on one boundary, may need more than
+    // one opening. Start connected, then close surplus doors from the far end.
+    // This is linear in the contact edges, never a combinatorial search per drag.
+    let selected = check(footprint.connections.flat());
+    if (selected.error) return first;
+    for (const group of footprint.connections)
+      for (const edge of [...group].reverse()) {
+        const remaining = selected.doors.filter(
+          (d) => wallKey(d) !== wallKey(edge),
+        );
+        if (
+          enclosed &&
+          !group.some((d) => remaining.some((r) => wallKey(r) === wallKey(d)))
+        )
+          continue;
+        const candidate = check(remaining);
+        if (!candidate.error) selected = candidate;
+      }
+    return finish(selected);
   }
+
   /** Floor, boundary and chosen doorway are one transaction. Drafts never spend. */
   space(
     a: Point,
@@ -1161,8 +1196,11 @@ export class ClinicBuild {
     coins: number,
     actors: Point[] = [],
     apply = false,
+    extraDoors: WallEdge[] = [],
   ) {
-    const { from, to } = floorRectangle(a, b);
+    const { from, to, width, depth } = floorRectangle(a, b);
+    if (width * depth > 250)
+      return { cost: 0, error: 'Build up to 250 tiles at a time.' };
     const options = this.doorOptions(a, b);
     if (enclosed && !door)
       return {
@@ -1177,11 +1215,20 @@ export class ClinicBuild {
     const old = this.state,
       revision = this.revision,
       architecture = this.architecture;
-    const added = enclosed ? rectangleWalls(a, b) : [];
-    const walls = joinWalls(architecture.walls, added);
-    const doors = joinWalls(architecture.doors, door ? [door] : []);
-    if (door && !walls.some((edge) => wallKey(edge) === wallKey(door)))
-      walls.push(door);
+    const footprint = spaceFootprint(this.tiles, a, b);
+    const added = enclosed ? footprint.walls : [];
+    const openings = [...(door ? [door] : []), ...extraDoors];
+    if (
+      openings.some(
+        (d) => !options.some((edge) => wallKey(edge) === wallKey(d)),
+      )
+    )
+      return {
+        cost: 0,
+        error: 'Put the doorway on a side that joins existing clinic floor.',
+      };
+    const walls = joinWalls(architecture.walls, added, openings);
+    const doors = joinWalls(architecture.doors, openings);
     const open = new Set(doors.map(wallKey));
     const newWalls = added.filter(
       (edge) =>
@@ -1224,7 +1271,15 @@ export class ClinicBuild {
     }
     this.state = { ...old, walls, doors, floorEdited: true };
     this.changed();
-    const result = this.floor(from, to, surface, coins, actors, apply);
+    const result = this.floor(
+      from,
+      to,
+      surface,
+      coins,
+      actors,
+      apply,
+      footprint.added > 0,
+    );
     if (result.error || !apply) {
       this.state = old;
       this.changed();
@@ -1298,6 +1353,7 @@ export class ClinicBuild {
     coins: number,
     actors: Point[] = [],
     apply = false,
+    preserveExisting = false,
   ): { error?: string; cost: number } {
     const x0 = Math.min(a.x, b.x),
       x1 = Math.max(a.x, b.x),
@@ -1328,7 +1384,7 @@ export class ClinicBuild {
         } else if (index < 0) {
           tiles.push({ x, z, surface, paid: true });
           count++;
-        } else tiles[index].surface = surface;
+        } else if (!preserveExisting) tiles[index].surface = surface;
       }
     const credits = Math.min(count, this.state.credits),
       cost = (count - credits) * floorPrice;

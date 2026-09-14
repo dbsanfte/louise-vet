@@ -260,7 +260,11 @@ export class ClinicBuildScenery {
     this.preview.visible = false;
     this.hints.visible = false;
   }
-  showDoorHints(edges: WallEdge[], selected?: WallEdge, valid = true) {
+  showDoorHints(
+    edges: WallEdge[],
+    selected?: WallEdge | WallEdge[],
+    valid = true,
+  ) {
     this.hintEdges = edges;
     const count = edges.length * 4;
     if (!this.hintMesh || this.hintMesh.count !== count) {
@@ -280,7 +284,9 @@ export class ClinicBuildScenery {
     edges.forEach((edge, i) => {
       const centre = edgeCentre(edge),
         rotation = edge.axis === 'x' ? 0 : Math.PI / 2;
-      const chosen = selected && wallKey(edge) === wallKey(selected);
+      const chosen = (
+        Array.isArray(selected) ? selected : selected ? [selected] : []
+      ).some((d) => wallKey(edge) === wallKey(d));
       color.setHex(chosen ? (valid ? 0x31a76b : 0xd44935) : 0x318acc);
       for (const [part, [along, y, width, height, depth]] of [
         [-0.46, 0.62, 0.08, 1.24, 0.1],

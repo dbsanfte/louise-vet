@@ -143,28 +143,9 @@
   font-size: 14px;
   font-weight: 800;
 }
-.build-card[data-available='0'] {
-  background: #eeefeb;
-  border-color: #d3d7d1;
-}
 #app[data-building='true'] .build-card > [data-build='pick']:disabled {
   opacity: 1;
   color: #697169;
-}
-.build-card[data-available='0'] .catalogue-image {
-  filter: grayscale(1);
-  opacity: 0.55;
-}
-.build-card[data-available='0'] .build-available {
-  color: #646c64;
-  background: #dde0da;
-}
-#app[data-building='true'] .build-card > [data-build='move'] {
-  width: 100%;
-  min-height: 36px;
-  padding: 5px;
-  font-size: 14px;
-  background: #fafbf7;
 }
 #build-feedback {
   margin: 0;

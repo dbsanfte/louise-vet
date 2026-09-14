@@ -12,7 +12,12 @@ import {
   type Placement,
   type FloorCell,
 } from './clinic-build';
-import { nearestWall, wallKey, type WallEdge } from './clinic-spaces';
+import {
+  nearestWall,
+  wallKey,
+  snapSpaceCorner,
+  type WallEdge,
+} from './clinic-spaces';
 import { BuildTouchNavigation } from './build-touch';
 import {
   clinicPrefabs,
@@ -46,6 +51,8 @@ export class ClinicBuildEditor {
   private ghost?: THREE.Group;
   private cursor: Placement = { x: 0, z: 1, rotation: 0 };
   private corner?: Point;
+  private rawCursor: Point = { x: 0, z: 1 };
+  private automaticDoors: WallEdge[] = [];
   private draft?: {
     start: Point;
     end: Point;
@@ -55,7 +62,8 @@ export class ClinicBuildEditor {
   private enclosed = true;
   private removeWall = false;
   private filter = 'all';
-  private message = 'Choose furniture to move, or build some new space.';
+  private message =
+    'Tap furniture in the clinic to move it. Your inventory holds spare items.';
   private error?: string;
   private lastHover = 0;
   private press?: {
@@ -63,6 +71,7 @@ export class ClinicBuildEditor {
     x: number;
     y: number;
     cursor: Placement;
+    rawCursor: Point;
     corner?: Point;
     dragged: boolean;
   };
@@ -195,6 +204,7 @@ export class ClinicBuildEditor {
           x: e.clientX,
           y: e.clientY,
           cursor: { ...this.cursor },
+          rawCursor: { ...this.rawCursor },
           corner: this.corner ? { ...this.corner } : undefined,
           dragged: false,
         };
@@ -215,7 +225,8 @@ export class ClinicBuildEditor {
           return;
         if (this.press)
           this.press.dragged ||=
-            Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) > 8;
+            Math.hypot(e.clientX - this.press.x, e.clientY - this.press.y) >
+            (this.drawing ? 2 : 8);
         // Floor corners update as each grid line is crossed; don't throttle
         // touch rectangles behind the furniture hover cadence.
         if (this.tool === 'items' && performance.now() - this.lastHover < 90)
@@ -353,19 +364,7 @@ export class ClinicBuildEditor {
       if (performance.now() - this.lastPrefabPointer > 300)
         this.choosePrefab(b.dataset.id!);
     } else if (action === 'pick') this.pick(b.dataset.id!);
-    else if (action === 'move') {
-      const placed = this.sim.build
-        .copies(b.dataset.recipe!)
-        .filter((i) => i.placement);
-      const next =
-        placed[
-          (placed.findIndex((i) => i.id === this.selected) + 1) % placed.length
-        ];
-      if (next) {
-        this.world.focusBuildItem(next.id);
-        this.pick(next.id);
-      }
-    } else if (action === 'filter') {
+    else if (action === 'filter') {
       this.filter = b.dataset.value!;
       this.render();
     } else if (action === 'tool') {
@@ -428,16 +427,23 @@ export class ClinicBuildEditor {
       const scale = this.tool === 'items' ? 1 : 2;
       this.cursor.x += dx * scale;
       this.cursor.z += dz * scale;
+      this.rawCursor = { x: this.cursor.x, z: this.cursor.z };
       this.preview();
     }
   }
   private moveCursor(point: Point) {
+    this.rawCursor = { ...point };
     const step = this.tool === 'items' ? 2 : 1;
-    const x = Math.round(point.x * step) / step,
-      z = Math.round(point.z * step) / step;
+    const { x, z } =
+      this.drawing && this.tool !== 'erase' && !this.prefab
+        ? snapSpaceCorner(point, this.sim.build.tiles)
+        : {
+            x: Math.round(point.x * step) / step,
+            z: Math.round(point.z * step) / step,
+          };
     const changed = x !== this.cursor.x || z !== this.cursor.z;
     this.cursor = { x, z, rotation: this.cursor.rotation };
-    return changed;
+    return changed || Boolean(this.corner && this.press);
   }
   private releasePress() {
     const press = this.press;
@@ -450,6 +456,7 @@ export class ClinicBuildEditor {
     const press = this.releasePress();
     if (!press) return;
     this.cursor = press.cursor;
+    this.rawCursor = press.rawCursor;
     this.corner = press.corner;
     this.error = undefined;
     if (this.selected || this.corner || this.prefab || this.draft)
@@ -547,12 +554,14 @@ export class ClinicBuildEditor {
     this.selected = undefined;
     this.lifting = false;
     this.corner = undefined;
+    this.automaticDoors = [];
     this.draft = undefined;
     this.doorway = undefined;
     this.error = undefined;
     this.sim.leisure.endMove();
     this.world.town!.furniture.scenery.hidePreview();
-    this.message = 'Choose furniture to move, or build some new space.';
+    this.message =
+      'Tap furniture in the clinic to move it. Your inventory holds spare items.';
   }
   private rotate() {
     this.cursor.rotation = (this.cursor.rotation + Math.PI / 2) % (Math.PI * 2);
@@ -561,6 +570,28 @@ export class ClinicBuildEditor {
   }
   private cell() {
     return { x: Math.round(this.cursor.x), z: Math.round(this.cursor.z) };
+  }
+  private endCorner() {
+    const end = this.cell(),
+      start = this.corner;
+    if (!start || this.tool === 'erase') return end;
+    for (const axis of ['x', 'z'] as const) {
+      if (end[axis] !== start[axis]) continue;
+      const delta = this.rawCursor[axis] - start[axis];
+      // Minimum-width strokes must grow on the dragged side of their anchor.
+      if (Math.abs(delta) > 0.12) end[axis] += Math.sign(delta);
+      else {
+        const middle = { x: (start.x + end.x) / 2, z: (start.z + end.z) / 2 };
+        const positive = { ...middle, [axis]: start[axis] + 0.5 };
+        const negative = { ...middle, [axis]: start[axis] - 0.5 };
+        if (
+          this.sim.build.contains(positive) &&
+          !this.sim.build.contains(negative)
+        )
+          end[axis]--;
+      }
+    }
+    return end;
   }
   private get drawing() {
     return ['room', 'garden', 'erase'].includes(this.tool);
@@ -574,7 +605,7 @@ export class ClinicBuildEditor {
     if (!this.corner || !this.drawing) return;
     this.draft = {
       start: { ...this.corner },
-      end: this.cell(),
+      end: this.endCorner(),
       surface: this.tool as FloorCell['surface'] | 'erase',
     };
     this.doorway = undefined;
@@ -614,6 +645,7 @@ export class ClinicBuildEditor {
         apply,
       );
       this.doorway = result.door;
+      this.automaticDoors = result.doors;
       return result;
     }
     return this.sim.build.floor(
@@ -669,8 +701,8 @@ export class ClinicBuildEditor {
         !this.error,
       );
       scenery.showDoorHints(
-        this.doorway && !this.error ? [this.doorway] : [],
-        this.doorway,
+        this.error ? [] : this.automaticDoors,
+        this.automaticDoors,
         !this.error,
       );
       this.message = `${this.prefab.name} · ${width} × ${depth} tiles · ${result.cost} coins. Drop to build; the door connects automatically.`;
@@ -693,9 +725,20 @@ export class ClinicBuildEditor {
         this.cursor.rotation,
         !this.error,
       );
+    } else if (
+      this.drawing &&
+      !this.draft &&
+      (!this.corner ||
+        (this.press && !this.press.dragged && !this.press.corner))
+    ) {
+      const anchor = this.corner ?? this.cell();
+      this.error = undefined;
+      scenery.showPreview(anchor.x, anchor.z, 0.18, 0.18, 0, true);
+      scenery.showDoorHints([]);
+      this.message = 'Start at this corner, then drag out your space.';
     } else if (this.draft || this.drawing) {
       const a = this.draft?.start ?? this.corner ?? this.cell(),
-        b = this.draft?.end ?? this.cell();
+        b = this.draft?.end ?? this.endCorner();
       const result = this.floor(a, b);
       const { from, width, depth } = floorRectangle(a, b);
       this.error = result.error;
@@ -710,10 +753,8 @@ export class ClinicBuildEditor {
       const surface = this.draft?.surface ?? this.tool;
       this.message = `${width} × ${depth} tiles · ${result.cost} coins. ${this.draft ? 'Ready to build. Tap outside to cancel.' : this.corner ? (this.press ? 'Release to plan.' : 'Choose the opposite corner.') : 'Draw a rectangle.'}`;
       scenery.showDoorHints(
-        surface !== 'erase' && this.doorway && !this.error
-          ? [this.doorway]
-          : [],
-        this.doorway,
+        surface !== 'erase' && !this.error ? this.automaticDoors : [],
+        this.automaticDoors,
         !this.error,
       );
     } else if (this.tool === 'door') {
@@ -942,12 +983,13 @@ export class ClinicBuildEditor {
       ? { ...(document.activeElement as HTMLElement).dataset }
       : undefined;
     const cards = buildRecipes.filter((r) => {
-      if (furnitureType(r.id) !== r.id || !this.sim.build.copies(r.id).length)
+      if (
+        furnitureType(r.id) !== r.id ||
+        !this.sim.build.copies(r.id).some((i) => !i.placement)
+      )
         return false;
       return (
         this.filter === 'all' ||
-        (this.filter === 'stored' &&
-          this.sim.build.copies(r.id).some((i) => !i.placement)) ||
         (this.filter === 'seats' &&
           r.stations.some(
             (id) =>
@@ -965,13 +1007,6 @@ export class ClinicBuildEditor {
         (this.filter === 'decor' && !r.stations.length)
       );
     });
-    // Keep catalogue order within each group so buying extra copies does not
-    // shuffle available types. Owned types with every copy placed follow them.
-    cards.sort(
-      (a, b) =>
-        Number(this.sim.build.copies(b.id).some((i) => !i.placement)) -
-        Number(this.sim.build.copies(a.id).some((i) => !i.placement)),
-    );
     const button = (
       text: string,
       action: string,
@@ -983,12 +1018,10 @@ export class ClinicBuildEditor {
       .map((r) => {
         const copies = this.sim.build.copies(r.id),
           stored = copies.filter((i) => !i.placement),
-          placed = copies.length - stored.length,
-          selected = copies.some((i) => i.id === this.selected),
+          selected = stored.some((i) => i.id === this.selected),
           next = stored.find((i) => i.id === this.selected) ?? stored[0];
         return `<article class="build-card" data-recipe="${r.id}" data-available="${stored.length}" data-selected="${selected}">
-        ${button(`${catalogueImage(r.id)}<span class="build-card-text"><strong>${r.name}</strong><span class="build-available">${stored.length} available</span><small>${placed} placed${stored.length ? ' · Place one' : ' · Buy in Shop'}</small></span>`, 'pick', `data-id="${next?.id ?? r.id}" aria-pressed="${Boolean(next && next.id === this.selected)}"`, !stored.length || this.lifting)}
-        ${placed ? button('Move placed' + (placed > 1 ? ' · Next copy' : ''), 'move', `data-recipe="${r.id}" aria-label="Move placed ${r.name}"`, this.lifting) : ''}
+        ${button(`${catalogueImage(r.id)}<span class="build-card-text"><strong>${r.name}</strong><span class="build-available">${stored.length} available</span><small>Place one</small></span>`, 'pick', `data-id="${next?.id ?? r.id}" aria-pressed="${Boolean(next && next.id === this.selected)}"`, !stored.length || this.lifting)}
       </article>`;
       })
       .join('');
@@ -1021,7 +1054,6 @@ export class ClinicBuildEditor {
         '',
       )}</nav><p class="build-price">${this.progress.coins} coins · ${this.sim.build.state.credits} free floor tiles · then ${floorPrice} coins/tile</p><nav class="build-filters" aria-label="Collection filters" ${this.drawing || this.draft || this.tool === 'door' ? 'hidden' : ''}>${[
       ['all', 'All'],
-      ['stored', 'Available'],
       ['seats', 'Seats'],
       ['pets', 'Pets'],
       ['decor', 'Decor'],
@@ -1035,7 +1067,7 @@ export class ClinicBuildEditor {
       )
       .join(
         '',
-      )}</nav><div class="build-list" tabindex="0" aria-label="Build collection">${this.spaceGuide(button) ?? (rooms + collection || '<p>No spare items here yet. Buy a copy in Shop, or store something from the clinic.</p>')}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item" ${this.draft || this.tool === 'door' ? 'hidden' : ''}>${[
+      )}</nav><div class="build-list" tabindex="0" aria-label="Build collection">${this.spaceGuide(button) ?? (rooms + collection || '<p>Nothing stored yet. Tap furniture in the clinic to move it, or buy something in Shop.</p>')}</div><p id="build-feedback" role="status">${this.error ?? this.message}</p><div class="build-nudges" aria-label="Position selected item" ${this.draft || this.tool === 'door' ? 'hidden' : ''}>${[
       [-0.5, 0, '←'],
       [0.5, 0, '→'],
       [0, -0.5, '↑'],

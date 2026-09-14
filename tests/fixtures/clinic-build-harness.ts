@@ -1,7 +1,7 @@
 import { World } from '../../src/world';
 import { ClinicBuildEditor } from '../../src/clinic-build-editor';
 import { localToTown } from '../../src/town-map';
-import { Vector3, InstancedMesh, type OrthographicCamera } from 'three';
+import { Vector3, Box3, InstancedMesh, type OrthographicCamera } from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let world: World, editor: ClinicBuildEditor, advance: (dt: number) => void;
 const load = World.prototype.load,
@@ -19,6 +19,33 @@ ClinicBuildEditor.prototype.enter = function () {
 };
 void import('../../src/main');
 window.buildTest = {
+  itemPoint: (id: string) => {
+    world.focusBuildItem(id);
+    world.draw(performance.now(), 0);
+    world.scene.updateMatrixWorld(true);
+    const camera = (world as unknown as { ortho: OrthographicCamera }).ortho;
+    camera.updateMatrixWorld(true);
+    const box = new Box3().setFromObject(
+        world.town!.furniture.itemModels.get(id)!,
+      ),
+      rect = world.buildCanvas.getBoundingClientRect();
+    // Find a visible point on the real model, then the test uses actual input.
+    for (const y of [0.5, 0.8, 0.2])
+      for (const x of [0.5, 0.25, 0.75])
+        for (const z of [0.5, 0.25, 0.75]) {
+          const p = new Vector3(
+            box.min.x + (box.max.x - box.min.x) * x,
+            box.min.y + (box.max.y - box.min.y) * y,
+            box.min.z + (box.max.z - box.min.z) * z,
+          ).project(camera);
+          const screen = {
+            x: rect.left + ((p.x + 1) * rect.width) / 2,
+            y: rect.top + ((1 - p.y) * rect.height) / 2,
+          };
+          if (world.buildHit(screen.x, screen.y).id === id) return screen;
+        }
+    throw new Error(`No visible hit point for ${id}`);
+  },
   selection: () => (editor as unknown as { selected?: string }).selected,
   camera: () => {
     const w = world as unknown as {
@@ -111,6 +138,7 @@ window.buildTest = {
 declare global {
   interface Window {
     buildTest: {
+      itemPoint: (id: string) => { x: number; y: number };
       selection: () => string | undefined;
       camera: () => { position: number[]; target: number[]; zoom: number };
       snapshot: () => ReturnType<
