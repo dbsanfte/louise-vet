@@ -145,8 +145,8 @@ those with available copies come first, followed by types whose copies are all
 placed. Catalogue order stays stable within each group. Unpurchased types appear
 only in Shop. Purchased room kits with unused floor tiles lead the collection,
 above available furniture in every filter. Their pictured cards show the remaining
-tile allowance and open **Room** or **Garden** drawing; they do not stamp or move a
-whole room. Tiles remain a shared allowance, displayed against kits in purchase
+tile allowance and select a matching prefab; drag the picture directly into the
+scene or tap to choose it. Tiles remain a shared allowance, displayed against kits in purchase
 order as the oldest allowance is used first. Partly used kits remain at the top;
 fully used kits and already-built legacy rooms do not add empty entries.
 **Move placed** selects and frames an existing copy without spending coins;
@@ -169,24 +169,49 @@ furniture defines the use, with no mandatory furnishing checklist or assigned ro
 type. Choose **With walls**/**Picket fence** for a separate space, or **Open space**
 for an extension without a new internal boundary. Exterior edges remain bounded.
 
-Drawing has three deliberate steps on desktop and touch screens:
+Drawing has two steps on desktop and touch screens:
 
 1. Drag between two grid corners, or tap the first and opposite corners. The
    first corner is fixed on pointer-down; the translucent footprint and strong
-   outline update as grid lines are crossed, while the pointer remains held.
+   outline update as grid lines are crossed while the pointer remains held.
    Corners snap to the same whole-tile edges as the existing structure. Width,
    depth and cost update in the feedback area; invalid plans are red and explain
    the obstruction. A single-width/depth stroke makes a one-tile strip.
-2. Release the drag or tap the second corner to hold a plan. Enclosed rooms and
-   gardens show blue entrance frames along edges adjoining existing floor. Tap a
-   frame or use **Suggested door**/**Next entrance**; the selected entrance turns
-   green when valid. An open extension needs no new partition, but can still need
-   a door through an existing wall. **Redraw** starts over. **Camera** keeps the
-   plan in place while the player looks around.
-3. **Build space** commits the floor, boundary and chosen entrance together. Until
-   then coins, floor credits and saved layout are unchanged. **Cancel**, Escape,
-   Done, opening Shop or leaving/reloading discards an unfinished plan. Interrupted
-   pointer capture or a second finger cancels an active stroke without building.
+2. Release the drag or tap the second corner to hold a plan. A clear entrance is
+   chosen automatically on a shared edge, trying central openings first and
+   checking routes, furniture and occupants. A green frame marks the opening.
+   **Build space** commits floor, boundary and entrance together. Until then
+   coins, floor credits and saved layout are unchanged. Tap outside the outline
+   to dismiss the plan; tapping inside does not build. **Cancel**, Escape, Done,
+   opening Shop or leaving/reloading also discards unfinished work.
+
+Two fingers always control the Build camera: pinch to zoom, drag together to pan,
+and twist to turn, with no tool change. A completed plan stays in place. Adding
+another finger during a stroke cancels only that unfinished stroke; the remaining
+finger cannot accidentally start drawing or build when the gesture ends. Lost
+pointer capture and interrupted drags never spend coins.
+
+Room and Garden also offer four reusable pictured **floor plans**: Waiting room
+(6 × 8 indoor tiles), Pet playground (6 × 14 lawn tiles), Adventure room (8 × 8
+indoor tiles), and Garden (6 × 8 lawn tiles). Pictures show the empty floor shell
+and boundary. Drag a picture into the scene for a live green/red preview; a valid
+drop builds immediately. Alternatively, tap a card, then tap a clear scene spot
+or use the nudge, **Rotate** and **Place space** controls. Plans snap to whole
+cells and nearby adjoining edges (up to roughly two tiles), never across the
+plot. They cannot cover existing floor. Quarter turns swap width and depth.
+A drop outside the scene cancels; an invalid drop explains the problem and leaves
+the plan available to reposition without spending. Doors connect automatically.
+With walls/Picket fence is the default; Open space omits the new partition but
+opens an existing shared wall when needed. Doorways can be changed afterward.
+
+Prefabs are starting shapes, not furnished room purchases or locked room types.
+All remain reusable in the Room/Garden guide, independent of kit ownership; they
+consume shared floor credits and then the ordinary per-tile price. Cards show the
+coin cost after credits. Kit purchases still supply their existing furniture,
+capacity and tile grants once; dropping another prefab grants none of these again.
+Furniture determines how the space is used. Built prefab tiles and walls are
+ordinary saved construction, customizable using the same Room, Garden, Doors,
+Erase and Furniture tools. There is no whole-room move tool.
 
 **Doors** highlights shared walls between built spaces. Select a hint and confirm
 **Place doorway**, **Close doorway**, or use **Remove wall** to open a one-tile
@@ -209,12 +234,12 @@ wall drawing, upper floors and movable treatment rooms remain outside this edito
 The grid spans the available greenspace around the clinic, including the larger
 rear grounds. It excludes public roads and pavements, neighbouring homes/gardens,
 and public rescue-tree access. Ordinary shade trees are cleared when their tile is built; a family actively sheltering at one must finish before that patch can be edited. Covered trees stop attracting rain-shelter trips. New space must connect to the clinic. **Whole plot**
-frames the available land; **Whole clinic** frames built space. Normal pan, orbit
+frames the available land; **Whole clinic** frames built space. Desktop pan, orbit
 and zoom remain available with the Camera tool. Desktop players also have arrow
 keys and camera buttons, including left/right turn while placing furniture;
 turning the camera does not rotate the selected item. Phones and tablets with
-primary touch input hide the office/Build camera button row. Choose **Camera**
-in Build to orbit with one finger or pan and pinch to zoom with two fingers.
+primary touch input hide the office/Build camera button row. Two-finger pan, pinch
+and twist work in every Build tool; **Camera** also enables one-finger orbit.
 Furniture Rotate has a button and R shortcut; on-screen nudge and confirmation controls also
 support keyboard and touch placement. Pictures, wrapped names, availability badges
 and move controls have separate space in each card on desktop and touch screens.
@@ -1021,7 +1046,8 @@ household schedules also create fever visits for named pets under V2-04.
   keeping its position, tilt and zoom, separately from furniture rotation.
   Primary touch devices hide this button row in office and Build, including
   landscape phones and tablets; room shortcuts remain at the bottom of the scene.
-  Build's **Camera** tool enables gestures without placing or moving furniture.
+  In Build, two-finger pan, pinch and twist work in every tool without placing or
+  moving furniture. **Camera** additionally enables one-finger orbit.
   Narrow desktop windows retain their camera buttons.
   Panning stays on the ground within a circle enclosing the owned clinic rooms
   and examination room, growing with expansions. Tilt and zoom are bounded so
@@ -1486,7 +1512,7 @@ Development milestones group work; they are not player levels or release dates:
 | V2-10 | Police, fire service and rescue stories    | Implemented | Visible owner pursuits with an initial pet speed boost, distance-triggered police reports, lost-pet searches, dog chases, tree flights/climbs and ladder handovers, driver collection, safely extinguished house fires, every resident pet’s care, service cameras and saved phases. [Director checks](../tests/emergencies.test.ts), [rendering and care checks](../tests/emergencies.spec.ts), [authored rescue scene checks](../tests/emergency-visual.spec.ts). Named pets and owners express contextual feelings throughout the story using the shared bubble system. First opportunity at 35 seconds, then 100–160 seconds between starts with a twenty-second rest after responders return. Pending clinic care does not block the next story. One story at a time; authored public rescue trees, distance-based noticing and exterior-only house rescues.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | V2-11 | Street furniture and dog stops             | Implemented | Seventeen lamps, six hydrants, reserved sniffing stops, male-only leg-lift wees and owner poo pickup before resuming outdoor walks. One poo per dog on outings of twelve town units at the next safe spot, more frequent random poos, 45–90-second random-stop cooldowns and sniffing opportunities; saved outing progress/phases/cooldowns; no clinic or road stops, litter buildup or rewards. [Rules and save checks](../tests/dog-walks.test.ts), [rendered poses](../tests/street-visual.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | V2-12 | Textured town, weather and cat shelter     | Implemented | Textured ground/wood/roof/plaster, glossy car paint, mostly sunny active-time weather with brief rain, saved off-road cat/owner shelter detours and automatic return. [Weather rules and saves](../tests/weather.test.ts), [materials and rendered scenes](../tests/weather-visual.spec.ts). No storms, weather injuries or rain effects inside examinations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| V2-13 | Grid construction and furniture collection | Implemented | Room/garden grid expansion across available clinic grounds, pictured owned-only catalogue with unused room kits first (opening floor drawing), then available furniture before fully placed types, one card per type, available/placed counts, disabled zero-stock placement and cycling Move placed, stored shop items, quarter-turn placement, picking/moving/storing, occupied-item unloading, custom routes, exact legacy migration, saved layouts and recovery of paid furniture when town activity is rejected. Live snapped rectangle previews on desktop/touch, held plans with explicit entrance choice and confirmation, flexible room/garden guides, enclosed or open extensions, shared doorway placement/closing and wall-section removal, saved walls and route safety. Counter, entrance and treatment suite anchored; paid copies with independent seating/queues/animations and no per-type ownership cap. No standalone wall drawing, upper floors or movable clinical suites. [Layout and unloading checks](../tests/clinic-build.test.ts), [desktop/touch editor checks](../tests/clinic-build.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| V2-13 | Grid construction and furniture collection | Implemented | Room/garden grid expansion across available clinic grounds, pictured owned-only catalogue with unused room kits first (selecting draggable floor plans), then available furniture before fully placed types, one card per type, available/placed counts, disabled zero-stock placement and cycling Move placed, stored shop items, quarter-turn placement, picking/moving/storing, occupied-item unloading, custom routes, exact legacy migration, saved layouts and recovery of paid furniture when town activity is rejected. Live snapped rectangle previews on desktop/touch, held custom plans with automatic safe entrances, outside-tap dismissal and confirmation, reusable pictured drag/drop prefabs, two-finger pan/pinch/twist in every Build tool, flexible room/garden guides, enclosed or open extensions, shared doorway placement/closing and wall-section removal, saved walls and route safety. Counter, entrance and treatment suite anchored; paid copies with independent seating/queues/animations and no per-type ownership cap. No standalone wall drawing, upper floors or movable clinical suites. [Layout and unloading checks](../tests/clinic-build.test.ts), [desktop/touch editor checks](../tests/clinic-build.spec.ts).                                                                                                                                                                                                                                                                                                                        |
 
 V2 connects navigation and ambient routines to actual appointments, bounded road
 incidents, care outcomes, return journeys, and cross-reload saving. Later campaign
@@ -1669,15 +1695,15 @@ counts decrease on placement and increase on storage. Each type appears once in
 Build with a model preview and distinct available/placed counts. Types with a
 stored copy precede fully placed types, and never-owned types are absent.
 Purchased room kits with remaining tile allowance lead every filter and open the
-existing floor drawing tool without spending or changing the layout. Remaining
+matching pictured prefab without spending or changing the layout until placement. Remaining
 allowance persists through partial use and reload; legacy rooms never gain it
 twice. Zero-available placement buttons for owned types stay grey and disabled.
 Move placed cycles through existing
 copies without displaying instance numbers. Shop pictures every purchase, and
 image loading/purchasing does not shift its scroll position. Card images/text,
 fixed editor tools and desktop camera-turn buttons stay separate and within the
-viewport. Phones use Build's Camera tool for finger orbit and two-finger pan/zoom,
-with the camera button row hidden. Camera movement never changes the layout or
+viewport. Phones use two fingers to pan/pinch/twist in every Build tool; Camera
+also supports one-finger orbit, with the camera button row hidden. Camera movement never changes the layout or
 furniture orientation; desktop turn buttons also preserve the target and zoom.
 Satisfaction/advertising
 bonuses and room credits are not awarded again for extra furniture.
@@ -1689,12 +1715,16 @@ Owners vacate moved seating and elevated pets finish at ground level before a
 lift; storing all seats still leaves separate waiting positions and reachable
 care. Companion pets also follow layout-aware routes. The original room shell
 survives an item-only edit; floor construction replaces it with a continuous
-cutaway boundary with saved partitions and explicitly chosen doors. A held drag
+cutaway boundary with saved partitions and automatically connected doors. A held drag
 updates the visible footprint before release on both desktop and phones; width,
 depth and committed tiles share the same grid-corner bounds. Releasing holds a
-plan without charging. Enclosed construction requires choosing a blue entrance
-hint and confirming; Camera preserves the plan. Cancelling, capture loss and
-interrupted drawing spend nothing. Invalid plots remain red and cannot confirm.
+plan without charging, with a valid automatic entrance and an enabled confirmation.
+Tapping outside dismisses it; two-finger camera gestures preserve it. A second
+finger cancels an unfinished stroke without the remaining finger building anything.
+Cancelling, capture loss and interrupted drawing spend nothing. Pictured prefabs
+preview and snap before release, charge once on valid drop, and reject overlapping
+or disconnected placement. Invalid drops remain retryable; dropping outside cancels.
+A built prefab survives reload and its doors/floor/furniture remain editable. Invalid plots remain red and cannot confirm.
 Rooms remain reachable through saved doors; the last entrance cannot be closed,
 and a wall cannot be closed through a person or solid furnishing. Room purpose
 suggestions never restrict furniture choices. Shop scrolling remains stable and phone users can always reach
@@ -1731,10 +1761,12 @@ Compact examinations use one viewport grid instead of independently floating
 readouts, notes and tool lists. This keeps targeting and the next action stable
 on phones while allowing unhurried reading inside the notebook and Visit info.
 
-Space construction uses an unhurried draw → choose entrance → confirm flow.
-Purpose suggestions help children decide what to make without prescribing room
-types. Explicit doors and safe shared-wall editing supersede automatic open-plan
-connections as the only expansion choice; the clinical core stays anchored.
+Space construction uses draw → confirm with automatic safe entrances, superseding
+the manual entrance-selection step. Pictured drag/drop floor plans provide an
+easier starting point without prescribing room use or granting extra furniture.
+Two fingers navigate in any Build tool so small screens do not lock children into
+a drawing view. Shared-wall editing keeps doors customizable; the clinical core
+stays anchored.
 
 Grid construction supersedes fixed shop placement: purchases unlock a collection,
 room kits supply floor, and existing saves retain their layouts. Protected clinical
@@ -1817,7 +1849,7 @@ These links provide evidence and navigation, not a replacement for product rules
 | Sound and asset records                  | [src/audio.ts](../src/audio.ts), [asset credits](assets.md)                                                                                                                                                                                                  | [examination.spec.ts](../tests/examination.spec.ts), listening/visual review                                                  |
 | Containers and delivery                  | [README](../README.md), [workflow](../.github/workflows/ci.yml)                                                                                                                                                                                              | Production build, browser suite, health/missing-asset checks in CI                                                            |
 
-Build implementation: [layout, migration and navigation](../src/clinic-build.ts), [editor controls](../src/clinic-build-editor.ts), [catalogue layout](../src/build-layout.css), [shared portraits](../src/catalogue.ts), [portrait generator](../scripts/render-catalogue.mjs), [space geometry](../src/clinic-spaces.ts), [floor/wall/door rendering](../src/clinic-build-scenery.ts), [movable models](../src/clinic-furniture.ts), [unloading and routing](../src/clinic-leisure.ts), [unit checks](../tests/clinic-build.test.ts), [browser checks](../tests/clinic-build.spec.ts).
+Build implementation: [layout, migration and navigation](../src/clinic-build.ts), [editor controls](../src/clinic-build-editor.ts), [prefab plans and snapping](../src/clinic-prefabs.ts), [touch gesture handoff](../src/build-touch.ts), [catalogue layout](../src/build-layout.css), [shared portraits](../src/catalogue.ts), [portrait generator](../scripts/render-catalogue.mjs), [space geometry](../src/clinic-spaces.ts), [floor/wall/door rendering](../src/clinic-build-scenery.ts), [movable models](../src/clinic-furniture.ts), [unloading and routing](../src/clinic-leisure.ts), [unit checks](../tests/clinic-build.test.ts), [browser checks](../tests/clinic-build.spec.ts).
 
 Town sources: [simulation](../src/town-simulation.ts), [renderer](../src/town.ts),
 [Blender generator](../scripts/create-town-assets.py). Verification:

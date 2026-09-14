@@ -97,11 +97,17 @@ notebook without moving the page. See the
 
 Choose **Build** in the office to shape your clinic on a grid. Draw **Room** or
 **Garden** space by dragging or tapping two opposite grid corners. A live outline
-shows the snapped rectangle on desktop and touch screens. Release to plan, choose
-a blue doorway suggestion, then confirm with **Build space**. Nothing is spent
-until confirmation. Choose **With walls**/**Picket fence** for a separate space,
+shows the snapped rectangle on desktop and touch screens. Release to plan; a clear
+door connects automatically. Confirm with **Build space**, or tap outside the
+outline to cancel. Nothing is spent until confirmation. Choose **With walls**/**Picket fence** for a separate space,
 or **Open space** to extend the existing floor. Room and garden guides suggest
-uses; furnish each space however you like. **Doors** lets you add or close a
+uses; furnish each space however you like. Their pictured **Waiting room**, **Pet
+playground**, **Adventure room** and **Garden** floor plans can also be dragged into
+the scene. They snap beside existing floor, preview before release and build on a
+valid drop, with automatic doors. Or tap a card, rotate/nudge it, then tap a scene
+spot or **Place space**. Invalid drops spend nothing; drop outside to cancel.
+These are reusable empty shells using floor credits, then 3 coins per tile;
+add furniture separately. Customize their floor and doors with the usual tools. **Doors** lets you add or close a
 doorway, or remove a shared wall section. Every space must keep a clear way in.
 Choose **Furniture** to return to the collection and place items. Rotate with **R** or **Rotate**, use the nudge
 buttons for fine adjustments, and choose **Done** to resume the day. **Camera**
@@ -113,8 +119,8 @@ buys one copy: add as many lounge chairs, exercise wheels or other furnishings a
 you can afford, with room to place them. The shop shows placed/stored counts;
 Build shows one illustrated card per item type, with **available** and **placed**
 counts. Available types come first, followed by fully placed types with greyed-out
-placement buttons. Unused room kits lead the list; their cards open the Room or
-Garden drawing tool and show the remaining floor tiles. Items you haven't bought
+placement buttons. Unused room kits lead the list; their cards select a matching
+draggable floor plan and show the remaining floor tiles and coin cost. Items you haven't bought
 appear only in Shop. Choose **Move placed** to
 find an existing copy; press again to cycle through its placed copies, or select
 the exact item in the clinic. Shop pictures match the game's models too.
@@ -132,15 +138,16 @@ playground** supplies 84 tiles and a toy corner. Capacity grows from 4 to 6 to 8
 **Play garden extension** and **Sunshine courtyard** each add 48 free tiles and
 unlock more shop choices. Further tiles cost 3 coins each. Floor removal does not
 refund coins; moving stored furniture costs nothing. The entrance, counter and
-examination suite stay in place. The editor supports connected rooms and gardens with explicitly placed entrances,
+examination suite stay in place. The editor supports connected rooms and gardens with automatic, editable entrances,
 as well as open-plan extensions. Exterior boundaries follow the floor; additional
 floors and movable clinical suites are outside its current scope. Room kits and equipment are one-time
 upgrades; extra furniture does not stack satisfaction bonuses.
 
 On desktop, use the **↶ / ↷ camera buttons** to turn your view in the office or
 Build, alongside pan and zoom buttons. Phones and tablets hide that button row:
-drag one finger to turn, or use two fingers to pan and pinch to zoom. Select
-**Camera** first when building. Room shortcuts remain visible. **Rotate** (or
+in the office, drag one finger to turn, or use two fingers to pan and pinch to zoom.
+In every Build tool, pinch to zoom, drag two fingers to pan and twist
+them to turn. **Camera** additionally enables one-finger orbit. Room shortcuts remain visible. **Rotate** (or
 **R**) turns selected furniture; camera rotation keeps the item facing the same way.
 
 Hookville also fits the window: **Homes** pages through the household directory, **Home info** shows the selected family, and **Town news** pages through updates. **Back to the clinic** stays beside the map.

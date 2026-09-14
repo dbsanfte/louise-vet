@@ -3,6 +3,7 @@ import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 
 // Start the web container first. Only the generated catalogue portraits are written.
+const prefabsOnly = process.argv.includes('--prefabs');
 const baseURL = process.env.CATALOGUE_BASE_URL ?? 'http://web:8080';
 const result = await build({
   configFile: false,
@@ -10,7 +11,12 @@ const result = await build({
   build: {
     write: false,
     target: 'esnext',
-    lib: { entry: 'scripts/catalogue-preview.ts', formats: ['es'] },
+    lib: {
+      entry: prefabsOnly
+        ? 'scripts/prefab-preview.ts'
+        : 'scripts/catalogue-preview.ts',
+      formats: ['es'],
+    },
   },
 });
 const script = (Array.isArray(result) ? result : [result])

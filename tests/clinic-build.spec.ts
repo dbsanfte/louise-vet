@@ -747,7 +747,7 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
   await expect(chair).toContainText('2 placed');
 });
 
-test('room rectangles preview while held, then require an explicit entrance and confirmation', async ({
+test('room rectangles preview while held, connect automatically and survive camera gestures', async ({
   page,
 }, info) => {
   const touch = info.project.name === 'mobile';
@@ -761,7 +761,7 @@ test('room rectangles preview while held, then require an explicit entrance and 
     .evaluate((el) => (el.scrollTop = el.scrollHeight));
   await page.locator('[data-build="tool"][data-value="room"]').click();
   await expect(page.locator('.space-guide')).toContainText(
-    'Furniture gives the room its purpose',
+    'Doors connect automatically',
   );
   expect(await page.locator('.build-list').evaluate((el) => el.scrollTop)).toBe(
     0,
@@ -812,24 +812,29 @@ test('room rectangles preview while held, then require an explicit entrance and 
   await expect(page.locator('#build-feedback')).toContainText('6 × 8 tiles');
   await page.screenshot({ path: info.outputPath('room-drag-held.png') });
   await move('touchEnd');
-  await expect(page.locator('.space-guide h3')).toHaveText(
-    '2. Choose an entrance',
-  );
-  await expect(page.locator('[data-build="place"]')).toBeDisabled();
-  await expect(page.locator('[data-build="next-door"]')).toBeInViewport({
-    ratio: 1,
-  });
+  await expect(page.locator('.space-guide h3')).toHaveText('Ready to build');
+  await expect(page.locator('[data-build="place"]')).toBeEnabled();
+  await expect(page.locator('[data-build="next-door"]')).toHaveCount(0);
   await expect(page.locator('.build-nudges')).toBeHidden();
-  await expect(page.locator('[data-build="next-door"]')).toBeEnabled();
-  expect(await page.evaluate(() => window.buildTest.scenery().hints)).toBe(8);
+  expect(await page.evaluate(() => window.buildTest.scenery().hints)).toBe(1);
+  const planned = await page.evaluate(() => window.buildTest.preview());
+  if (touch) {
+    const camera = await page.evaluate(() => window.buildTest.camera());
+    await touchCamera(page, 'pan-zoom');
+    const moved = await page.evaluate(() => window.buildTest.camera());
+    expect(moved.zoom).toBeGreaterThan(camera.zoom);
+    expect(moved.target).not.toEqual(camera.target);
+    await touchCamera(page, 'twist');
+    expect(
+      (await page.evaluate(() => window.buildTest.camera())).position,
+    ).not.toEqual(moved.position);
+  }
+  expect(await page.evaluate(() => window.buildTest.preview())).toEqual(
+    planned,
+  );
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     before,
   );
-  await page.locator('[data-build="next-door"]').click();
-  await expect(page.locator('[data-build="place"]')).toBeEnabled();
-  // Looking around must keep the planned footprint and chosen door intact.
-  await page.locator('[data-build="tool"][data-value="camera"]').click();
-  if (touch) await touchCamera(page, 'orbit');
   await expect(page.locator('[data-build="place"]')).toBeEnabled();
   await page.screenshot({ path: info.outputPath('room-door-plan.png') });
   await page.locator('[data-build="place"]').click();
@@ -983,4 +988,269 @@ test('interrupted drawing and cancelled invalid plans keep the clinic and coins 
     before,
   );
   await expect(page.locator('.build-price')).toContainText('5000 coins');
+});
+
+test('tapping outside a proposed floor cancels it without spending and allows a new plan', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  await open(page, false, []);
+  const before = await page.evaluate(() => window.buildTest.snapshot().build);
+  await page.locator('[data-build="tool"][data-value="room"]').click();
+  await tap(page, -11, -4, touch);
+  await tap(page, -5, 4, touch);
+  await expect(page.locator('.space-guide h3')).toHaveText('Ready to build');
+  await tap(page, 1, 1, touch);
+  await expect(page.locator('.space-guide h3')).toHaveText(
+    'Draw or drop a space',
+  );
+  expect(await page.evaluate(() => window.buildTest.preview().visible)).toBe(
+    false,
+  );
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  await expect(page.locator('.build-price')).toContainText('5000 coins');
+  await tap(page, -11, -4, touch);
+  await tap(page, -5, 4, touch);
+  await expect(page.locator('[data-build="place"]')).toBeEnabled();
+  await page.locator('[data-build="place"]').click();
+  expect(
+    (await page.evaluate(() => window.buildTest.snapshot().build)).tiles.length,
+  ).toBe(before.tiles.length + 48);
+});
+
+test('a second finger interrupts drawing and the remaining finger cannot build accidentally', async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== 'mobile', 'Real multi-touch input');
+  await page.setViewportSize({ width: 360, height: 640 });
+  await open(page, false, []);
+  const before = await page.evaluate(() => window.buildTest.snapshot().build);
+  await page.locator('[data-build="tool"][data-value="room"]').click();
+  await page.evaluate(() => window.buildTest.point(-8, 0, true));
+  const [a, b] = await page.evaluate(() =>
+    [
+      [-11, -4],
+      [-7, 1],
+    ].map(([x, z]) => window.buildTest.point(x, z)),
+  );
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ ...a, id: 1 }],
+  });
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ ...b, id: 1 }],
+  });
+  expect(await page.evaluate(() => window.buildTest.preview().visible)).toBe(
+    true,
+  );
+  const other = { x: b.x + 45, y: b.y - 30, id: 2 };
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ ...b, id: 1 }, other],
+  });
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [
+      { x: b.x - 20, y: b.y, id: 1 },
+      { ...other, x: other.x + 20 },
+    ],
+  });
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [{ ...b, id: 1 }],
+  });
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchMove',
+    touchPoints: [{ x: b.x + 20, y: b.y + 20, id: 1 }],
+  });
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+  });
+  await cdp.detach();
+  expect(await page.evaluate(() => window.buildTest.preview().visible)).toBe(
+    false,
+  );
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  await expect(page.locator('.space-guide h3')).toHaveText(
+    'Draw or drop a space',
+  );
+  await tap(page, -11, -4, true);
+  await tap(page, -5, 4, true);
+  await expect(page.locator('[data-build="place"]')).toBeEnabled();
+});
+
+test('pictured prefabs drag into a snapped connected room and remain editable after reload', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  if (touch) await page.setViewportSize({ width: 360, height: 640 });
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await open(page, false, []);
+  await page.locator('[data-build="shop"]').click();
+  await page.locator('[data-upgrade="expansion"]').click();
+  await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  const coins = (await page.locator('.build-price').innerText()).match(
+    /^\d+ coins/,
+  )![0];
+  const before = await page.evaluate(() => window.buildTest.snapshot().build);
+  // An unused room kit leads the collection and can be dragged directly.
+  const picture = page.locator('[data-prefab="expansion"] img');
+  await picture.scrollIntoViewIfNeeded();
+  await expect(picture).toBeVisible();
+  expect(
+    await picture.evaluate(
+      (el: HTMLImageElement) => el.complete && el.naturalWidth > 0,
+    ),
+  ).toBe(true);
+  await page.evaluate(() => window.buildTest.point(-8, 0, true));
+  const box = (await picture.boundingBox())!,
+    a = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  // Drop a little away from the wall: the plan snaps into the adjoining edge.
+  const end = await page.evaluate(() => window.buildTest.point(-9, 0));
+  const cdp = touch ? await page.context().newCDPSession(page) : undefined;
+  if (cdp) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ ...a, id: 1 }],
+    });
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ ...end, id: 1 }],
+    });
+  } else {
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 12 });
+  }
+  await expect
+    .poll(() => page.evaluate(() => window.buildTest.preview()))
+    .toMatchObject({
+      visible: true,
+      x: -8,
+      z: 0,
+      width: 6,
+      depth: 8,
+      color: 0x76b873,
+    });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  await page.screenshot({ path: info.outputPath('prefab-drag-held.png') });
+  if (cdp) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    await cdp.detach();
+  } else await page.mouse.up();
+  await expect(page.locator('#build-feedback')).toContainText('ready');
+  const built = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(built.tiles.length).toBe(before.tiles.length + 48);
+  expect(built.doors).toHaveLength(1);
+  await expect(page.locator('.build-price')).toContainText(coins);
+  await page.screenshot({ path: info.outputPath('prefab-built.png') });
+  await page.locator('[data-build="done"]').click();
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    built,
+  );
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  await page.locator('[data-build="tool"][data-value="door"]').click();
+  await tap(page, -5, -2.5, touch);
+  await page.locator('[data-build="place"]').click();
+  expect(
+    (await page.evaluate(() => window.buildTest.snapshot().build)).doors,
+  ).toHaveLength(2);
+  expect(errors).toEqual([]);
+});
+
+test('prefab cards support tap placement, rotation, invalid retries and outside-drop cancellation', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  if (touch) await page.setViewportSize({ width: 360, height: 640 });
+  await open(page, false, []);
+  const before = await page.evaluate(() => window.buildTest.snapshot().build);
+  await page.locator('[data-build="tool"][data-value="room"]').click();
+  const picture = page.locator('[data-prefab="expansion"] img');
+  await picture.scrollIntoViewIfNeeded();
+  if (touch) await picture.tap();
+  else await picture.click();
+  await expect(page.locator('.space-guide h3')).toHaveText('Waiting room');
+  await page.locator('[data-build="rotate"]').click();
+  expect(await page.evaluate(() => window.buildTest.preview())).toMatchObject({
+    width: 8,
+    depth: 6,
+  });
+  await tap(page, 0, 0, touch);
+  await expect(page.locator('[data-build="place"]')).toBeDisabled();
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  if (touch) {
+    await touchCamera(page, 'pan-zoom');
+    await expect(page.locator('.space-guide h3')).toHaveText('Waiting room');
+    expect(
+      await page.evaluate(() => window.buildTest.snapshot().build),
+    ).toEqual(before);
+  }
+  await page.locator('[data-build="cancel"]').click();
+  await picture.scrollIntoViewIfNeeded();
+  const box = (await picture.boundingBox())!,
+    start = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const outside = { x: 20, y: 20 };
+  if (touch) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ ...start, id: 1 }],
+    });
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ ...outside, id: 1 }],
+    });
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    await cdp.detach();
+  } else {
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(outside.x, outside.y, { steps: 8 });
+    await page.mouse.up();
+  }
+  expect(await page.evaluate(() => window.buildTest.preview().visible)).toBe(
+    false,
+  );
+  await expect(page.locator('.space-guide h3')).toHaveText(
+    'Draw or drop a space',
+  );
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  await page.locator('[data-build="tool"][data-value="garden"]').click();
+  const garden = page.locator('[data-prefab="sun-courtyard"] img');
+  await garden.scrollIntoViewIfNeeded();
+  if (touch) await garden.tap();
+  else await garden.click();
+  await tap(page, -8, 0, touch);
+  await expect(page.locator('#build-feedback')).toContainText('ready');
+  const built = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(built.tiles.length).toBe(before.tiles.length + 48);
+  expect(built.doors).toHaveLength(1);
+  expect(built.tiles.filter((t) => t.surface === 'garden')).toHaveLength(48);
+  await expect(page.locator('.build-price')).toContainText('4856 coins');
+  await page.screenshot({ path: info.outputPath('prefab-garden.png') });
 });

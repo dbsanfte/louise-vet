@@ -1,3 +1,4 @@
+import { clinicPrefabs, prefabCandidates } from '../src/clinic-prefabs.ts';
 import { floorRectangle, edgeCentre, wallKey } from '../src/clinic-spaces.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -718,4 +719,84 @@ test('trying different doorway plans never reuses a discarded wall cache', () =>
   );
   assert.equal(b.walkable(edgeCentre(first)), false);
   assert.equal(b.walkable(edgeCentre(second)), true);
+});
+
+test('automatic entrances preserve free previews and choose a safe shared opening', () => {
+  const b = new ClinicBuild(),
+    a = { x: -11, z: -4 },
+    end = { x: -5, z: 4 };
+  b.buy('expansion');
+  const before = b.snapshot(),
+    revision = b.revision;
+  // A person standing on the second edge needs that opening, not a wall.
+  const actors = [localToTown(-5, 0.5)];
+  const plan = b.autoSpace(a, end, 'room', true, 5000, actors);
+  assert.equal(plan.error, undefined);
+  assert.equal(plan.cost, 0);
+  assert.deepEqual(plan.door, { x: -5, z: 0, axis: 'z' });
+  assert.deepEqual(b.snapshot(), before);
+  assert.equal(b.revision, revision);
+  const placed = b.autoSpace(a, end, 'room', true, 5000, actors, true);
+  assert.equal(placed.error, undefined);
+  assert.equal(placed.cost, plan.cost);
+  assert.deepEqual(placed.door, plan.door);
+  assert.equal(b.state.credits, 0);
+  assert.equal(b.tiles.length, before.tiles.length + 48);
+  assert.equal(b.walkable(edgeCentre(plan.door!)), true);
+  assert.ok(b.route(localToTown(3, 1), localToTown(-8, 0)).length);
+  assert.ok(new ClinicBuild().restore(b.snapshot()));
+});
+
+test('automatic construction rejects unaffordable or disconnected plans without spending', () => {
+  const b = new ClinicBuild(),
+    before = b.snapshot();
+  const costly = b.autoSpace(
+    { x: -11, z: -4 },
+    { x: -5, z: 4 },
+    'garden',
+    true,
+    100,
+    [],
+    true,
+  );
+  assert.equal(costly.cost, 144);
+  assert.ok(costly.error);
+  assert.ok(
+    b.autoSpace(
+      { x: -18, z: -4 },
+      { x: -14, z: 4 },
+      'room',
+      true,
+      5000,
+      [],
+      true,
+    ).error,
+  );
+  assert.deepEqual(b.snapshot(), before);
+  const open = b.autoSpace(
+    { x: -11, z: -4 },
+    { x: -5, z: 4 },
+    'garden',
+    false,
+    5000,
+    [],
+    true,
+  );
+  assert.equal(open.error, undefined);
+  assert.equal(open.door, undefined);
+  assert.equal(b.state.walls.length, 0);
+  assert.equal(b.walkable({ x: -5, z: -2.5 }), true);
+});
+
+test('prefab snapping stays near the pointer and respects quarter-turn dimensions', () => {
+  const b = new ClinicBuild(),
+    prefab = clinicPrefabs[0];
+  const candidates = prefabCandidates(b, prefab, { x: -8.8, z: 0 }, 0);
+  assert.ok(candidates.some((p) => p.start.x === -11 && p.end.x === -5));
+  const far = prefabCandidates(b, prefab, { x: -30, z: 0 }, 0);
+  assert.equal(far.length, 1, 'do not snap across the whole plot');
+  for (const p of prefabCandidates(b, prefab, { x: -9, z: 0 }, Math.PI / 2)) {
+    assert.equal(p.end.x - p.start.x, 8);
+    assert.equal(p.end.z - p.start.z, 6);
+  }
 });

@@ -25,13 +25,13 @@ rig parent to control draw calls; no external meshes or motion-capture data are 
 `src/clinic-build-scenery.ts` creates original grid lines, cutaway walls, tiled
 floors, lawns, picket fences, open door frames/leaves and gates in Three.js.
 Live rectangle outlines and blue/green doorway hints use original procedural
-geometry; the Build space-guide diagram is original CSS. `src/clinic-furniture.ts` reuses the
+geometry. `src/clinic-furniture.ts` reuses the
 original Blender exports as movable pieces, including the starter bench, shelf,
 plants and rugs; no authored GLBs are overwritten. Existing original procedural
 town surface textures supply the lawn and wall finishes. No external assets or
 additional licenses are introduced.
 
-`public/images/catalogue/*.webp` contains 38 original 256-pixel portraits rendered
+`public/images/catalogue/*.webp` contains 38 original 256-pixel item portraits rendered
 from these same game models, including room kits, stocked shelf goods and the
 stethoscope. Shop and Build share the portraits; menus do not create additional
 WebGL renderers. `scripts/catalogue-preview.ts` reuses `ClinicFurniture` to frame
@@ -40,7 +40,12 @@ start the web container and run `node scripts/render-catalogue.mjs`; outside the
 devcontainer set `CATALOGUE_BASE_URL=http://localhost:8080`. The generator reads
 served models and writes only the catalogue WebPs, leaving Blender/GLB sources
 untouched. Regenerate and visually inspect these previews when their underlying
-models change. No external images or additional licenses are introduced.
+models change. Four additional `prefab-*.webp` floor-plan pictures are rendered
+from the procedural floors, walls, lawns, fences and doors by
+`scripts/prefab-preview.ts`; reproduce these with
+`node scripts/render-catalogue.mjs --prefabs`. They show empty shells, matching what
+dropping a prefab builds. This mode leaves the 38 item pictures unchanged.
+No external images or additional licenses are introduced.
 
 ## Examination models and fur
 

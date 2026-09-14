@@ -4,6 +4,7 @@ import type { TownSimulation } from './town-simulation';
 import type { Progress } from './game';
 import {
   buildRecipes,
+  buildableCells,
   furnitureType,
   floorPrice,
   floorRectangle,
@@ -12,9 +13,17 @@ import {
   type FloorCell,
 } from './clinic-build';
 import { nearestWall, wallKey, type WallEdge } from './clinic-spaces';
+import { BuildTouchNavigation } from './build-touch';
+import {
+  clinicPrefabs,
+  prefabCandidates,
+  type ClinicPrefab,
+} from './clinic-prefabs';
 import { catalogueImage } from './catalogue';
 import type { Point } from './town-map';
 import { shelterTrees } from './town-weather';
+
+const buildLand = new Set(buildableCells.map((p) => `${p.x},${p.z}`));
 
 /** The editor pauses town time; only safe unloading runs while an item is lifted. */
 export class ClinicBuildEditor {
@@ -22,6 +31,17 @@ export class ClinicBuildEditor {
   private tool: 'items' | 'camera' | 'door' | FloorCell['surface'] | 'erase' =
     'items';
   private selected?: string;
+  private prefab?: ClinicPrefab;
+  private prefabLayout?: { start: Point; end: Point };
+  private touch: BuildTouchNavigation;
+  private prefabPress?: {
+    id: number;
+    x: number;
+    y: number;
+    target: HTMLElement;
+    dragged: boolean;
+  };
+  private lastPrefabPointer = -Infinity;
   private lifting = false;
   private ghost?: THREE.Group;
   private cursor: Placement = { x: 0, z: 1, rotation: 0 };
@@ -55,14 +75,114 @@ export class ClinicBuildEditor {
     private shop: () => void,
   ) {
     const canvas = world.buildCanvas;
+    this.touch = new BuildTouchNavigation(
+      world,
+      () => this.active,
+      () => this.tool === 'camera',
+      () => {
+        this.cancelPress();
+        this.releasePrefabPress();
+        if (this.prefab || this.draft) this.preview();
+        this.render();
+      },
+      (x, y) => {
+        if (!this.draft) return;
+        const point = this.world.buildHit(x, y, false).point;
+        if (!point || !this.inDraft(point)) {
+          this.cancel();
+          this.render();
+        }
+      },
+    );
+    document.getElementById('sidebar')!.addEventListener('pointerdown', (e) => {
+      const card = (e.target as Element).closest<HTMLElement>('[data-prefab]');
+      if (
+        !this.active ||
+        !card ||
+        e.button !== 0 ||
+        (e.pointerType === 'touch' &&
+          !(e.target as Element).closest('.catalogue-image'))
+      )
+        return;
+      e.preventDefault();
+      this.choosePrefab(card.dataset.prefab!, false);
+      this.prefabPress = {
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        target: card,
+        dragged: false,
+      };
+      card.setPointerCapture(e.pointerId);
+    });
+    document.addEventListener(
+      'pointermove',
+      (e) => {
+        const press = this.prefabPress;
+        if (!press || press.id !== e.pointerId) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        press.dragged ||=
+          Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8;
+        if (this.overCanvas(e.clientX, e.clientY)) {
+          const p = world.buildHit(e.clientX, e.clientY, false).point;
+          if (p && this.moveCursor(p)) this.preview();
+        } else this.world.town!.furniture.scenery.hidePreview();
+      },
+      { capture: true },
+    );
+    document.addEventListener(
+      'pointerup',
+      (e) => {
+        const press = this.prefabPress;
+        if (press?.id === e.pointerId) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          this.releasePrefabPress();
+          this.lastPrefabPointer = performance.now();
+          if (press.dragged) {
+            if (this.overCanvas(e.clientX, e.clientY)) {
+              const p = world.buildHit(e.clientX, e.clientY, false).point;
+              if (p) this.moveCursor(p);
+              this.preview();
+              this.place();
+            } else this.cancel();
+          }
+          this.render();
+        } else if (
+          this.active &&
+          this.draft &&
+          e.target !== canvas &&
+          !(e.target as Element).closest(
+            'button,input,select,a,[role="dialog"]',
+          )
+        ) {
+          this.cancel();
+          this.render();
+        }
+      },
+      { capture: true },
+    );
+    for (const event of ['pointercancel', 'lostpointercapture'])
+      document.addEventListener(
+        event,
+        (e) => {
+          if (this.prefabPress?.id === (e as PointerEvent).pointerId) {
+            this.releasePrefabPress();
+            this.cancel();
+            this.render();
+          }
+        },
+        { capture: true },
+      );
     canvas.addEventListener(
       'pointerdown',
       (e) => {
         if (!this.active || this.tool === 'camera' || e.button !== 0) return;
         e.stopImmediatePropagation();
         e.preventDefault();
-        // Drawing owns one pointer. A second finger cancels the stroke rather
-        // than handing half a gesture to OrbitControls or buying accidental floor.
+        // Drawing owns one pointer; the touch navigator takes over when
+        // a second finger joins, without buying accidental floor.
         if (this.press) {
           this.cancelPress();
           return;
@@ -80,7 +200,8 @@ export class ClinicBuildEditor {
         };
         canvas.setPointerCapture(e.pointerId);
         this.moveCursor(p);
-        if (this.drawing && !this.draft) this.corner ??= this.cell();
+        if (this.drawing && !this.draft && !this.prefab)
+          this.corner ??= this.cell();
         this.preview();
       },
       { capture: true },
@@ -143,7 +264,20 @@ export class ClinicBuildEditor {
           press.dragged ||
           Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8;
         this.releasePress();
-        if (this.draft || this.tool === 'door') {
+        if (this.draft) {
+          if (!dragged && !this.inDraft(hit.point)) {
+            this.cancel();
+            this.render();
+          }
+          return;
+        }
+        if (this.prefab) {
+          this.moveCursor(hit.point);
+          this.preview();
+          this.place();
+          return;
+        }
+        if (this.tool === 'door') {
           if (!dragged) {
             const edge = nearestWall(hit.point, this.doorOptions(), 1);
             if (edge) this.doorway = edge;
@@ -174,7 +308,7 @@ export class ClinicBuildEditor {
       );
     document.addEventListener('keydown', (e) => {
       if (!this.active || document.querySelector('[role="dialog"]')) return;
-      if (e.key.toLowerCase() === 'r' && this.selected) {
+      if (e.key.toLowerCase() === 'r' && (this.selected || this.prefab)) {
         e.preventDefault();
         this.rotate();
       }
@@ -201,6 +335,7 @@ export class ClinicBuildEditor {
   }
   exit() {
     this.cancel();
+    this.touch.reset();
     this.active = false;
     delete document.getElementById('app')!.dataset.building;
     this.world.setBuildMode(false);
@@ -214,7 +349,10 @@ export class ClinicBuildEditor {
     );
     if (!b || b.disabled) return;
     const action = b.dataset.build;
-    if (action === 'pick') this.pick(b.dataset.id!);
+    if (action === 'prefab' || action === 'kit') {
+      if (performance.now() - this.lastPrefabPointer > 300)
+        this.choosePrefab(b.dataset.id!);
+    } else if (action === 'pick') this.pick(b.dataset.id!);
     else if (action === 'move') {
       const placed = this.sim.build
         .copies(b.dataset.recipe!)
@@ -230,7 +368,7 @@ export class ClinicBuildEditor {
     } else if (action === 'filter') {
       this.filter = b.dataset.value!;
       this.render();
-    } else if (action === 'tool' || action === 'kit') {
+    } else if (action === 'tool') {
       const next = b.dataset.value as typeof this.tool;
       if (!(this.draft && (next === 'camera' || next === this.draft.surface)))
         this.cancel();
@@ -242,7 +380,7 @@ export class ClinicBuildEditor {
             ? 'Drag to look around. Use arrows to move and scroll or pinch to zoom.'
             : this.tool === 'door'
               ? 'Choose a blue wall opening, then place your doorway.'
-              : 'Draw a rectangle. Then choose its entrance and confirm.';
+              : 'Draw your own space, or drag a room picture onto the clinic.';
       this.preview();
       this.render();
       if (next !== 'camera' || !this.draft)
@@ -314,7 +452,8 @@ export class ClinicBuildEditor {
     this.cursor = press.cursor;
     this.corner = press.corner;
     this.error = undefined;
-    if (this.selected || this.corner) this.preview();
+    if (this.selected || this.corner || this.prefab || this.draft)
+      this.preview();
     else {
       this.world.town!.furniture.scenery.hidePreview();
       this.message = 'Drawing cancelled. Drag from a corner to try again.';
@@ -396,6 +535,9 @@ export class ClinicBuildEditor {
   }
   cancel() {
     this.releasePress();
+    this.releasePrefabPress();
+    this.prefab = undefined;
+    this.prefabLayout = undefined;
     this.clearGhost();
     if (this.selected) {
       const model = this.world.town!.furniture.itemModels.get(this.selected);
@@ -458,25 +600,21 @@ export class ClinicBuildEditor {
         cost: 0,
       };
     const surface =
-      this.draft?.surface ?? (this.tool as FloorCell['surface'] | 'erase');
+      this.prefab?.surface ??
+      this.draft?.surface ??
+      (this.tool as FloorCell['surface'] | 'erase');
     if (surface !== 'erase') {
-      // A suggested opening previews feasibility; the player must choose one
-      // explicitly before committing an enclosed room or garden.
-      const door =
-        this.doorway ??
-        (!apply && this.enclosed
-          ? this.sim.build.doorOptions(start, end)[0]
-          : undefined);
-      return this.sim.build.space(
+      const result = this.sim.build.autoSpace(
         start,
         end,
         surface,
         this.enclosed,
-        door,
         this.progress.coins,
         this.actors(),
         apply,
       );
+      this.doorway = result.door;
+      return result;
     }
     return this.sim.build.floor(
       a,
@@ -490,7 +628,53 @@ export class ClinicBuildEditor {
   private preview() {
     if (this.lifting) return;
     const scenery = this.world.town!.furniture.scenery;
-    if (this.selected) {
+    if (this.prefab) {
+      const plans = prefabCandidates(
+        this.sim.build,
+        this.prefab,
+        this.cursor,
+        this.cursor.rotation,
+      );
+      let picked = plans[0],
+        result: { error?: string; cost: number } = {
+          error: 'Drop beside existing floor, clear of paths and other rooms.',
+          cost: 0,
+        };
+      for (const plan of plans) {
+        let clear = true;
+        for (let x = plan.start.x; x < plan.end.x && clear; x++)
+          for (let z = plan.start.z; z < plan.end.z; z++)
+            if (
+              !buildLand.has(`${x},${z}`) ||
+              this.sim.build.contains({ x: x + 0.5, z: z + 0.5 })
+            ) {
+              clear = false;
+              break;
+            }
+        if (!clear) continue;
+        const candidate = this.floor(plan.start, plan.end);
+        picked = plan;
+        result = candidate;
+        if (!candidate.error || candidate.cost > this.progress.coins) break;
+      }
+      this.prefabLayout = picked;
+      this.error = result.error;
+      const { from, width, depth } = floorRectangle(picked.start, picked.end);
+      scenery.showPreview(
+        from.x + width / 2,
+        from.z + depth / 2,
+        width,
+        depth,
+        0,
+        !this.error,
+      );
+      scenery.showDoorHints(
+        this.doorway && !this.error ? [this.doorway] : [],
+        this.doorway,
+        !this.error,
+      );
+      this.message = `${this.prefab.name} · ${width} × ${depth} tiles · ${result.cost} coins. Drop to build; the door connects automatically.`;
+    } else if (this.selected) {
       const r = this.sim.build.recipe(this.selected);
       this.error = this.sim.build.proposal(
         this.selected,
@@ -524,11 +708,11 @@ export class ClinicBuildEditor {
         !this.error,
       );
       const surface = this.draft?.surface ?? this.tool;
-      const chooseDoor =
-        this.draft && surface !== 'erase' && this.enclosed && !this.doorway;
-      this.message = `${width} × ${depth} tiles · ${result.cost} coins. ${this.draft ? (chooseDoor ? 'Choose an entrance.' : 'Ready to confirm.') : this.corner ? (this.press ? 'Release to plan.' : 'Choose the opposite corner.') : 'Draw a rectangle.'}`;
+      this.message = `${width} × ${depth} tiles · ${result.cost} coins. ${this.draft ? 'Ready to build. Tap outside to cancel.' : this.corner ? (this.press ? 'Release to plan.' : 'Choose the opposite corner.') : 'Draw a rectangle.'}`;
       scenery.showDoorHints(
-        this.draft && surface !== 'erase' ? this.doorOptions() : [],
+        surface !== 'erase' && this.doorway && !this.error
+          ? [this.doorway]
+          : [],
         this.doorway,
         !this.error,
       );
@@ -560,14 +744,15 @@ export class ClinicBuildEditor {
     return (
       this.lifting ||
       Boolean(this.error) ||
-      (this.draft
-        ? this.draft.surface !== 'erase' && this.enclosed && !this.doorway
+      (this.draft || this.prefab
+        ? false
         : this.tool === 'door'
           ? !this.doorway
           : this.tool === 'camera' || (this.tool === 'items' && !this.selected))
     );
   }
   private placeLabel() {
+    if (this.prefab) return 'Place space';
     if (this.selected) return 'Place item';
     if (this.draft)
       return this.draft.surface === 'erase' ? 'Remove floor' : 'Build space';
@@ -602,14 +787,19 @@ export class ClinicBuildEditor {
       }
       this.cancel();
       this.afterChange('Lovely! Everything has a clear way through.');
-    } else if (this.draft) {
-      const result = this.floor(this.draft.start, this.draft.end, true);
+    } else if (this.draft || (this.prefab && this.prefabLayout)) {
+      if (this.prefab && this.error) {
+        this.render();
+        return;
+      }
+      const plan = this.draft ?? this.prefabLayout!;
+      const result = this.floor(plan.start, plan.end, true);
       if (result.error) {
         this.error = result.error;
         this.render();
         return;
       }
-      const erased = this.draft.surface === 'erase';
+      const erased = this.draft?.surface === 'erase';
       this.progress.coins -= result.cost;
       this.cancel();
       this.afterChange(
@@ -686,8 +876,60 @@ export class ClinicBuildEditor {
       ? `<div class="space-options">${button(garden ? 'Picket fence' : 'With walls', 'boundary', `data-value="enclosed" aria-pressed="${this.enclosed}"`)}${button('Open space', 'boundary', `data-value="open" aria-pressed="${!this.enclosed}"`)}</div>`
       : '';
     if (this.draft)
-      return `<section class="space-guide"><h3>${erase || !this.enclosed ? '2. Check your plan' : '2. Choose an entrance'}</h3><div class="space-options">${!erase ? entrance : ''}${button('Redraw', 'redraw')}</div><p>${erase ? 'Check the marked floor before removing it.' : this.enclosed ? 'Blue frames join the clinic. Tap one or choose a suggestion; green marks your entrance.' : 'Open space joins the existing floor. Add a door if a wall blocks the way.'}</p>${boundaries}<p><strong>3. ${erase ? 'Remove floor' : 'Build space'}</strong> confirms the plan. Cancel keeps your coins.</p></section>`;
-    return `<section class="space-guide"><h3>1. Draw your space</h3>${boundaries}<p>Drag between grid corners, or tap two corners. Draw beside existing floor.</p><div class="space-example" data-surface="${surface}" aria-hidden="true"><span></span></div><p>${erase ? 'Remove empty floor. Move furniture and let people step clear first.' : garden ? 'A garden for rides, toys, bowls or a peaceful seat. Furnish it however you like.' : 'A lounge, pet playroom or your own idea. Furniture gives the room its purpose.'}</p><p>Release to plan. Nothing is built until you confirm.</p></section>`;
+      return `<section class="space-guide"><h3>Ready to build</h3><p>${erase ? 'Check the marked floor before removing it.' : 'A clear doorway connects this space automatically. You can move it later with Doors.'}</p>${boundaries}<p>Choose <strong>${erase ? 'Remove floor' : 'Build space'}</strong> to confirm. Tap outside the outline to cancel. Two fingers move the camera.</p></section>`;
+    return `<section class="space-guide"><h3>${this.prefab ? this.prefab.name : 'Draw or drop a space'}</h3>${boundaries}<p>${this.prefab ? 'Drag the picture into the scene, or tap a clear spot to place it. Rotate turns the plan.' : 'Drag between grid corners, or tap two corners. Doors connect automatically.'}</p><p>Pinch to zoom, drag two fingers to pan, and twist to turn.</p></section>${clinicPrefabs
+      .filter((p) => p.surface === surface)
+      .map((p) => this.prefabCard(p, button))
+      .join(
+        '',
+      )}<p class="prefab-note">Floor plans only. Add your own furniture and toys.</p>`;
+  }
+  private prefabCard(
+    prefab: ClinicPrefab,
+    button: (
+      text: string,
+      action: string,
+      extra?: string,
+      disabled?: boolean,
+    ) => string,
+    credits?: number,
+  ) {
+    return `<article class="build-card prefab-card ${credits !== undefined ? 'build-room-kit' : ''}" ${credits !== undefined ? `data-kit="${prefab.id}"` : ''} data-selected="${this.prefab?.id === prefab.id}">${button(`<img class="catalogue-image" src="/images/catalogue/prefab-${prefab.id}.webp" width="256" height="256" alt="${prefab.name} floor plan" draggable="false"><span class="build-card-text"><strong>${prefab.name}</strong><span>${prefab.use}</span><small>${prefab.width} × ${prefab.depth} tiles</small><small>${credits !== undefined ? `${credits} floor tiles available · ${Math.max(0, prefab.width * prefab.depth - this.sim.build.state.credits) * floorPrice} coins` : `${Math.max(0, prefab.width * prefab.depth - this.sim.build.state.credits) * floorPrice} coins`}</small><small>Drag picture or tap to choose</small></span>`, credits !== undefined ? 'kit' : 'prefab', `data-prefab="${prefab.id}" data-id="${prefab.id}" data-value="${prefab.surface}"`)}</article>`;
+  }
+  private choosePrefab(id: string, render = true) {
+    this.cancel();
+    this.prefab = clinicPrefabs.find((p) => p.id === id);
+    if (!this.prefab) return;
+    this.tool = this.prefab.surface;
+    this.enclosed = true;
+    this.cursor = { x: -5 - this.prefab.width / 2, z: 0, rotation: 0 };
+    this.preview();
+    if (render) this.render();
+  }
+  private overCanvas(x: number, y: number) {
+    const rect = this.world.buildCanvas.getBoundingClientRect();
+    return (
+      x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+    );
+  }
+  private inDraft(p: Point) {
+    if (!this.draft) return false;
+    const { from, width, depth } = floorRectangle(
+      this.draft.start,
+      this.draft.end,
+    );
+    return (
+      p.x >= from.x &&
+      p.x <= from.x + width &&
+      p.z >= from.z &&
+      p.z <= from.z + depth
+    );
+  }
+  private releasePrefabPress() {
+    const press = this.prefabPress;
+    this.prefabPress = undefined;
+    if (press?.target.hasPointerCapture(press.id))
+      press.target.releasePointerCapture(press.id);
   }
 
   render() {
@@ -748,15 +990,13 @@ export class ClinicBuildEditor {
       </article>`;
       })
       .join('');
-    // Floor kits lead every filter while any of their shared allowance remains.
-    // They open the existing drawing tools; rooms are not movable furniture.
     const rooms = this.sim.build.unusedRoomKits
-      .map(
-        (
-          room,
-        ) => `<article class="build-card build-room-kit" data-kit="${room.id}">
-        ${button(`${catalogueImage(room.id)}<span class="build-card-text"><strong>${room.name}</strong><span class="build-available">${room.credits} floor tiles available</span><small>Draw a ${room.surface === 'garden' ? 'garden' : 'room'}</small></span>`, 'kit', `data-id="${room.id}" data-value="${room.surface}"`)}
-      </article>`,
+      .map((room) =>
+        this.prefabCard(
+          clinicPrefabs.find((p) => p.id === room.id)!,
+          button,
+          room.credits,
+        ),
       )
       .join('');
     sidebar.setAttribute('aria-label', 'Build collection');
@@ -811,7 +1051,7 @@ export class ClinicBuildEditor {
       )
       .join(
         '',
-      )}${this.drawing ? '' : button('Rotate ↻', 'rotate', '', !this.selected || this.lifting)}</div>`;
+      )}${this.drawing && !this.prefab ? '' : button('Rotate ↻', 'rotate', '', (!this.selected && !this.prefab) || this.lifting)}</div>`;
     sidebar.querySelector('.build-list')!.scrollTop = old;
     if (focused?.build) {
       const target = [

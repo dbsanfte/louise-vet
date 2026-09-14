@@ -353,3 +353,32 @@
   opacity: 0.6;
   border-color: #ab6863;
 }
+
+#app[data-building='true']
+  .prefab-card
+  > :is([data-build='prefab'], [data-build='kit']) {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 4px;
+  background: transparent;
+  border: 0;
+}
+.prefab-card .catalogue-image {
+  width: 96px;
+  height: 96px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  cursor: grab;
+}
+.prefab-card .catalogue-image:active {
+  cursor: grabbing;
+}
+.prefab-note {
+  font-size: 14px;
+  margin: 4px;
+}

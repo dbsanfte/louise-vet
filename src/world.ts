@@ -653,6 +653,58 @@ export class World {
     this.onClinicMove();
   }
 
+  /** Build gestures use screen pixels, so zoom/pan/twist work together at any zoom. */
+  gestureClinicCamera(
+    dx: number,
+    dy: number,
+    zoom: number,
+    turn: number,
+    tilt = 0,
+  ) {
+    const controls = this.clinicControls,
+      damping = controls.enableDamping;
+    controls.enableDamping = false;
+    controls.update();
+    this.ortho.updateMatrixWorld();
+    const right = new THREE.Vector3().setFromMatrixColumn(
+      this.ortho.matrixWorld,
+      0,
+    );
+    const forward = new THREE.Vector3().crossVectors(this.ortho.up, right);
+    const pan = right
+      .multiplyScalar(
+        (-dx * (this.ortho.right - this.ortho.left)) /
+          (this.ortho.zoom * this.buildCanvas.clientWidth),
+      )
+      .addScaledVector(
+        forward,
+        (dy * (this.ortho.top - this.ortho.bottom)) /
+          (this.ortho.zoom * this.buildCanvas.clientHeight),
+      );
+    const offset = this.ortho.position.clone().sub(controls.target);
+    const spherical = new THREE.Spherical().setFromVector3(offset);
+    spherical.theta -= turn;
+    spherical.phi = THREE.MathUtils.clamp(
+      spherical.phi - tilt,
+      controls.minPolarAngle,
+      controls.maxPolarAngle,
+    );
+    controls.target.add(pan);
+    this.ortho.position
+      .copy(controls.target)
+      .add(offset.setFromSpherical(spherical));
+    this.ortho.zoom = THREE.MathUtils.clamp(
+      this.ortho.zoom * zoom,
+      controls.minZoom,
+      controls.maxZoom,
+    );
+    this.ortho.updateProjectionMatrix();
+    controls.update();
+    controls.enableDamping = damping;
+    this.needsRender = true;
+    this.onClinicMove();
+  }
+
   zoomClinic(amount: number) {
     this.clearClinicPick();
     this.ortho.zoom = THREE.MathUtils.clamp(

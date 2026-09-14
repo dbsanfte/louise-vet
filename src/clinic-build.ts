@@ -1116,6 +1116,41 @@ export class ClinicBuild {
         return gap(a) - gap(b);
       });
   }
+  /** Choose a reachable opening, trying the middle of each shared side first. */
+  autoSpace(
+    a: Point,
+    b: Point,
+    surface: FloorCell['surface'],
+    enclosed: boolean,
+    coins: number,
+    actors: Point[] = [],
+    apply = false,
+  ) {
+    const options: (WallEdge | undefined)[] = enclosed
+      ? this.doorOptions(a, b)
+      : [undefined, ...this.doorOptions(a, b)];
+    if (!options.length)
+      return {
+        cost: 0,
+        error: 'Draw beside the clinic so a doorway can connect your space.',
+        door: undefined,
+      };
+    let first:
+      { cost: number; error?: string; door: WallEdge | undefined } | undefined;
+    for (const door of options) {
+      const result = this.space(a, b, surface, enclosed, door, coins, actors);
+      first ??= { ...result, door };
+      if (!result.error)
+        return {
+          ...(apply
+            ? this.space(a, b, surface, enclosed, door, coins, actors, true)
+            : result),
+          door,
+        };
+      if (result.cost > coins) return { ...result, door };
+    }
+    return first!;
+  }
   /** Floor, boundary and chosen doorway are one transaction. Drafts never spend. */
   space(
     a: Point,
