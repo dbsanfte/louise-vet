@@ -1,3 +1,4 @@
+import { floorRectangle, edgeCentre, wallKey } from '../src/clinic-spaces.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -581,4 +582,140 @@ test('a separately purchased chair works before buying any room kit, and any pla
   assert.equal(s.build.place(books.id, undefined), undefined);
   tick(s, 1);
   assert.equal(owner.phase, 'sit');
+});
+
+test('grid-corner rectangles snap to the same tile edges in every drawing direction', () => {
+  for (const [a, b] of [
+    [
+      { x: -11, z: -4 },
+      { x: -5, z: 4 },
+    ],
+    [
+      { x: -5, z: 4 },
+      { x: -11, z: -4 },
+    ],
+    [
+      { x: -11, z: 4 },
+      { x: -5, z: -4 },
+    ],
+  ])
+    assert.deepEqual(floorRectangle(a, b), {
+      from: { x: -11, z: -4 },
+      to: { x: -6, z: 3 },
+      width: 6,
+      depth: 8,
+    });
+  assert.equal(floorRectangle({ x: 0, z: 0 }, { x: 0, z: 3 }).width, 1);
+});
+test('room planning is free, commits a chosen entrance atomically, and saves walls and routes', () => {
+  const b = new ClinicBuild(),
+    a = { x: -11, z: -4 },
+    end = { x: -5, z: 4 };
+  const before = b.snapshot(),
+    revision = b.revision;
+  assert.match(
+    b.space(a, end, 'room', true, undefined, 5000).error!,
+    /Choose a doorway/,
+  );
+  const door = b.doorOptions(a, end)[0];
+  const preview = b.space(a, end, 'room', true, door, 5000);
+  assert.equal(preview.error, undefined);
+  assert.equal(preview.cost, 144);
+  assert.deepEqual(b.snapshot(), before);
+  assert.equal(b.revision, revision);
+  assert.equal(
+    b.space(a, end, 'room', true, door, 5000, [], true).error,
+    undefined,
+  );
+  assert.equal(b.tiles.length, before.tiles.length + 48);
+  assert.deepEqual(b.state.doors, [door]);
+  assert.equal(b.walkable(edgeCentre(door)), true);
+  assert.equal(b.walkable({ x: -5, z: -2.5 }), false);
+  assert.equal(b.route(localToTown(3, 1), localToTown(-8, 0)).length > 0, true);
+  const saved = b.snapshot(),
+    restored = new ClinicBuild();
+  assert.equal(restored.restore(saved), true);
+  assert.deepEqual(restored.snapshot(), saved);
+  assert.equal(restored.walkable(edgeCentre(door)), true);
+  assert.match(b.editDoor(door)!, /Connect every space/);
+  assert.deepEqual(b.snapshot(), saved);
+  const second = b.editableWalls().find((e) => e.x === -5 && e.z === -2)!;
+  assert.equal(b.editDoor(second), undefined);
+  assert.equal(b.editDoor(door), undefined);
+  assert.equal(b.walkable(edgeCentre(door)), false);
+  assert.equal(b.editDoor(door, true), undefined);
+  assert.equal(b.walkable(edgeCentre(door)), true);
+  assert.equal(new ClinicBuild().restore(b.snapshot()), true);
+});
+test('new entrances cannot leave the plot, trap an actor, or reclose across furniture', () => {
+  const b = new ClinicBuild(),
+    a = { x: -11, z: -4 },
+    end = { x: -5, z: 4 };
+  const door = b.doorOptions(a, end)[0];
+  assert.ok(
+    b.space(a, end, 'room', true, { x: 100, z: 100, axis: 'x' }, 5000, [], true)
+      .error,
+  );
+  assert.equal(
+    b.space(a, end, 'room', true, door, 5000, [], true).error,
+    undefined,
+  );
+  const second = b.editableWalls().find((e) => e.x === -5 && e.z === -2)!;
+  assert.equal(b.editDoor(second), undefined);
+  const before = b.snapshot(),
+    centre = edgeCentre(door);
+  assert.match(
+    b.editDoor(door, false, [localToTown(centre.x, centre.z)])!,
+    /move clear/,
+  );
+  assert.deepEqual(b.snapshot(), before);
+  // Even a valid second entrance must not permit a wall through an object.
+  const item = b.items.find((i) => !b.recipe(i.id).soft)!;
+  item.placement = { ...centre, rotation: 0 };
+  assert.match(b.editDoor(door)!, /furniture/);
+});
+test('v2 layouts retain their floors and purchases; invalid and orphan door saves are rejected', () => {
+  const b = new ClinicBuild();
+  b.buy('expansion');
+  const v2 = { ...b.snapshot(), version: 2 };
+  const restored = new ClinicBuild();
+  assert.equal(restored.restore(v2), true);
+  assert.deepEqual(restored.snapshot(), b.snapshot());
+  const a = { x: -11, z: -4 },
+    end = { x: -5, z: 4 },
+    door = b.doorOptions(a, end)[0];
+  b.space(a, end, 'garden', true, door, 5000, [], true);
+  for (const mutate of [
+    (s: ReturnType<ClinicBuild['snapshot']>) => s.doors.push({ ...door }),
+    (s: ReturnType<ClinicBuild['snapshot']>) =>
+      (s.doors[0] = { x: 100, z: 100, axis: 'x' }),
+    (s: ReturnType<ClinicBuild['snapshot']>) => (s.doors = []),
+    (s: ReturnType<ClinicBuild['snapshot']>) =>
+      (s.walls = s.walls.filter((e) => wallKey(e) !== wallKey(door))),
+  ]) {
+    const bad = b.snapshot();
+    mutate(bad);
+    const target = new ClinicBuild(),
+      before = target.snapshot();
+    assert.equal(target.restore(bad), false);
+    assert.deepEqual(target.snapshot(), before);
+  }
+});
+
+test('trying different doorway plans never reuses a discarded wall cache', () => {
+  const b = new ClinicBuild(),
+    a = { x: -11, z: -4 },
+    end = { x: -5, z: 4 };
+  const [first, second] = b.doorOptions(a, end);
+  const before = b.snapshot();
+  for (const door of [first, second, first]) {
+    assert.equal(b.space(a, end, 'room', true, door, 5000).error, undefined);
+    assert.deepEqual(b.snapshot(), before);
+  }
+  assert.equal(
+    b.space(a, end, 'room', true, second, 5000, [], true).error,
+    undefined,
+  );
+  assert.equal(b.walkable(edgeCentre(first)), false);
+  assert.equal(b.walkable(edgeCentre(second)), true);
 });

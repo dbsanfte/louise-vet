@@ -23,7 +23,9 @@ rig parent to control draw calls; no external meshes or motion-capture data are 
 ## Build-mode scenery
 
 `src/clinic-build-scenery.ts` creates original grid lines, cutaway walls, tiled
-floors, lawns and picket fences in Three.js. `src/clinic-furniture.ts` reuses the
+floors, lawns, picket fences, open door frames/leaves and gates in Three.js.
+Live rectangle outlines and blue/green doorway hints use original procedural
+geometry; the Build space-guide diagram is original CSS. `src/clinic-furniture.ts` reuses the
 original Blender exports as movable pieces, including the starter bench, shelf,
 plants and rugs; no authored GLBs are overwritten. Existing original procedural
 town surface textures supply the lawn and wall finishes. No external assets or

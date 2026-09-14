@@ -300,3 +300,56 @@
     bottom: 6px;
   }
 }
+
+/* Space planning replaces the furniture list with a short, illustrated guide. */
+#app[data-building='true'] .build-nudges[hidden],
+#app[data-building='true'] .build-filters[hidden] {
+  display: none;
+}
+.space-guide {
+  padding: 4px;
+  color: #344f40;
+}
+.space-guide h3 {
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+.space-guide p {
+  margin: 8px 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.space-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.space-example {
+  float: right;
+  width: 68px;
+  height: 52px;
+  margin: 0 0 6px 10px;
+  border: 4px solid #7d967f;
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 15px, #a8c6b7 15px 16px),
+    repeating-linear-gradient(transparent 0 15px, #a8c6b7 15px 16px), #e8e0c7;
+  position: relative;
+}
+.space-example span {
+  position: absolute;
+  bottom: -4px;
+  left: 20px;
+  width: 18px;
+  height: 8px;
+  background: #58b086;
+  border-inline: 3px solid #fff8dc;
+}
+.space-example[data-surface='garden'] {
+  background-color: #b6d8a0;
+  border-style: dashed;
+}
+.space-example[data-surface='erase'] {
+  opacity: 0.6;
+  border-color: #ab6863;
+}

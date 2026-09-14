@@ -466,7 +466,7 @@ export class World {
   get buildCanvas() {
     return this.renderer.domElement;
   }
-  buildHit(clientX: number, clientY: number) {
+  buildHit(clientX: number, clientY: number, pickItems = true) {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.raycaster.setFromCamera(
       new THREE.Vector2(
@@ -479,9 +479,9 @@ export class World {
       new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.22),
       new THREE.Vector3(),
     );
-    const objects = [...this.town!.furniture.itemModels.values()].filter(
-      (o) => o.visible,
-    );
+    const objects = pickItems
+      ? [...this.town!.furniture.itemModels.values()].filter((o) => o.visible)
+      : [];
     let object: THREE.Object3D | null =
       this.raycaster.intersectObjects(objects, true)[0]?.object ?? null;
     while (object && !object.userData.buildItem) object = object.parent;
@@ -494,7 +494,7 @@ export class World {
     this.buildActive = active;
     this.clearClinicPick();
     this.town!.furniture.scenery.grid.visible = active;
-    if (!active) this.town!.furniture.scenery.preview.visible = false;
+    if (!active) this.town!.furniture.scenery.hidePreview();
     this.setUpgrades(this.simulation.build.state.unlocked as UpgradeId[]);
   }
   focusBuildPlot(cells = buildableCells) {

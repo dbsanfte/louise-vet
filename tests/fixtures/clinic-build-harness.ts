@@ -1,7 +1,7 @@
 import { World } from '../../src/world';
 import { ClinicBuildEditor } from '../../src/clinic-build-editor';
 import { localToTown } from '../../src/town-map';
-import { Vector3, type OrthographicCamera } from 'three';
+import { Vector3, InstancedMesh, type OrthographicCamera } from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let world: World, editor: ClinicBuildEditor, advance: (dt: number) => void;
 const load = World.prototype.load,
@@ -32,6 +32,35 @@ window.buildTest = {
     };
   },
   snapshot: () => world.town!.simulation.snapshot(),
+  scenery: () => {
+    const scenery = world.town!.furniture.scenery;
+    let doors = 0,
+      walls = 0;
+    scenery.group.traverse((o) => {
+      if (!(o instanceof InstancedMesh) || Array.isArray(o.material)) return;
+      if (o.material.name === 'wood open doors') doors += o.count;
+      if (o.material.name === 'plaster') walls += o.count;
+    });
+    return {
+      doors,
+      walls,
+      hints: scenery.hints.visible ? scenery.hintEdges.length : 0,
+      renderedAt: (world as unknown as { lastRender: number }).lastRender,
+    };
+  },
+  preview: () => {
+    const preview = world.town!.furniture.scenery.preview;
+    return {
+      visible: preview.visible,
+      x: preview.position.x,
+      z: preview.position.z,
+      width: preview.scale.x,
+      depth: preview.scale.z,
+      color: preview.material.color.getHex(),
+      outlined: preview.children.length >= 4,
+      depthTest: preview.material.depthTest,
+    };
+  },
   step: (seconds: number) => {
     for (let i = 0; i < seconds * 10; i++) {
       if (editor?.active) editor.update(0.1);
@@ -87,6 +116,22 @@ declare global {
       snapshot: () => ReturnType<
         import('../../src/town-simulation').TownSimulation['snapshot']
       >;
+      scenery: () => {
+        doors: number;
+        walls: number;
+        hints: number;
+        renderedAt: number;
+      };
+      preview: () => {
+        visible: boolean;
+        x: number;
+        z: number;
+        width: number;
+        depth: number;
+        color: number;
+        outlined: boolean;
+        depthTest: boolean;
+      };
       step: (seconds: number) => void;
       point: (
         x: number,

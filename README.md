@@ -96,8 +96,14 @@ notebook without moving the page. See the
 ## Expand the clinic
 
 Choose **Build** in the office to shape your clinic on a grid. Draw **Room** or
-**Garden** space by dragging or tapping two opposite corners, then pick furniture
-from the sidebar and place it. Rotate with **R** or **Rotate**, use the nudge
+**Garden** space by dragging or tapping two opposite grid corners. A live outline
+shows the snapped rectangle on desktop and touch screens. Release to plan, choose
+a blue doorway suggestion, then confirm with **Build space**. Nothing is spent
+until confirmation. Choose **With walls**/**Picket fence** for a separate space,
+or **Open space** to extend the existing floor. Room and garden guides suggest
+uses; furnish each space however you like. **Doors** lets you add or close a
+doorway, or remove a shared wall section. Every space must keep a clear way in.
+Choose **Furniture** to return to the collection and place items. Rotate with **R** or **Rotate**, use the nudge
 buttons for fine adjustments, and choose **Done** to resume the day. **Camera**
 lets you orbit and pan; desktop arrow keys and camera buttons stay available. **Whole plot**
 shows the surrounding buildable greenspace, clear of roads and neighbouring homes.
@@ -126,8 +132,9 @@ playground** supplies 84 tiles and a toy corner. Capacity grows from 4 to 6 to 8
 **Play garden extension** and **Sunshine courtyard** each add 48 free tiles and
 unlock more shop choices. Further tiles cost 3 coins each. Floor removal does not
 refund coins; moving stored furniture costs nothing. The entrance, counter and
-examination suite stay in place. The current editor joins floor into open rooms
-with automatic perimeter walls or fences. Room kits and equipment are one-time
+examination suite stay in place. The editor supports connected rooms and gardens with explicitly placed entrances,
+as well as open-plan extensions. Exterior boundaries follow the floor; additional
+floors and movable clinical suites are outside its current scope. Room kits and equipment are one-time
 upgrades; extra furniture does not stack satisfaction bonuses.
 
 On desktop, use the **↶ / ↷ camera buttons** to turn your view in the office or

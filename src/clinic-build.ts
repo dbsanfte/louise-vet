@@ -1,5 +1,15 @@
 import plan from './clinic-layout.json' with { type: 'json' };
 import {
+  edgeCells,
+  edgeCentre,
+  floorRectangle,
+  joinWalls,
+  rectangleWalls,
+  wallKey,
+  type WallEdge,
+} from './clinic-spaces.ts';
+export { floorRectangle } from './clinic-spaces.ts';
+import {
   layout,
   localToTown,
   segmentDistance,
@@ -12,7 +22,9 @@ export type Placement = Point & { rotation: number };
 export type BuildItem = { id: string; recipe: string; placement?: Placement };
 export type FloorCell = Point & { surface: 'room' | 'garden'; paid?: boolean };
 export type BuildState = {
-  version: 2;
+  version: 3;
+  walls: WallEdge[];
+  doors: WallEdge[];
   customized: boolean;
   floorEdited: boolean;
   unlocked: string[];
@@ -395,7 +407,9 @@ const samePlacement = (a: Placement | undefined, b: Placement | undefined) =>
   JSON.stringify(a) === JSON.stringify(b);
 export class ClinicBuild {
   state: BuildState = {
-    version: 2,
+    version: 3,
+    walls: [],
+    doors: [],
     customized: false,
     floorEdited: false,
     unlocked: [],
@@ -411,6 +425,8 @@ export class ClinicBuild {
   };
   revision = 0;
   private navRevision = -1;
+  private wallRevision = -1;
+  private closedWalls = new Set<string>();
   private nodes = new Map<string, Point>();
   private tileSet = new Set<string>();
   private reachable = new Map<string, Point>();
@@ -499,6 +515,7 @@ export class ClinicBuild {
     this.revision++;
     this.stationCache = undefined;
     this.navRevision = -1;
+    this.wallRevision = -1;
   }
   syncOwned(ids: readonly UpgradeId[]) {
     for (const id of ids)
@@ -609,6 +626,53 @@ export class ClinicBuild {
       Math.abs(d.z) < r.depth / 2 + margin
     );
   }
+  /** Preserve the existing connected lounge partitions when first editing a
+   * legacy clinic. Unbuilt future rooms never contribute floating doorways. */
+  get architecture() {
+    if (this.state.floorEdited)
+      return { walls: this.state.walls, doors: this.state.doors };
+    const walls: WallEdge[] = [],
+      doors: WallEdge[] = [];
+    const add = (edge: WallEdge, open: boolean) => {
+      if (
+        !edgeCells(edge).every((p) =>
+          this.contains({ x: p.x + 0.5, z: p.z + 0.5 }),
+        )
+      )
+        return;
+      walls.push(edge);
+      if (open) doors.push(edge);
+    };
+    for (let z = -4; z < 4; z++)
+      add({ x: -5, z, axis: 'z' }, z === -1 || z === 0);
+    for (let z = -12; z < 4; z++)
+      add({ x: -11, z, axis: 'z' }, z === -1 || z === 0);
+    for (let x = -11; x < -5; x++)
+      add({ x, z: -4, axis: 'x' }, x === -9 || x === -8);
+    for (let x = -17; x < -11; x++)
+      add({ x, z: -12, axis: 'x' }, x === -13 || x === -12);
+    return { walls, doors };
+  }
+  private wallBlocked(p: Point) {
+    if (!this.state.floorEdited) return false;
+    if (this.wallRevision !== this.revision) {
+      const doors = new Set(this.state.doors.map(wallKey));
+      this.closedWalls = new Set(
+        this.state.walls.map(wallKey).filter((key) => !doors.has(key)),
+      );
+      this.wallRevision = this.revision;
+    }
+    for (const axis of ['x', 'z'] as const) {
+      const across = axis === 'x' ? 'z' : 'x';
+      if (Math.abs(p[across] - Math.round(p[across])) > 0.1) continue;
+      for (const along of [Math.floor(p[axis]), Math.floor(p[axis] - 0.1)]) {
+        const edge = { x: Math.round(p.x), z: Math.round(p.z), axis };
+        edge[axis] = along;
+        if (this.closedWalls.has(wallKey(edge))) return true;
+      }
+    }
+    return false;
+  }
   private fixedBlocked(p: Point) {
     // Counter, examination table, and the clinical partition stay anchored.
     const partition =
@@ -633,6 +697,7 @@ export class ClinicBuild {
           p.x > -17 &&
           p.x < -11));
     return (
+      this.wallBlocked(p) ||
       partition ||
       (Math.abs(p.x + 2) < 0.18 && p.z > -10 && p.z < -4) ||
       (Math.abs(p.x - 5) < 0.18 && p.z > -10 && p.z < -4) ||
@@ -905,7 +970,7 @@ export class ClinicBuild {
     )
       return 'Keep a clear way out for everyone in the clinic.';
     // All floor patches must connect to the original clinic, even when empty.
-    const tileTodo = [...coreCells],
+    const tileTodo: FloorCell[] = [{ x: 3, z: 1, surface: 'room' }],
       tileSeen = new Set(tileTodo.map((p) => gridKey(p.x, p.z)));
     for (let i = 0; i < tileTodo.length; i++)
       for (const [dx, dz] of [
@@ -916,13 +981,17 @@ export class ClinicBuild {
       ]) {
         const p = tileTodo[i],
           k = gridKey(p.x + dx, p.z + dz);
-        if (this.tileSet.has(k) && !tileSeen.has(k)) {
+        if (
+          this.tileSet.has(k) &&
+          !tileSeen.has(k) &&
+          !this.wallBlocked({ x: p.x + 0.5 + dx / 2, z: p.z + 0.5 + dz / 2 })
+        ) {
           tileSeen.add(k);
           tileTodo.push({ x: p.x + dx, z: p.z + dz, surface: 'room' });
         }
       }
     if (this.tiles.some((p) => !tileSeen.has(gridKey(p.x, p.z))))
-      return 'Join the new space to your clinic.';
+      return 'Connect every space to the clinic with a doorway or open side.';
     return undefined;
   }
   private footprint(id: string) {
@@ -1024,6 +1093,169 @@ export class ClinicBuild {
     this.state.customized = true;
     this.changed();
   }
+  doorOptions(a: Point, b: Point) {
+    const { from, to } = floorRectangle(a, b);
+    const inside = (p: Point) =>
+      p.x >= from.x && p.x <= to.x && p.z >= from.z && p.z <= to.z;
+    return rectangleWalls(a, b)
+      .filter((edge) =>
+        edgeCells(edge).some(
+          (p) => !inside(p) && this.contains({ x: p.x + 0.5, z: p.z + 0.5 }),
+        ),
+      )
+      .sort((a, b) => {
+        const centre = {
+          x: (from.x + to.x + 1) / 2,
+          z: (from.z + to.z + 1) / 2,
+        };
+        const gap = (edge: WallEdge) =>
+          Math.hypot(
+            edgeCentre(edge).x - centre.x,
+            edgeCentre(edge).z - centre.z,
+          );
+        return gap(a) - gap(b);
+      });
+  }
+  /** Floor, boundary and chosen doorway are one transaction. Drafts never spend. */
+  space(
+    a: Point,
+    b: Point,
+    surface: FloorCell['surface'],
+    enclosed: boolean,
+    door: WallEdge | undefined,
+    coins: number,
+    actors: Point[] = [],
+    apply = false,
+  ) {
+    const { from, to } = floorRectangle(a, b);
+    const options = this.doorOptions(a, b);
+    if (enclosed && !door)
+      return {
+        cost: 0,
+        error: 'Choose a doorway to connect this space to the clinic.',
+      };
+    if (door && !options.some((edge) => wallKey(edge) === wallKey(door)))
+      return {
+        cost: 0,
+        error: 'Put the doorway on a side that joins existing clinic floor.',
+      };
+    const old = this.state,
+      revision = this.revision,
+      architecture = this.architecture;
+    const added = enclosed ? rectangleWalls(a, b) : [];
+    const walls = joinWalls(architecture.walls, added);
+    const doors = joinWalls(architecture.doors, door ? [door] : []);
+    if (door && !walls.some((edge) => wallKey(edge) === wallKey(door)))
+      walls.push(door);
+    const open = new Set(doors.map(wallKey));
+    const newWalls = added.filter(
+      (edge) =>
+        !open.has(wallKey(edge)) &&
+        !architecture.walls.some((wall) => wallKey(wall) === wallKey(edge)),
+    );
+    for (const edge of newWalls) {
+      const end = {
+        x: edge.x + (edge.axis === 'x' ? 1 : 0),
+        z: edge.z + (edge.axis === 'z' ? 1 : 0),
+      };
+      if (actors.some((p) => segmentDistance(toClinic(p), edge, end) < 0.28))
+        return {
+          cost: 0,
+          error: 'Someone is standing by that wall. Choose a clear space.',
+        };
+      for (let t = 0; t <= 1; t += 0.25) {
+        const p = {
+          x: edge.x + (end.x - edge.x) * t,
+          z: edge.z + (end.z - edge.z) * t,
+        };
+        if (this.clinicalAccess(p))
+          return {
+            cost: 0,
+            error: 'Keep the entrance, counter and examination route clear.',
+          };
+        if (
+          this.items.some(
+            (item) =>
+              item.placement &&
+              !this.recipe(item.id).soft &&
+              this.insideItem(item.id, p, 0.06),
+          )
+        )
+          return {
+            cost: 0,
+            error: 'Move the furniture clear of your new walls first.',
+          };
+      }
+    }
+    this.state = { ...old, walls, doors, floorEdited: true };
+    this.changed();
+    const result = this.floor(from, to, surface, coins, actors, apply);
+    if (result.error || !apply) {
+      this.state = old;
+      this.changed();
+      this.revision = revision;
+    }
+    return result;
+  }
+  editableWalls() {
+    return this.architecture.walls.filter((edge) =>
+      edgeCells(edge).every((p) =>
+        this.contains({ x: p.x + 0.5, z: p.z + 0.5 }),
+      ),
+    );
+  }
+  editDoor(edge: WallEdge, removeWall = false, actors: Point[] = []) {
+    if (!this.editableWalls().some((wall) => wallKey(wall) === wallKey(edge)))
+      return 'Choose a wall with built floor on both sides.';
+    const old = this.state,
+      architecture = this.architecture;
+    const key = wallKey(edge),
+      exists = architecture.doors.some((door) => wallKey(door) === key);
+    const walls = architecture.walls.filter(
+      (wall) => !removeWall || wallKey(wall) !== key,
+    );
+    const doors = architecture.doors.filter((door) => wallKey(door) !== key);
+    if (!removeWall && !exists) doors.push(edge);
+    this.state = { ...old, walls, doors, floorEdited: true };
+    this.changed();
+    const centre = edgeCentre(edge);
+    const furnitureInDoor =
+      !removeWall &&
+      exists &&
+      [0.1, 0.3, 0.5, 0.7, 0.9].some((t) =>
+        this.items.some(
+          (item) =>
+            item.placement &&
+            !this.recipe(item.id).soft &&
+            this.insideItem(
+              item.id,
+              {
+                x: edge.x + (edge.axis === 'x' ? t : 0),
+                z: edge.z + (edge.axis === 'z' ? t : 0),
+              },
+              0.16,
+            ),
+        ),
+      );
+    const error = furnitureInDoor
+      ? 'Move the furniture clear of that doorway first.'
+      : !removeWall &&
+          exists &&
+          actors.some(
+            (p) =>
+              Math.hypot(toClinic(p).x - centre.x, toClinic(p).z - centre.z) <
+              0.65,
+          )
+        ? 'Let everyone move clear of that doorway first.'
+        : this.validate(actors);
+    if (error) {
+      this.state = old;
+      this.changed();
+      return error;
+    }
+    this.state.customized = true;
+    this.changed();
+  }
   floor(
     a: Point,
     b: Point,
@@ -1040,6 +1272,9 @@ export class ClinicBuild {
       return { error: 'Build up to 250 tiles at a time.', cost: 0 };
     const revision = this.revision;
     const oldEdited = this.state.floorEdited;
+    const oldWalls = this.state.walls,
+      oldDoors = this.state.doors;
+    const architecture = this.architecture;
     const old = this.state.tiles,
       tiles = structuredClone(old);
     let count = 0;
@@ -1065,6 +1300,13 @@ export class ClinicBuild {
     if (cost > coins)
       return { error: `You need ${cost} coins for this space.`, cost };
     this.state.tiles = tiles;
+    const cells = new Set(tiles.map((p) => gridKey(p.x, p.z)));
+    this.state.walls = architecture.walls.filter((edge) =>
+      edgeCells(edge).some((p) => cells.has(gridKey(p.x, p.z))),
+    );
+    this.state.doors = architecture.doors.filter((edge) =>
+      edgeCells(edge).every((p) => cells.has(gridKey(p.x, p.z))),
+    );
     this.state.floorEdited = true;
     this.changed();
     let error = this.validate(actors);
@@ -1093,6 +1335,8 @@ export class ClinicBuild {
     if (error || !apply) {
       this.state.tiles = old;
       this.state.floorEdited = oldEdited;
+      this.state.walls = oldWalls;
+      this.state.doors = oldDoors;
       this.changed();
       this.revision = revision;
       return { error, cost };
@@ -1112,7 +1356,7 @@ export class ClinicBuild {
       const version = (value as { version: number }).version;
       const knownUpgrades = new Set<string>(upgrades.map((u) => u.id));
       if (
-        ![1, 2].includes(version) ||
+        ![1, 2, 3].includes(version) ||
         typeof s.customized !== 'boolean' ||
         typeof s.floorEdited !== 'boolean' ||
         !Array.isArray(s.tiles) ||
@@ -1141,8 +1385,38 @@ export class ClinicBuild {
         s.items.forEach((i) => {
           i.recipe = i.id;
         });
-        s.version = 2;
       }
+      if (version < 3) {
+        s.walls = [];
+        s.doors = [];
+      }
+      s.version = 3;
+      const validEdge = (edge: WallEdge) =>
+        edge &&
+        ['x', 'z'].includes(edge.axis) &&
+        Number.isInteger(edge.x) &&
+        Number.isInteger(edge.z) &&
+        edgeCells(edge).some((p) =>
+          s.tiles.some((t) => t.x === p.x && t.z === p.z),
+        );
+      if (
+        !Array.isArray(s.walls) ||
+        !Array.isArray(s.doors) ||
+        s.walls.length > buildable.size * 4 ||
+        s.doors.length > s.walls.length ||
+        s.walls.some((edge) => !validEdge(edge)) ||
+        new Set(s.walls.map(wallKey)).size !== s.walls.length ||
+        new Set(s.doors.map(wallKey)).size !== s.doors.length ||
+        s.doors.some(
+          (edge) =>
+            !validEdge(edge) ||
+            !s.walls.some((wall) => wallKey(wall) === wallKey(edge)) ||
+            !edgeCells(edge).every((p) =>
+              s.tiles.some((t) => t.x === p.x && t.z === p.z),
+            ),
+        )
+      )
+        return false;
       if (
         buildRecipes.some(
           (r) =>
