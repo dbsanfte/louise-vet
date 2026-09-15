@@ -65,7 +65,6 @@ export class ClinicBuildEditor {
     surface: FloorCell['surface'] | 'erase';
   };
   private doorway?: WallEdge;
-  private enclosed = true;
   private removeWall = false;
   private filter = 'all';
   private message =
@@ -425,11 +424,6 @@ export class ClinicBuildEditor {
       this.render();
       if (next !== 'camera' || !this.draft)
         document.querySelector('.build-list')!.scrollTop = 0;
-    } else if (action === 'boundary') {
-      this.enclosed = b.dataset.value === 'enclosed';
-      this.doorway = undefined;
-      this.preview();
-      this.render();
     } else if (action === 'next-door') {
       const options = this.doorOptions();
       this.doorway =
@@ -688,7 +682,6 @@ export class ClinicBuildEditor {
       start,
       end,
       surface,
-      this.enclosed,
       this.progress.coins,
       this.actors(),
       apply,
@@ -1046,7 +1039,6 @@ export class ClinicBuildEditor {
     const erase = surface === 'erase';
     if (erase)
       return `<section class="space-guide"><h3>Erase space</h3><p>Drag a rectangle, or tap two corners. On release, choose Yes to erase or No to keep everything.</p><p>Furniture returns to your collection. People and pets move safely clear, and remaining edges get walls or fences. Undo brings the space and furniture back.</p></section>`;
-    const boundaries = `<div class="space-options" aria-label="Space boundary">${button('Interior', 'boundary', `data-value="enclosed" aria-pressed="${this.enclosed}"`)}${button('Exterior', 'boundary', `data-value="open" aria-pressed="${!this.enclosed}"`)}</div>`;
     const plans = clinicPrefabs
       .filter((p) => p.surface === this.spaceTool)
       .sort((a, b) => {
@@ -1058,7 +1050,7 @@ export class ClinicBuildEditor {
         );
       });
     const cards = `<div class="prefab-grid" aria-label="${this.spaceTool === 'garden' ? 'Garden' : 'Floor'} prefabs">${plans.map((p) => this.prefabCard(p, button, this.sim.build.unusedRoomKits.find((kit) => kit.id === p.id)?.credits)).join('')}</div>`;
-    return `${cards}<section class="space-guide"><h3>${this.prefab ? this.prefab.name : this.draft ? 'Check your plan' : this.spaceTool === 'garden' ? 'Garden shapes' : 'Floor shapes'}</h3>${boundaries}<p class="space-instruction">${this.draft ? 'Nothing was built. Draw another rectangle to try again.' : this.prefab ? 'Tap a clear spot or drag to place. Doors connect automatically.' : 'Draw and release to build, or tap two corners. Doors connect automatically.'}</p></section><section class="space-help"><p>Undo returns the last space and its cost. Interior adds walls or a garden fence; Exterior leaves the new space open.</p><p>Pinch to zoom, drag two fingers to pan, and twist to turn.</p>${!matchMedia('(pointer: coarse)').matches ? '<p>Keyboard: C sets each corner; nudge arrows position it. Ctrl/Cmd+Z undoes a space.</p>' : ''}<p>Floor plans only. Add furniture in Place furniture mode.</p></section>`;
+    return `${cards}<section class="space-guide"><h3>${this.prefab ? this.prefab.name : this.draft ? 'Check your plan' : this.spaceTool === 'garden' ? 'Garden shapes' : 'Floor shapes'}</h3><p class="space-instruction">${this.draft ? 'Nothing was built. Draw another rectangle to try again.' : this.prefab ? 'Tap a clear spot or drag to place. Doors connect automatically.' : 'Draw and release to build, or tap two corners. Doors connect automatically.'}</p></section><section class="space-help"><p>Gardens join together. Rooms get doors automatically. Undo returns the last space and its cost.</p><p>Pinch to zoom, drag two fingers to pan, and twist to turn.</p>${!matchMedia('(pointer: coarse)').matches ? '<p>Keyboard: C sets each corner; nudge arrows position it. Ctrl/Cmd+Z undoes a space.</p>' : ''}<p>Floor plans only. Add furniture in Place furniture mode.</p></section>`;
   }
 
   private prefabCard(
@@ -1080,7 +1072,6 @@ export class ClinicBuildEditor {
     this.mode = 'spaces';
     this.spaceTool = this.prefab.surface;
     this.tool = this.prefab.surface;
-    this.enclosed = true;
     this.cursor = { x: -5 - this.prefab.width / 2, z: 0, rotation: 0 };
     this.preview();
     if (render) this.render();

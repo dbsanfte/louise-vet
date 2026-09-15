@@ -213,7 +213,6 @@ for (const [i, { items, doors }] of doorStages.entries())
         path: info.outputPath('migrated-lounge-doors.png'),
       });
       await chooseTool(page, 'garden');
-      await page.locator('[data-build="boundary"][data-value="open"]').click();
       await tap(page, -12, -3, info.project.name === 'mobile');
       await tap(page, -12, -1, info.project.name === 'mobile');
       await expect(page.locator('#build-feedback')).toContainText('ready');
@@ -296,7 +295,6 @@ test('build a connected garden and room, reject unsafe furniture, and cancel wit
   await open(page);
   const touch = info.project.name === 'mobile';
   await chooseTool(page, 'garden');
-  await page.locator('[data-build="boundary"][data-value="open"]').click();
   await tap(page, -18, -7, touch);
   await tap(page, -17, 0, touch);
   await expect(page.locator('#build-feedback')).toContainText('ready');
@@ -311,7 +309,6 @@ test('build a connected garden and room, reject unsafe furniture, and cancel wit
       .every((t) => t.surface === 'garden'),
   ).toBe(true);
   await chooseTool(page, 'room');
-  await page.locator('[data-build="boundary"][data-value="open"]').click();
   // Repaint the same explicit rectangle. A zero-width boundary stroke would
   // now grow outward into new floor, rather than selecting the old strip.
   await tap(page, -18, -7, touch);
@@ -962,7 +959,6 @@ test('interrupted drawing and cancelled invalid plans keep the clinic and coins 
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     before,
   );
-  await page.locator('[data-build="boundary"][data-value="open"]').click();
   await tap(page, 9, 2, touch);
   await tap(page, 11, 4, touch);
   await expect(page.locator('#build-feedback')).toContainText('greenspace');
@@ -1037,10 +1033,9 @@ test('space modes show Garden prefabs and Undo refunds consecutive builds withou
   await expect(
     page.locator('.build-controls [data-value="erase"] svg'),
   ).toHaveCount(1);
-  await expect(page.locator('.space-options')).toContainText('Interior');
-  await expect(page.locator('.space-options')).toContainText('Exterior');
-  await expect(page.locator('.space-options')).not.toContainText(
-    /With walls|Open space/,
+  await expect(page.locator('[data-build="boundary"]')).toHaveCount(0);
+  await expect(page.locator('.build-list')).not.toContainText(
+    /Interior|Exterior/,
   );
   await page.screenshot({
     path: info.outputPath('garden-prefabs-and-controls.png'),
@@ -1175,6 +1170,198 @@ test('a second finger interrupts drawing and the remaining finger cannot build a
   await tap(page, -11, -4, true);
   await tap(page, -5, 4, true);
   await expect(page.locator('[data-build="undo"]')).toBeEnabled();
+});
+
+test('custom gardens can buy, place and use shop amusements without purchasing any room kit', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  if (touch) await page.setViewportSize({ width: 360, height: 640 });
+  await open(page, true, [], false, ['Peanut']);
+  await chooseTool(page, 'garden');
+  await tap(page, -11, -4, touch);
+  await tap(page, -5, 4, touch);
+  await expect(page.locator('#build-feedback')).toContainText('ready');
+  await page.locator('[data-build="shop"]').click();
+  for (const id of [
+    'table-games',
+    'scratch',
+    'wheel',
+    'coaster',
+    'aviary',
+    'bird-chimes',
+    'flower-border',
+    'toys',
+    'pet-room',
+    'sun-courtyard',
+  ])
+    await expect(page.locator(`[data-upgrade="${id}"]`)).toBeEnabled();
+  await expect(
+    page.locator('.shop-grid button').filter({ hasText: /^Buy .+ first$/ }),
+  ).toHaveCount(0);
+  await page.locator('[data-upgrade="wheel"]').click();
+  await page.locator('[data-upgrade="wheel"]').click();
+  await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  await chooseTool(page, 'items');
+  const card = page.locator('[data-build="pick"][data-id="wheel"]');
+  await expect(card).toContainText('2 available');
+  await card.click();
+  await tap(page, -8, 0, touch);
+  await expect(page.locator('#build-feedback')).toContainText('Lovely');
+  await expect(
+    page.locator('[data-build="pick"][data-id="wheel~1"]'),
+  ).toContainText('1 available');
+  const built = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(built.unlocked).toEqual(['wheel']);
+  expect(built.credits).toBe(0);
+  expect(built.items.filter((i) => i.recipe === 'wheel')).toHaveLength(2);
+  await expect(page.getByTestId('coins')).toHaveText('4,636');
+  await page.locator('[data-build="done"]').click();
+  const used = await page.evaluate(() => {
+    for (let i = 0; i < 160; i++) {
+      window.buildTest.step(0.5);
+      if (
+        window.buildTest
+          .snapshot()
+          .leisure.pets.some((p) => p.station === 'wheel' && p.phase === 'use')
+      )
+        return true;
+    }
+    return false;
+  });
+  expect(used).toBe(true);
+  await page.screenshot({ path: info.outputPath('custom-garden-wheel.png') });
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    built,
+  );
+});
+
+test('garden prefabs and drawn extensions infer open joins and room doors without boundary buttons', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  if (touch) await page.setViewportSize({ width: 360, height: 640 });
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await open(page, false, []);
+  await chooseTool(page, 'garden');
+  await expect(page.locator('[data-build="boundary"]')).toHaveCount(0);
+  const picture = page.locator('[data-prefab="sun-courtyard"] img');
+  if (touch) await picture.tap();
+  else await picture.click();
+  await tap(page, -8, 0, touch);
+  await expect(page.locator('#build-feedback')).toContainText('ready');
+  const first = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(first.doors).toHaveLength(1);
+  expect(first.doors[0].x).toBe(-5);
+  // Extend the prefab with an actual held stroke; the old fence should vanish
+  // on release, with no gate between the two lawns and no extra choice.
+  await chooseTool(page, 'garden');
+  await page.evaluate(() => window.buildTest.point(-13, 0, true));
+  const [a, b] = await page.evaluate(() =>
+    [
+      [-15, -3],
+      [-11, 3],
+    ].map(([x, z]) => window.buildTest.point(x, z)),
+  );
+  const cdp = touch ? await page.context().newCDPSession(page) : undefined;
+  if (cdp) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ ...a, id: 1 }],
+    });
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ ...b, id: 1 }],
+    });
+  } else {
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(b.x, b.y, { steps: 8 });
+  }
+  await expect
+    .poll(() => page.evaluate(() => window.buildTest.preview()))
+    .toMatchObject({ visible: true, width: 4, depth: 6, color: 0x76b873 });
+  expect(await page.evaluate(() => window.buildTest.scenery().hints)).toBe(0);
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    first,
+  );
+  await page.screenshot({ path: info.outputPath('garden-join-preview.png') });
+  if (cdp) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    await cdp.detach();
+  } else await page.mouse.up();
+  await expect(page.locator('#build-feedback')).toContainText('ready');
+  const joined = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(joined.tiles.length).toBe(first.tiles.length + 24);
+  expect(joined.doors).toEqual(first.doors);
+  expect(
+    joined.walls.filter(
+      (w) => w.axis === 'z' && w.x === -11 && w.z >= -3 && w.z < 3,
+    ),
+  ).toEqual([]);
+  await expect(page.getByTestId('coins')).toHaveText('4,784');
+  await page.locator('[data-build="undo"]').click();
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    first,
+  );
+  await tap(page, -15, -3, touch);
+  await tap(page, -11, 3, touch);
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    joined,
+  );
+  await chooseTool(page, 'room');
+  await expect(page.locator('[data-build="boundary"]')).toHaveCount(0);
+  await tap(page, -10, -8, touch);
+  await tap(page, -6, -4, touch);
+  await expect(page.locator('#build-feedback')).toContainText('ready');
+  const built = await page.evaluate(() => window.buildTest.snapshot().build);
+  expect(built.doors).toHaveLength(2);
+  expect(built.doors.some((d) => d.axis === 'x' && d.z === -4)).toBe(true);
+  expect(await page.evaluate(() => window.buildTest.scenery().doors)).toBe(2);
+  await chooseTool(page, 'garden');
+  for (const size of touch
+    ? [
+        { width: 360, height: 640 },
+        { width: 844, height: 390 },
+      ]
+    : [page.viewportSize()!]) {
+    await page.setViewportSize(size);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollHeight <= innerHeight + 2,
+      ),
+    ).toBe(true);
+    await expect(page.locator('.build-list')).not.toContainText(
+      /Interior|Exterior/,
+    );
+    for (const action of ['undo', 'done']) {
+      const box = (await page
+        .locator(`[data-build="${action}"]`)
+        .boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(size.height + 1);
+    }
+    await page.screenshot({
+      path: info.outputPath(`automatic-garden-${size.width}.png`),
+    });
+  }
+  await page.locator('[data-build="done"]').click();
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    built,
+  );
+  expect(errors).toEqual([]);
 });
 
 test('pictured prefabs drag into a snapped connected room and remain editable after reload', async ({

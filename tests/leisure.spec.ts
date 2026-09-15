@@ -78,10 +78,8 @@ test('shop keeps room kits one-time and amusements repeatable, then preserves th
 }, info) => {
   await open(page);
   await page.getByRole('button', { name: /Clinic shop/ }).click();
-  await expect(page.locator('[data-upgrade="pet-room"]')).toBeDisabled();
-  await expect(page.locator('[data-upgrade="wheel"]')).toContainText(
-    'Buy Pet playground first',
-  );
+  await expect(page.locator('[data-upgrade="pet-room"]')).toBeEnabled();
+  await expect(page.locator('[data-upgrade="wheel"]')).toBeEnabled();
   for (const id of [
     'expansion',
     'pet-room',

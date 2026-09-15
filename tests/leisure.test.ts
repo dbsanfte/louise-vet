@@ -80,12 +80,12 @@ function setup(
   s.configureLeisure(owned);
   return s;
 }
-test('rooms require their parent module, and each amusement copy costs coins', () => {
+test('room kits keep capacity bonuses and each amusement copy costs coins', () => {
   const p = loadProgress();
   p.coins = 5000;
-  assert.equal(purchase(p, 'pet-room'), false);
-  assert.equal(purchase(p, 'wheel'), false);
-  assert.equal(p.coins, 5000);
+  assert.ok(purchase(p, 'wheel'));
+  assert.equal(p.coins, 4890);
+  assert.equal(clinicCapacity(p.upgrades), 4);
   assert.ok(purchase(p, 'expansion'));
   assert.equal(clinicCapacity(p.upgrades), 6);
   assert.ok(purchase(p, 'pet-room'));
@@ -324,10 +324,6 @@ test('new arrivals check in at the desk once and settle; cancelling a call or re
 test('new rides enforce purchases, take moving turns and unload before recall', () => {
   const progress = loadProgress();
   progress.coins = 2000;
-  for (const id of ['coaster', 'ferris'] as const)
-    assert.equal(purchase(progress, id), false);
-  purchase(progress, 'expansion');
-  purchase(progress, 'pet-room');
   for (const id of ['coaster', 'ferris'] as const) {
     const balance = progress.coins;
     assert.ok(purchase(progress, id));
@@ -395,7 +391,7 @@ test('older playground saves align moved stations without losing the active turn
   assert.equal(restored.leisure.pets.get(pet.ticket)?.turns, pet.turns);
 });
 
-test('extension purchases unlock six usable activities including bird flights and cat climbs', () => {
+test('independently purchased activities include bird flights and cat climbs', () => {
   const progress = loadProgress();
   progress.coins = 5000;
   const additions = [
@@ -406,10 +402,6 @@ test('extension purchases unlock six usable activities including bird flights an
     'aviary',
     'play-tree',
   ] as const;
-  for (const id of additions) assert.equal(purchase(progress, id), false);
-  assert.equal(purchase(progress, 'play-annex'), false);
-  for (const id of ['expansion', 'pet-room', 'play-annex'] as const)
-    assert.ok(purchase(progress, id));
   for (const id of additions) {
     const coins = progress.coins;
     assert.ok(purchase(progress, id));
@@ -423,7 +415,7 @@ test('extension purchases unlock six usable activities including bird flights an
       coins - 2 * upgrades.find((u) => u.id === id)!.price,
     );
   }
-  assert.equal(clinicCapacity(progress.upgrades), 8);
+  assert.equal(clinicCapacity(progress.upgrades), 4);
   assert.equal(progress.stock, 3, 'dispensers do not spend retail stock');
   const s = setup(['Luna', 'Milo', 'Peanut', 'Pico']);
   const seen = new Set<string>();

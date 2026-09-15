@@ -112,11 +112,14 @@ furniture and occupied rooms. On release, choose **Yes, erase space** to remove 
 floor and return affected furniture to the picker, or **No, keep it** / Escape to
 leave everything unchanged. People and pets move safely clear; remaining edges
 get walls/fences and replacement doors where they can connect. Separated leftovers
-stay in place but are unused until you reconnect their floor and doorway. Undo
+stay in place but are unused until you reconnect them. New floor automatically
+adds any doors needed to reopen those spaces. Undo
 brings back the floor and furniture. The confirmation lists returned items and
 keeps Yes/No visible on phones.
 
-**Interior** adds walls, or a garden fence; **Exterior** leaves the new space open.
+Connections are automatic: adjoining gardens merge without a dividing fence,
+while indoor spaces keep walls and get doors where needed. The outside garden
+edge stays fenced. There are no Interior/Exterior choices.
 The pictured floor plans lead each space catalogue: **Waiting room** and
 **Adventure room** under Floor, **Garden** and **Pet playground** under Garden.
 Drag a picture into the scene to preview and build on a valid drop, or tap it,
@@ -150,11 +153,11 @@ independently.
 **Room for more paws** supplies 48 free floor tiles and three chairs; **Pet
 playground** supplies 84 tiles and a toy corner. Capacity grows from 4 to 6 to 8.
 **Play garden extension** and **Sunshine courtyard** each add 48 free tiles and
-unlock more shop choices. Further tiles cost 3 coins each. Floor removal does not
+are optional floor kits. All furniture can be bought without a room kit. Further tiles cost 3 coins each. Floor removal does not
 refund coins; furniture returned by erasure stays owned in your collection, and
 placing it again costs nothing. The entrance, counter and
 examination suite stay in place. The editor supports connected rooms and gardens with automatic, editable entrances,
-as well as open-plan extensions. Exterior boundaries follow the floor; additional
+with gardens joining openly and shared walls editable through **Doors**. Exterior boundaries follow the floor; additional
 floors and movable clinical suites are outside its current scope. Room kits and equipment are one-time
 upgrades; extra furniture does not stack satisfaction bonuses.
 
@@ -189,7 +192,9 @@ views; **Exam room** focuses it from reception. Purchases and ordinary activity/
 state save with clinic progress. Cancelled or stopped visits return through the
 room’s door, and Louise walks back to reception.
 
-After buying **Pet playground**, the **Play garden extension** unlocks a treat dispenser, water dispenser, bouncy toy box, yarn corner, bird aviary and friendly play tree. Purchase and place each activity separately. Healthy birds fly, cats climb, and both share the tree peacefully. Dispenser refills are included.
+Treat dispensers, water dispensers, bouncy toy boxes, yarn corners, bird aviaries
+and friendly play trees can all be purchased directly. Place them on your custom
+floor or garden, with enough space and a clear path to use them. Healthy birds fly, cats climb, and both share the tree peacefully. Dispenser refills are included.
 
 ## Run the web container
 

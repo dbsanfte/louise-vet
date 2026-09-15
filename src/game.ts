@@ -962,7 +962,6 @@ export const upgrades = [
     kind: 'Owner pastime',
     price: 130,
     icon: 'star',
-    requires: 'expansion',
     description: 'A colourful board game for two seats in the customer lounge.',
   },
   {
@@ -971,7 +970,6 @@ export const upgrades = [
     kind: 'Expansion',
     price: 300,
     icon: 'paw',
-    requires: 'expansion',
     description:
       '84 free floor tiles and a toy corner to place in Build mode. Make a pet playground your way. Capacity grows to eight patients.',
   },
@@ -982,7 +980,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 85,
     icon: 'paw',
-    requires: 'pet-room',
     description:
       'Cats queue for a stretch and a scratch, one happy turn at a time.',
   },
@@ -993,7 +990,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 110,
     icon: 'heart',
-    requires: 'pet-room',
     description:
       'Hamsters and gerbils take turns running in their very own spinning wheel.',
   },
@@ -1004,7 +1000,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 160,
     icon: 'star',
-    requires: 'pet-room',
     description:
       'A slow, low ride for dogs and rabbits, with a queue and a turn for everyone.',
   },
@@ -1015,7 +1010,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 260,
     icon: 'star',
-    requires: 'pet-room',
     description:
       'A gentle little hill ride for dogs, cats and rabbits. One pet rides in the snug car at a time.',
   },
@@ -1026,7 +1020,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 220,
     icon: 'heart',
-    requires: 'pet-room',
     description:
       'A slow skyward turn in a cosy, level cabin for dogs, cats and rabbits. Stops at the bottom to let them out.',
   },
@@ -1036,9 +1029,8 @@ export const upgrades = [
     kind: 'Expansion',
     price: 300,
     icon: 'home',
-    requires: 'pet-room',
     description:
-      '48 free floor tiles for a bigger room or garden. Unlock six new activities in the shop. Patient capacity stays at eight.',
+      '48 free floor tiles for a bigger room or garden. Choose any furniture you like from the shop. Patient capacity is unchanged.',
   },
   {
     id: 'treat-dispenser',
@@ -1047,7 +1039,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 80,
     icon: 'jar',
-    requires: 'play-annex',
     description:
       'Pets press a paw pad for a little storybook snack. Refills are included; your shop stock is separate.',
   },
@@ -1058,7 +1049,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 65,
     icon: 'drop',
-    requires: 'play-annex',
     description:
       'A bubbling drinking station for a refreshing break. Refills are included.',
   },
@@ -1069,7 +1059,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 120,
     icon: 'star',
-    requires: 'play-annex',
     description:
       'Dogs, rabbits and little rodents hop and chase a colourful rolling ball.',
   },
@@ -1080,7 +1069,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 75,
     icon: 'paw',
-    requires: 'play-annex',
     description: 'Cats bat and chase a rolling ball of yarn on a soft mat.',
   },
   {
@@ -1090,7 +1078,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 200,
     icon: 'home',
-    requires: 'play-annex',
     description:
       'A roomy flight pavilion with branches, a swing and space for birds to spread their wings.',
   },
@@ -1101,7 +1088,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 180,
     icon: 'leaf',
-    requires: 'play-annex',
     description:
       'Cats climb the spiral steps and birds fly up to the branches. Everyone plays peacefully, one turn at a time.',
   },
@@ -1111,9 +1097,8 @@ export const upgrades = [
     kind: 'Expansion',
     price: 360,
     icon: 'home',
-    requires: 'pet-room',
     description:
-      '48 free floor tiles to make a sunny courtyard wherever you like, and new games in the shop. Patient capacity stays at eight.',
+      '48 free floor tiles to make a sunny courtyard wherever you like. Add your favourite games from the shop. Patient capacity is unchanged.',
   },
   {
     id: 'puzzle-table',
@@ -1122,7 +1107,6 @@ export const upgrades = [
     kind: 'Customer amusement',
     price: 150,
     icon: 'book',
-    requires: 'sun-courtyard',
     description:
       'Two customers sit together to play a colourful tabletop puzzle beneath a sunshade.',
   },
@@ -1133,7 +1117,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 130,
     icon: 'star',
-    requires: 'sun-courtyard',
     description:
       'Dogs, cats and rabbits chase a trail of floating, popping storybook bubbles.',
   },
@@ -1144,7 +1127,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 95,
     icon: 'paw',
-    requires: 'sun-courtyard',
     description:
       'A soft hooded bed for cats to curl up, breathe gently and enjoy a peaceful turn.',
   },
@@ -1155,7 +1137,6 @@ export const upgrades = [
     kind: 'Pet amusement',
     price: 115,
     icon: 'leaf',
-    requires: 'sun-courtyard',
     description:
       'Birds fly between perches and play with gently swaying colourful chimes.',
   },
@@ -1166,7 +1147,6 @@ export const upgrades = [
     kind: 'Decoration',
     price: 85,
     icon: 'leaf',
-    requires: 'sun-courtyard',
     description:
       'Bright flowers in raised planters decorate the courtyard edges.',
   },
@@ -1271,7 +1251,6 @@ export const upgrades = [
     kind: 'Furniture',
     price: 60,
     icon: 'star',
-    requires: 'pet-room',
     description: 'Another soft play corner for dogs, cats and rabbits.',
   },
 ] as const;
@@ -1351,7 +1330,6 @@ export function purchase(p: Progress, id: string): boolean {
   if (
     !item ||
     p.coins < item.price ||
-    ('requires' in item && !p.upgrades.includes(item.requires)) ||
     (id !== 'stock' &&
       !('furniture' in item) &&
       p.upgrades.includes(item.id)) ||

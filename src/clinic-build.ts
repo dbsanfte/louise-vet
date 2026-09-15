@@ -1157,12 +1157,11 @@ export class ClinicBuild {
   doorOptions(a: Point, b: Point) {
     return spaceFootprint(this.tiles, a, b).connections.flat();
   }
-  /** Use the true old/new boundary, including when a rectangle overlaps old floor. */
+  /** Gardens merge; rooms keep partitions. Find only the openings routes need. */
   autoSpace(
     a: Point,
     b: Point,
     surface: FloorCell['surface'],
-    enclosed: boolean,
     coins: number,
     actors: Point[] = [],
     apply = false,
@@ -1204,7 +1203,7 @@ export class ClinicBuild {
         a,
         b,
         surface,
-        enclosed,
+        'auto',
         doors[0],
         coins,
         actors,
@@ -1216,12 +1215,16 @@ export class ClinicBuild {
     });
     const finish = (result: ReturnType<typeof check>) =>
       !result.error && apply ? check(result.doors, true) : result;
-    const first = check(
-      enclosed ? footprint.connections.map((group) => group[0]) : [],
+    // Try open garden connections first. A new room or an existing wall will
+    // fail validation until a clear doorway joins it to the rest of the clinic.
+    const openEdges = this.gardenConnections(footprint, surface);
+    const connections = footprint.connections.map((group) =>
+      group.filter((edge) => !openEdges.has(wallKey(edge))),
     );
+    const first = check([]);
     if (!first.error || first.cost > coins) return finish(first);
-    if (footprint.connections.length === 1) {
-      for (const door of footprint.connections[0]) {
+    if (connections.length === 1) {
+      for (const door of connections[0]) {
         const result = check([door]);
         if (!result.error || result.cost > coins) return finish(result);
       }
@@ -1229,22 +1232,38 @@ export class ClinicBuild {
     // Several patches, or several people on one boundary, may need more than
     // one opening. Start connected, then close surplus doors from the far end.
     // This is linear in the contact edges, never a combinatorial search per drag.
-    let selected = check(footprint.connections.flat());
+    let selected = check(connections.flat());
     if (selected.error) return first;
-    for (const group of footprint.connections)
+    for (const group of connections)
       for (const edge of [...group].reverse()) {
         const remaining = selected.doors.filter(
           (d) => wallKey(d) !== wallKey(edge),
         );
-        if (
-          enclosed &&
-          !group.some((d) => remaining.some((r) => wallKey(r) === wallKey(d)))
-        )
-          continue;
         const candidate = check(remaining);
         if (!candidate.error) selected = candidate;
       }
     return finish(selected);
+  }
+
+  private gardenConnections(
+    footprint: ReturnType<typeof spaceFootprint>,
+    surface: FloorCell['surface'],
+  ) {
+    const gardens = new Set(
+      this.tiles
+        .filter((t) => t.surface === 'garden')
+        .map((t) => gridKey(t.x, t.z)),
+    );
+    return new Set(
+      surface === 'garden'
+        ? footprint.connections
+            .flat()
+            .filter((edge) =>
+              edgeCells(edge).some((p) => gardens.has(gridKey(p.x, p.z))),
+            )
+            .map(wallKey)
+        : [],
+    );
   }
 
   /** Floor, boundary and chosen doorway are one transaction. Drafts never spend. */
@@ -1252,7 +1271,7 @@ export class ClinicBuild {
     a: Point,
     b: Point,
     surface: FloorCell['surface'],
-    enclosed: boolean,
+    enclosed: boolean | 'auto',
     door: WallEdge | undefined,
     coins: number,
     actors: Point[] = [],
@@ -1263,7 +1282,7 @@ export class ClinicBuild {
     if (width * depth > 250)
       return { cost: 0, error: 'Build up to 250 tiles at a time.' };
     const options = this.doorOptions(a, b);
-    if (enclosed && !door)
+    if (enclosed === true && !door)
       return {
         cost: 0,
         error: 'Choose a doorway to connect this space to the clinic.',
@@ -1277,7 +1296,13 @@ export class ClinicBuild {
       revision = this.revision,
       architecture = this.architecture;
     const footprint = spaceFootprint(this.tiles, a, b);
-    const added = enclosed ? footprint.walls : [];
+    const merged =
+      enclosed === 'auto'
+        ? this.gardenConnections(footprint, surface)
+        : new Set<string>();
+    const added = enclosed
+      ? footprint.walls.filter((e) => !merged.has(wallKey(e)))
+      : [];
     const openings = [...(door ? [door] : []), ...extraDoors];
     if (
       openings.some(
@@ -1288,8 +1313,15 @@ export class ClinicBuild {
         cost: 0,
         error: 'Put the doorway on a side that joins existing clinic floor.',
       };
-    const walls = joinWalls(architecture.walls, added, openings);
-    const doors = joinWalls(architecture.doors, openings);
+    const walls = joinWalls(
+      architecture.walls.filter((e) => !merged.has(wallKey(e))),
+      added,
+      openings,
+    );
+    const doors = joinWalls(
+      architecture.doors.filter((e) => !merged.has(wallKey(e))),
+      openings,
+    );
     const open = new Set(doors.map(wallKey));
     const newWalls = added.filter(
       (edge) =>
@@ -1340,6 +1372,7 @@ export class ClinicBuild {
       actors,
       apply,
       footprint.added > 0,
+      enclosed === 'auto',
     );
     if (result.error || !apply) {
       this.state = old;
@@ -1518,6 +1551,7 @@ export class ClinicBuild {
     actors: Point[] = [],
     apply = false,
     preserveExisting = false,
+    reconnectDetached = false,
   ): { error?: string; cost: number } {
     if (surface === 'erase') return this.erase(a, b, apply);
     const x0 = Math.min(a.x, b.x),
@@ -1529,7 +1563,8 @@ export class ClinicBuild {
     const revision = this.revision;
     const oldEdited = this.state.floorEdited;
     const oldWalls = this.state.walls,
-      oldDoors = this.state.doors;
+      oldDoors = this.state.doors,
+      oldDetached = this.state.detached;
     const architecture = this.architecture;
     const old = this.state.tiles,
       tiles = structuredClone(old);
@@ -1562,6 +1597,32 @@ export class ClinicBuild {
       edgeCells(edge).every((p) => cells.has(gridKey(p.x, p.z))),
     );
     this.state.floorEdited = true;
+    if (reconnectDetached && oldDetached?.length) {
+      // A bridge must reconnect every retained piece it touches, including its
+      // furniture. Unrelated detached rooms keep their saved inactive state.
+      const existing = new Set(old.map((p) => gridKey(p.x, p.z)));
+      const detached = new Set(oldDetached.map((p) => gridKey(p.x, p.z)));
+      const todo = tiles.filter((p) => !existing.has(gridKey(p.x, p.z)));
+      const touched = new Set(todo.map((p) => gridKey(p.x, p.z)));
+      for (const p of todo)
+        for (const [dx, dz] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const next = { x: p.x + dx, z: p.z + dz },
+            key = gridKey(next.x, next.z);
+          if (detached.has(key) && !touched.has(key)) {
+            touched.add(key);
+            todo.push({ ...next, surface });
+          }
+        }
+      this.state.detached = oldDetached.filter(
+        (p) => !touched.has(gridKey(p.x, p.z)),
+      );
+      if (!this.state.detached.length) delete this.state.detached;
+    }
     this.changed();
     let error = this.validate(actors);
     if (
@@ -1591,6 +1652,8 @@ export class ClinicBuild {
       this.state.floorEdited = oldEdited;
       this.state.walls = oldWalls;
       this.state.doors = oldDoors;
+      if (oldDetached) this.state.detached = oldDetached;
+      else delete this.state.detached;
       this.changed();
       this.revision = revision;
       return { error, cost };

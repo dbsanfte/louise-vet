@@ -625,18 +625,14 @@ function renderModal() {
     content = `<p class="modal-intro">${patient.breed} · ${patient.age}</p>${byId('sidebar').querySelector('.case-details')?.innerHTML ?? ''}<p>${help}</p><p>Use Look around to turn your patient. Stop visit returns you to the office; your patient can try again later.</p>`;
   } else if (modal === 'shop') {
     title = 'Make it feel like home';
-    content = `<p class="modal-intro">Buy things for your collection, then place them in Build mode. Every furniture purchase adds one copy. Buy as many as you can afford! Room kits give you free floor tiles to use anywhere on your plot.</p><div class="shop-balance">${icon('coin')} <strong>${progress.coins}</strong> coins to spend</div><div class="shop-grid">${upgrades
+    content = `<p class="modal-intro">Buy things for your collection, then place them in Build mode. Every furniture purchase adds one copy. Buy as many as you can afford! Use your own rooms and gardens, or buy an optional room kit for extra floor tiles.</p><div class="shop-balance">${icon('coin')} <strong>${progress.coins}</strong> coins to spend</div><div class="shop-grid">${upgrades
       .map((u) => {
         const repeatable = 'furniture' in u;
         const copies = repeatable ? simulation.build.copies(u.furniture) : [];
         const placed = copies.filter((i) => i.placement).length;
         const owned =
           u.id !== 'stock' && !repeatable && progress.upgrades.includes(u.id);
-        const required =
-          'requires' in u && !progress.upgrades.includes(u.requires)
-            ? upgrades.find((item) => item.id === u.requires)!.name
-            : '';
-        return `<article class="shop-card"><span class="shop-art">${catalogueImage('furniture' in u ? u.furniture : u.id)}</span><small>${u.kind}</small><h3>${u.name}</h3><p>${u.description}</p>${repeatable ? `<p class="shop-count">${placed} placed · ${copies.length - placed} stored</p>` : ''}<button class="${owned ? 'owned' : 'secondary'}" data-action="buy" data-upgrade="${u.id}" ${owned || required || progress.coins < u.price ? 'disabled' : ''}>${owned ? `${icon('check')} In your collection` : required ? `Buy ${required} first` : `${icon('coin')} ${u.price}${repeatable ? ' · Buy one' : ''} ${progress.coins < u.price ? '· Save a little more' : ''}`}</button></article>`;
+        return `<article class="shop-card"><span class="shop-art">${catalogueImage('furniture' in u ? u.furniture : u.id)}</span><small>${u.kind}</small><h3>${u.name}</h3><p>${u.description}</p>${repeatable ? `<p class="shop-count">${placed} placed · ${copies.length - placed} stored</p>` : ''}<button class="${owned ? 'owned' : 'secondary'}" data-action="buy" data-upgrade="${u.id}" ${owned || progress.coins < u.price ? 'disabled' : ''}>${owned ? `${icon('check')} In your collection` : `${icon('coin')} ${u.price}${repeatable ? ' · Buy one' : ''} ${progress.coins < u.price ? '· Save a little more' : ''}`}</button></article>`;
       })
       .join('')}</div>`;
   } else if (modal === 'guide') {

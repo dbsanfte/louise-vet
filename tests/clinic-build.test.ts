@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ClinicBuild,
+  type BuildItem,
   buildableCells,
   buildRecipes,
   toClinic,
@@ -461,6 +462,27 @@ test('version-one build saves retain every chair, plant and active reservation t
   assert.deepEqual(again.build.snapshot(), restored.build.snapshot());
 });
 
+test('every furnishing saves as a paid copy without owning its original room kit', () => {
+  for (const product of upgrades) {
+    if (!('furniture' in product)) continue;
+    const b = new ClinicBuild(),
+      p = loadProgress();
+    p.coins = product.price * 2;
+    for (let i = 0; i < 2; i++) {
+      assert.ok(purchase(p, product.id));
+      const copy: BuildItem = b.buy(product.id)!;
+      assert.equal(copy.placement, undefined);
+    }
+    assert.equal(b.state.credits, 0);
+    assert.deepEqual(b.state.unlocked, [product.id]);
+    const saved = b.snapshot(),
+      restored = new ClinicBuild();
+    assert.ok(restored.restore(saved), product.id);
+    restored.syncOwned(p.upgrades);
+    assert.deepEqual(restored.snapshot(), saved, product.id);
+  }
+});
+
 test('separate copies of chairs and wheels have independent places, queues and saved rotations', () => {
   const s = new TownSimulation(visits, () => 0.5);
   s.seedClinic(
@@ -736,13 +758,13 @@ test('automatic entrances preserve free previews and choose a safe shared openin
     revision = b.revision;
   // A person standing on the second edge needs that opening, not a wall.
   const actors = [localToTown(-5, 0.5)];
-  const plan = b.autoSpace(a, end, 'room', true, 5000, actors);
+  const plan = b.autoSpace(a, end, 'room', 5000, actors);
   assert.equal(plan.error, undefined);
   assert.equal(plan.cost, 0);
   assert.deepEqual(plan.door, { x: -5, z: 0, axis: 'z' });
   assert.deepEqual(b.snapshot(), before);
   assert.equal(b.revision, revision);
-  const placed = b.autoSpace(a, end, 'room', true, 5000, actors, true);
+  const placed = b.autoSpace(a, end, 'room', 5000, actors, true);
   assert.equal(placed.error, undefined);
   assert.equal(placed.cost, plan.cost);
   assert.deepEqual(placed.door, plan.door);
@@ -760,7 +782,6 @@ test('automatic construction rejects unaffordable or disconnected plans without 
     { x: -11, z: -4 },
     { x: -5, z: 4 },
     'garden',
-    true,
     100,
     [],
     true,
@@ -768,30 +789,22 @@ test('automatic construction rejects unaffordable or disconnected plans without 
   assert.equal(costly.cost, 144);
   assert.ok(costly.error);
   assert.ok(
-    b.autoSpace(
-      { x: -18, z: -4 },
-      { x: -14, z: 4 },
-      'room',
-      true,
-      5000,
-      [],
-      true,
-    ).error,
+    b.autoSpace({ x: -18, z: -4 }, { x: -14, z: 4 }, 'room', 5000, [], true)
+      .error,
   );
   assert.deepEqual(b.snapshot(), before);
   const open = b.autoSpace(
     { x: -11, z: -4 },
     { x: -5, z: 4 },
     'garden',
-    false,
     5000,
     [],
     true,
   );
   assert.equal(open.error, undefined);
-  assert.equal(open.door, undefined);
-  assert.equal(b.state.walls.length, 0);
-  assert.equal(b.walkable({ x: -5, z: -2.5 }), true);
+  assert.ok(open.door);
+  assert.equal(b.walkable(edgeCentre(open.door!)), true);
+  assert.equal(b.walkable({ x: -5, z: -2.5 }), false);
 });
 
 test('prefab snapping stays near the pointer and respects quarter-turn dimensions', () => {
@@ -807,28 +820,172 @@ test('prefab snapping stays near the pointer and respects quarter-turn dimension
   }
 });
 
-test('an extension can overlap an old floor row and connects at the actual shared wall', () => {
+test('gardens merge across saved perimeter fences and indoor additions get a clear door', () => {
+  const b = new ClinicBuild();
+  const first = b.autoSpace(
+    { x: -11, z: -4 },
+    { x: -5, z: 4 },
+    'garden',
+    5000,
+    [],
+    true,
+  );
+  assert.equal(first.error, undefined);
+  assert.equal(
+    first.doors.length,
+    1,
+    'garden needs an entrance from reception',
+  );
+  const saved = b.snapshot(),
+    restored = new ClinicBuild();
+  assert.ok(restored.restore(saved));
+  assert.deepEqual(
+    restored.snapshot(),
+    saved,
+    'loading does not rearrange old boundaries',
+  );
+  const a = { x: -15, z: -3 },
+    end = { x: -10, z: 3 };
+  const preview = restored.autoSpace(a, end, 'garden', 5000);
+  assert.equal(preview.error, undefined);
+  assert.equal(preview.cost, 72, 'overlapped garden tiles are kept');
+  assert.deepEqual(preview.doors, [], 'no gate between gardens');
+  assert.deepEqual(
+    restored.snapshot(),
+    saved,
+    'preview must not remove the saved fence',
+  );
+  assert.equal(
+    restored.autoSpace(a, end, 'garden', 5000, [], true).error,
+    undefined,
+  );
+  assert.deepEqual(
+    restored.state.doors,
+    saved.doors,
+    'keep the reception door',
+  );
+  for (let z = -3; z < 3; z++) {
+    assert.equal(
+      restored.state.walls.some(
+        (w) => w.axis === 'z' && w.x === -11 && w.z === z,
+      ),
+      false,
+    );
+    assert.ok(
+      restored.walkable({ x: -11, z: z + 0.5 }),
+      'entire shared edge opens',
+    );
+  }
+  assert.equal(
+    restored.walkable({ x: -11, z: -3.5 }),
+    false,
+    'untouched perimeter stays fenced',
+  );
+  const room = restored.autoSpace(
+    { x: -10, z: -8 },
+    { x: -6, z: -4 },
+    'room',
+    5000,
+    [],
+    true,
+  );
+  assert.equal(room.error, undefined);
+  assert.equal(
+    room.doors.length,
+    1,
+    'a room built against a garden has a door',
+  );
+  assert.ok(restored.walkable(edgeCentre(room.door!)));
+  for (const target of [
+    { x: -14, z: 0 },
+    { x: -8, z: -6 },
+  ]) {
+    let previous = localToTown(3, 1);
+    const route = restored.route(previous, localToTown(target.x, target.z));
+    assert.ok(route.length);
+    for (const next of route) {
+      for (let t = 0; t <= 1; t += 0.1)
+        assert.ok(
+          restored.walkable(
+            toClinic({
+              x: previous.x + (next.x - previous.x) * t,
+              z: previous.z + (next.z - previous.z) * t,
+            }),
+          ),
+        );
+      previous = next;
+    }
+    assert.ok(distance(previous, localToTown(target.x, target.z)) < 0.01);
+  }
+  assert.ok(new ClinicBuild().restore(restored.snapshot()));
+});
+
+test('a garden touching both grass and an indoor room uses its open garden route without unnecessary doors', () => {
   const b = new ClinicBuild();
   assert.equal(
-    b.autoSpace(
-      { x: -11, z: -4 },
-      { x: -5, z: 4 },
-      'room',
-      true,
-      5000,
-      [],
-      true,
-    ).error,
+    b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 0 }, 'garden', 5000, [], true)
+      .error,
+    undefined,
+  );
+  assert.equal(
+    b.autoSpace({ x: -11, z: 0 }, { x: -5, z: 4 }, 'room', 5000, [], true)
+      .error,
     undefined,
   );
   const before = b.snapshot();
-  const plan = b.autoSpace(
-    { x: -10, z: -3 },
-    { x: -15, z: 3 },
+  const result = b.autoSpace(
+    { x: -15, z: -3 },
+    { x: -11, z: 3 },
     'garden',
-    true,
     5000,
+    [],
+    true,
   );
+  assert.equal(result.error, undefined);
+  assert.deepEqual(result.doors, []);
+  assert.deepEqual(b.state.doors, before.doors);
+  assert.ok(b.walkable({ x: -11, z: -1.5 }));
+  assert.equal(
+    b.walkable({ x: -11, z: 1.5 }),
+    false,
+    'indoor wall stays in place',
+  );
+  assert.equal(b.validate(), undefined);
+  assert.ok(new ClinicBuild().restore(b.snapshot()));
+});
+
+test('automatic room entrances make room for several people on the shared edge', () => {
+  const b = new ClinicBuild();
+  const actors = [localToTown(-5, -0.5), localToTown(-5, 0.5)];
+  const before = b.snapshot();
+  const preview = b.autoSpace(
+    { x: -11, z: -4 },
+    { x: -5, z: 4 },
+    'room',
+    5000,
+    actors,
+  );
+  assert.equal(preview.error, undefined);
+  assert.equal(preview.doors.length, 2);
+  assert.deepEqual(b.snapshot(), before);
+  assert.equal(
+    b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 4 }, 'room', 5000, actors, true)
+      .error,
+    undefined,
+  );
+  for (const actor of actors) assert.ok(b.canStand(toClinic(actor)));
+  assert.equal(b.validate(actors), undefined);
+});
+
+test('an extension can overlap an old floor row and connects at the actual shared wall', () => {
+  const b = new ClinicBuild();
+  assert.equal(
+    b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 4 }, 'room', 5000, [], true)
+      .error,
+    undefined,
+  );
+  const before = b.snapshot();
+  const plan = b.autoSpace({ x: -10, z: -3 }, { x: -15, z: 3 }, 'garden', 5000);
   assert.equal(plan.error, undefined);
   assert.equal(plan.cost, 72);
   assert.equal(
@@ -838,15 +995,8 @@ test('an extension can overlap an old floor row and connects at the actual share
   );
   assert.deepEqual(b.snapshot(), before);
   assert.equal(
-    b.autoSpace(
-      { x: -10, z: -3 },
-      { x: -15, z: 3 },
-      'garden',
-      true,
-      5000,
-      [],
-      true,
-    ).error,
+    b.autoSpace({ x: -10, z: -3 }, { x: -15, z: 3 }, 'garden', 5000, [], true)
+      .error,
     undefined,
   );
   for (let x = -15; x < -10; x++)
@@ -864,8 +1014,8 @@ test('an extension can overlap an old floor row and connects at the actual share
   assert.ok(new ClinicBuild().restore(b.snapshot()));
 });
 
-for (const enclosed of [true, false])
-  test(`extensions join all sides and drag directions, enclosed=${enclosed}`, () => {
+for (const surface of ['room', 'garden'] as const)
+  test(`extensions join all sides and drag directions, surface=${surface}`, () => {
     const rectangles = [
       [
         { x: -10, z: -3 },
@@ -903,7 +1053,6 @@ for (const enclosed of [true, false])
             { x: -11, z: -4 },
             { x: -5, z: 4 },
             'room',
-            true,
             5000,
             [],
             true,
@@ -912,19 +1061,11 @@ for (const enclosed of [true, false])
         );
         const before = b.snapshot(),
           revision = b.revision;
-        const p = b.autoSpace(start, finish, 'garden', enclosed, 5000);
+        const p = b.autoSpace(start, finish, surface, 5000);
         assert.equal(p.error, undefined, JSON.stringify([start, finish]));
         assert.deepEqual(b.snapshot(), before);
         assert.equal(b.revision, revision);
-        const result = b.autoSpace(
-          start,
-          finish,
-          'garden',
-          enclosed,
-          5000,
-          [],
-          true,
-        );
+        const result = b.autoSpace(start, finish, surface, 5000, [], true);
         assert.equal(result.error, undefined);
         assert.equal(result.cost, (b.tiles.length - before.tiles.length) * 3);
         const rect = floorRectangle(start, finish);
@@ -937,13 +1078,12 @@ for (const enclosed of [true, false])
 
 test('one rectangle spanning existing floor opens each new patch and preserves old doors', () => {
   const b = new ClinicBuild();
-  b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 4 }, 'room', true, 5000, [], true);
+  b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 4 }, 'room', 5000, [], true);
   const old = b.snapshot();
   const result = b.autoSpace(
     { x: -10, z: -7 },
     { x: -6, z: 7 },
     'room',
-    true,
     5000,
     [],
     true,
@@ -955,22 +1095,15 @@ test('one rectangle spanning existing floor opens each new patch and preserves o
   assert.ok(new ClinicBuild().restore(b.snapshot()));
   const before = b.snapshot();
   assert.ok(
-    b.autoSpace(
-      { x: -10, z: -7 },
-      { x: 100, z: 100 },
-      'room',
-      true,
-      5000,
-      [],
-      true,
-    ).error,
+    b.autoSpace({ x: -10, z: -7 }, { x: 100, z: 100 }, 'room', 5000, [], true)
+      .error,
   );
   assert.deepEqual(b.snapshot(), before);
 });
 
 test('erasing a partial furniture footprint returns every affected copy exactly once and can be undone', () => {
   const b = new ClinicBuild();
-  b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 4 }, 'room', true, 5000, [], true);
+  b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 4 }, 'room', 5000, [], true);
   const one = b.buy('lounge-chair')!,
     two = b.buy('lounge-chair')!;
   assert.equal(b.place(one.id, { x: -9, z: 2, rotation: 0 }), undefined);
@@ -1009,7 +1142,6 @@ test('a cut through the only door gives both remaining room pieces a new safe en
     { x: -11, z: -4 },
     { x: -5, z: 4 },
     'room',
-    true,
     5000,
     [],
     true,
@@ -1122,40 +1254,43 @@ test('erasure ignores empty land and protected clinical floor and preserves vali
   assert.deepEqual(b.snapshot(), before);
 });
 
-test('reconnecting a retained room removes its inactive marker and makes its furniture usable again', () => {
-  const b = new ClinicBuild();
-  b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 4 }, 'room', true, 5000, [], true);
-  b.autoSpace(
-    { x: -11, z: -10 },
-    { x: -5, z: -4 },
-    'room',
-    true,
-    5000,
-    [],
-    true,
-  );
-  const chair = b.buy('lounge-chair')!;
-  assert.equal(b.place(chair.id, { x: -8, z: -7, rotation: 0 }), undefined);
-  assert.equal(
-    b.erase({ x: -11, z: -4 }, { x: -6, z: -4 }, true).error,
-    undefined,
-  );
-  const station = () => b.stations.find((s) => s.itemId === chair.id)!;
-  assert.equal(b.stationAccessible(station()), false);
-  assert.equal(
-    b.autoSpace(
+for (const surface of ['room', 'garden'] as const)
+  test(`a ${surface} bridge reconnects a retained room and makes its furniture usable again`, () => {
+    const b = new ClinicBuild();
+    b.autoSpace({ x: -11, z: -4 }, { x: -5, z: 4 }, 'room', 5000, [], true);
+    b.autoSpace({ x: -11, z: -10 }, { x: -5, z: -4 }, 'room', 5000, [], true);
+    const chair = b.buy('lounge-chair')!;
+    assert.equal(b.place(chair.id, { x: -8, z: -7, rotation: 0 }), undefined);
+    assert.equal(
+      b.erase({ x: -11, z: -4 }, { x: -6, z: -4 }, true).error,
+      undefined,
+    );
+    const station = () => b.stations.find((s) => s.itemId === chair.id)!;
+    assert.equal(b.stationAccessible(station()), false);
+    const before = b.snapshot(),
+      revision = b.revision;
+    const preview = b.autoSpace(
       { x: -11, z: -4 },
       { x: -5, z: -3 },
-      'room',
-      false,
+      surface,
       5000,
-      [],
-      true,
-    ).error,
-    undefined,
-  );
-  assert.equal(b.editDoor({ x: -9, z: -4, axis: 'x' }), undefined);
-  assert.equal(b.state.detached, undefined);
-  assert.equal(b.stationAccessible(station()), true);
-  assert.ok(new ClinicBuild().restore(b.snapshot()));
-});
+    );
+    assert.equal(preview.error, undefined);
+    assert.equal(preview.cost, 18);
+    assert.deepEqual(b.snapshot(), before);
+    assert.equal(b.revision, revision);
+    assert.ok(
+      b.autoSpace({ x: -11, z: -4 }, { x: -5, z: -3 }, surface, 0, [], true)
+        .error,
+    );
+    assert.deepEqual(b.snapshot(), before);
+
+    assert.equal(
+      b.autoSpace({ x: -11, z: -4 }, { x: -5, z: -3 }, surface, 5000, [], true)
+        .error,
+      undefined,
+    );
+    assert.equal(b.state.detached, undefined);
+    assert.equal(b.stationAccessible(station()), true);
+    assert.ok(new ClinicBuild().restore(b.snapshot()));
+  });

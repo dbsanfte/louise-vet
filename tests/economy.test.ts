@@ -6,6 +6,8 @@ import {
   reward,
   visits,
   toolInfo,
+  upgrades,
+  clinicCapacity,
   examine,
   type Tool,
   type Zone,
@@ -115,6 +117,32 @@ test('sick visits have actionable clues; scheduled vaccines only need placement 
     assert.equal(new Set([v.diagnosis, ...v.alternatives]).size, 3);
     assert.ok(v.checks.some((c) => c.zone === v.zone));
   }
+});
+
+test('every shop item can be bought without a room kit; price, copies and one-time grants still apply', () => {
+  for (const product of upgrades) {
+    const p = loadProgress();
+    p.coins = product.price - 1;
+    assert.equal(purchase(p, product.id), false, product.id);
+    p.coins = product.price * 3;
+    assert.ok(purchase(p, product.id), product.id);
+    assert.equal(p.coins, product.price * 2);
+    assert.deepEqual(p.upgrades, product.id === 'stock' ? [] : [product.id]);
+    const repeatable = 'furniture' in product || product.id === 'stock';
+    assert.equal(purchase(p, product.id), repeatable, product.id);
+    assert.equal(p.coins, product.price * (repeatable ? 1 : 2));
+    if (product.id !== 'stock') assert.equal(p.upgrades.length, 1);
+  }
+  const p = loadProgress();
+  p.coins = 1000;
+  assert.ok(purchase(p, 'pet-room'));
+  assert.equal(clinicCapacity(p.upgrades), 8);
+  assert.ok(purchase(p, 'expansion'));
+  assert.equal(
+    clinicCapacity(p.upgrades),
+    8,
+    'buying kits in reverse order cannot shrink capacity',
+  );
 });
 
 test('invalid saved values fall back to a fresh clinic', () => {

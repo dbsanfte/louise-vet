@@ -147,10 +147,8 @@ test('coaster and Ferris wheel purchases remain in the collection after reload',
     timeout: 45000,
   });
   await page.getByRole('button', { name: /Clinic shop/ }).click();
-  await expect(page.locator('[data-upgrade="coaster"]')).toBeDisabled();
-  await expect(page.locator('[data-upgrade="ferris"]')).toContainText(
-    'Buy Pet playground first',
-  );
+  await expect(page.locator('[data-upgrade="coaster"]')).toBeEnabled();
+  await expect(page.locator('[data-upgrade="ferris"]')).toBeEnabled();
   for (const id of ['expansion', 'pet-room', 'coaster', 'ferris'])
     await page.locator(`[data-upgrade="${id}"]`).click();
   await expect(page.getByTestId('coins')).toHaveText('980');

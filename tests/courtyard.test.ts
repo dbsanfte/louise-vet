@@ -68,21 +68,10 @@ test('the outdoor courtyard has a lawn, bounded pickets and a clear connecting g
     'owners and pets can use the playground aisle',
   );
 });
-test('courtyard purchases charge once, require space, and preserve eight-patient capacity', () => {
+test('courtyard furniture needs no kit, and optional kits preserve capacity bonuses', () => {
   const p = loadProgress();
   p.coins = 5000;
   for (const id of [
-    'sun-courtyard',
-    'puzzle-table',
-    'bubbles',
-    'cat-nook',
-    'bird-chimes',
-    'flower-border',
-  ])
-    assert.equal(purchase(p, id), false);
-  for (const id of [
-    'expansion',
-    'pet-room',
     'sun-courtyard',
     'puzzle-table',
     'bubbles',
@@ -94,7 +83,11 @@ test('courtyard purchases charge once, require space, and preserve eight-patient
     'wall-art',
   ])
     assert.ok(purchase(p, id));
+  assert.equal(clinicCapacity(p.upgrades), 4);
+  assert.ok(purchase(p, 'pet-room'));
+  assert.ok(purchase(p, 'expansion'));
   assert.equal(clinicCapacity(p.upgrades), 8);
+  assert.equal(purchase(p, 'sun-courtyard'), false);
   const coins = p.coins;
   assert.equal(purchase(p, 'bubbles'), true);
   assert.equal(p.coins, coins - 130);
