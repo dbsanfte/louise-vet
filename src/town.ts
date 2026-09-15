@@ -45,6 +45,46 @@ export class Town {
         : [],
     );
   }
+  reconcileClinicBuild(movedOwners: Set<number>) {
+    const build = this.simulation.build;
+    const occupied = [
+      ...this.simulation.households
+        .filter((h) => h.inClinic)
+        .map((h) => toClinic(h.position)),
+      ...[...this.simulation.leisure.pets.values()].map((p) =>
+        toClinic(p.position),
+      ),
+    ];
+    this.residents.forEach((r, i) => {
+      const h = this.simulation.households[i];
+      if (!h.inClinic) return;
+      r.trail = new OwnerTrail(h.position);
+      for (const pet of r.pets) {
+        if (!h.companions.includes(pet.visit.name)) continue;
+        delete pet.model.userData.followBuildKey;
+        delete pet.model.userData.followBuildRoute;
+        delete pet.model.userData.clinicRestRoute;
+        const ticket =
+          h.ticket === undefined
+            ? undefined
+            : this.simulation.tickets.get(h.ticket);
+        if (
+          ticket?.pet === pet.visit.name &&
+          this.simulation.leisure.pets.has(h.ticket!)
+        )
+          continue;
+        const current = toClinic(pet.model.position);
+        if (!movedOwners.has(h.id) && build.canStand(current)) {
+          occupied.push(current);
+          continue;
+        }
+        const safe = build.safe(toClinic(h.position), occupied);
+        occupied.push(safe);
+        const p = localToTown(safe.x, safe.z);
+        pet.model.position.set(p.x, 0.2, p.z);
+      }
+    });
+  }
   setUpgrades(ids: UpgradeId[]) {
     for (const o of this.group.children)
       if (o.userData.shadeTree)

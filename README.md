@@ -107,8 +107,14 @@ The dedicated controls row has a back-arrow **Undo**, **Erase**, **Doors** and
 credits, including prefabs, door changes and erased floor. It saves immediately. Picking furniture,
 opening Shop, leaving Build or reloading clears that space history.
 Ctrl/Cmd+Z also undoes; desktop nudge arrows plus **C** set each rectangle corner.
-**Cancel** or Escape abandons an unfinished stroke. Erase still asks you to review
-and choose **Remove floor** before deleting floor.
+**Cancel** or Escape abandons an unfinished stroke. **Erase** lets you draw over
+furniture and occupied rooms. On release, choose **Yes, erase space** to remove the
+floor and return affected furniture to the picker, or **No, keep it** / Escape to
+leave everything unchanged. People and pets move safely clear; remaining edges
+get walls/fences and replacement doors where they can connect. Separated leftovers
+stay in place but are unused until you reconnect their floor and doorway. Undo
+brings back the floor and furniture. The confirmation lists returned items and
+keeps Yes/No visible on phones.
 
 **Interior** adds walls, or a garden fence; **Exterior** leaves the new space open.
 The pictured floor plans lead each space catalogue: **Waiting room** and
@@ -145,7 +151,8 @@ independently.
 playground** supplies 84 tiles and a toy corner. Capacity grows from 4 to 6 to 8.
 **Play garden extension** and **Sunshine courtyard** each add 48 free tiles and
 unlock more shop choices. Further tiles cost 3 coins each. Floor removal does not
-refund coins; moving stored furniture costs nothing. The entrance, counter and
+refund coins; furniture returned by erasure stays owned in your collection, and
+placing it again costs nothing. The entrance, counter and
 examination suite stay in place. The editor supports connected rooms and gardens with automatic, editable entrances,
 as well as open-plan extensions. Exterior boundaries follow the floor; additional
 floors and movable clinical suites are outside its current scope. Room kits and equipment are one-time

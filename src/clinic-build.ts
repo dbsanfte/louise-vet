@@ -31,6 +31,8 @@ export type BuildState = {
   tiles: FloorCell[];
   items: BuildItem[];
   credits: number;
+  /** Leftover floor islands retained by erasure; inactive until reconnected. */
+  detached?: Point[];
 };
 export type BuildStation = {
   itemId?: string;
@@ -432,6 +434,7 @@ export class ClinicBuild {
   private reachable = new Map<string, Point>();
   private edges = new Set<string>();
   private stationCache?: ReturnType<ClinicBuild['makeStations']>;
+  private stationAccess = new Map<string, boolean>();
   get customized() {
     return this.state.customized;
   }
@@ -514,6 +517,7 @@ export class ClinicBuild {
   changed() {
     this.revision++;
     this.stationCache = undefined;
+    this.stationAccess.clear();
     this.navRevision = -1;
     this.wallRevision = -1;
   }
@@ -800,6 +804,37 @@ export class ClinicBuild {
       this.nearest(p, this.reachable) ?? { x: 0, z: 0 }
     );
   }
+  canStand(p: Point) {
+    this.navigation();
+    const n = this.nearest(p, this.reachable);
+    return Boolean(
+      n && this.walkable(p) && Math.hypot(n.x - p.x, n.z - p.z) < 0.8,
+    );
+  }
+  private detachedItem(id: string) {
+    const p = this.placement(id);
+    return Boolean(
+      p &&
+      this.state.detached?.some(
+        (t) => t.x === Math.floor(p.x) && t.z === Math.floor(p.z),
+      ),
+    );
+  }
+  stationAccessible(s: BuildStation) {
+    if (!this.customized || s.kind === 'standing') return true;
+    const cached = this.stationAccess.get(s.id);
+    if (cached !== undefined) return cached;
+    if (s.itemId && this.detachedItem(s.itemId)) {
+      this.stationAccess.set(s.id, false);
+      return false;
+    }
+    this.navigation();
+    const p = s.audience === 'owner' ? this.approach(s) : this.port(s);
+    const n = this.nearest(p, this.reachable);
+    const accessible = Boolean(n && Math.hypot(n.x - p.x, n.z - p.z) < 0.8);
+    this.stationAccess.set(s.id, accessible);
+    return accessible;
+  }
   approach(p: Point) {
     const s = this.stations.find(
       (s) =>
@@ -938,7 +973,10 @@ export class ClinicBuild {
       { x: 3.5, z: -6.9 },
       { x: -1.3, z: -2.75 },
       ...this.stations
-        .filter((s) => s.kind !== 'standing')
+        .filter(
+          (s) =>
+            s.kind !== 'standing' && !(s.itemId && this.detachedItem(s.itemId)),
+        )
         .map((s) => (s.audience === 'owner' ? this.approach(s) : this.port(s))),
     ];
     if (
@@ -969,7 +1007,21 @@ export class ClinicBuild {
       })
     )
       return 'Keep a clear way out for everyone in the clinic.';
-    // All floor patches must connect to the original clinic, even when empty.
+    const tileSeen = this.connectedTiles();
+    const detached = new Set(
+      this.state.detached?.map((p) => gridKey(p.x, p.z)),
+    );
+    if (
+      this.tiles.some(
+        (p) =>
+          !tileSeen.has(gridKey(p.x, p.z)) && !detached.has(gridKey(p.x, p.z)),
+      )
+    )
+      return 'Connect every space to the clinic with a doorway or open side.';
+    return undefined;
+  }
+  private connectedTiles() {
+    this.navigation();
     const tileTodo: FloorCell[] = [{ x: 3, z: 1, surface: 'room' }],
       tileSeen = new Set(tileTodo.map((p) => gridKey(p.x, p.z)));
     for (let i = 0; i < tileTodo.length; i++)
@@ -990,9 +1042,18 @@ export class ClinicBuild {
           tileTodo.push({ x: p.x + dx, z: p.z + dz, surface: 'room' });
         }
       }
-    if (this.tiles.some((p) => !tileSeen.has(gridKey(p.x, p.z))))
-      return 'Connect every space to the clinic with a doorway or open side.';
-    return undefined;
+    return tileSeen;
+  }
+  private refreshDetached() {
+    if (!this.state.detached) return;
+    const connected = this.connectedTiles();
+    this.state.detached = this.state.detached.filter(
+      (p) =>
+        this.tileSet.has(gridKey(p.x, p.z)) &&
+        !connected.has(gridKey(p.x, p.z)),
+    );
+    if (!this.state.detached.length) delete this.state.detached;
+    this.changed();
   }
   private footprint(id: string) {
     const p = this.placement(id),
@@ -1345,6 +1406,109 @@ export class ClinicBuild {
     }
     this.state.customized = true;
     this.changed();
+    this.refreshDetached();
+  }
+  /** Preview is transactional: no furniture, occupants or saved state change. */
+  erase(a: Point, b: Point, apply = false) {
+    const x0 = Math.min(a.x, b.x),
+      x1 = Math.max(a.x, b.x) + 1,
+      z0 = Math.min(a.z, b.z),
+      z1 = Math.max(a.z, b.z) + 1;
+    const inRectangle = (p: Point) =>
+      p.x >= x0 && p.x < x1 && p.z >= z0 && p.z < z1;
+    const old = this.state,
+      revision = this.revision,
+      architecture = this.architecture;
+    const stored: string[] = [];
+    this.state = structuredClone(old);
+    this.state.tiles = this.tiles.filter(
+      (t) => core.has(gridKey(t.x, t.z)) || !inRectangle(t),
+    );
+    const removed = old.tiles.length - this.tiles.length;
+    const store = (id: string) => {
+      this.items.find((i) => i.id === id)!.placement = undefined;
+      stored.push(id);
+      this.changed();
+    };
+    for (const item of this.items)
+      if (
+        item.placement &&
+        this.footprint(item.id).some((p) => inRectangle(p) || !this.contains(p))
+      )
+        store(item.id);
+    const cells = new Set(this.tiles.map((t) => gridKey(t.x, t.z)));
+    this.state.walls = architecture.walls.filter((e) =>
+      edgeCells(e).some((p) => cells.has(gridKey(p.x, p.z))),
+    );
+    this.state.doors = architecture.doors.filter((e) =>
+      edgeCells(e).every((p) => cells.has(gridKey(p.x, p.z))),
+    );
+    this.state.floorEdited = true;
+    this.state.customized = true;
+    this.changed();
+    // A cut can remove an old doorway. Reopen a safe shared edge when floor
+    // still meets; never fill the erased rectangle or delete extra room tiles.
+    let connected = this.connectedTiles();
+    const candidates = this.editableWalls().sort((a, b) => {
+      const distance = (e: WallEdge) => {
+        const p = edgeCentre(e);
+        return Math.hypot(p.x - (x0 + x1) / 2, p.z - (z0 + z1) / 2);
+      };
+      return distance(a) - distance(b);
+    });
+    for (let i = 0; i < candidates.length; i++) {
+      const edge = candidates.find((e) => {
+        const adjacent = edgeCells(e);
+        if (
+          connected.has(gridKey(adjacent[0].x, adjacent[0].z)) ===
+          connected.has(gridKey(adjacent[1].x, adjacent[1].z))
+        )
+          return false;
+        const p = edgeCentre(e);
+        return (
+          [-0.25, 0.25].every((offset) =>
+            this.walkable({
+              x: p.x + (e.axis === 'z' ? offset : 0),
+              z: p.z + (e.axis === 'x' ? offset : 0),
+            }),
+          ) &&
+          !this.items.some(
+            (item) =>
+              item.placement &&
+              !this.recipe(item.id).soft &&
+              this.insideItem(item.id, p, 0.16),
+          )
+        );
+      });
+      if (!edge) break;
+      this.state.doors = joinWalls(this.state.doors, [edge]);
+      this.changed();
+      connected = this.connectedTiles();
+    }
+    this.state.detached = this.tiles
+      .filter((t) => !connected.has(gridKey(t.x, t.z)))
+      .map(({ x, z }) => ({ x, z }));
+    if (!this.state.detached.length) delete this.state.detached;
+    this.changed();
+    // A chair or ride beside the cut can also lose its required approach.
+    // Include it in the preview's return count rather than leave unusable furniture.
+    for (const item of this.items)
+      if (
+        item.placement &&
+        !this.detachedItem(item.id) &&
+        this.stations.some(
+          (s) => s.itemId === item.id && !this.stationAccessible(s),
+        )
+      )
+        store(item.id);
+    const error = this.validate();
+    const detached = this.state.detached?.length ?? 0;
+    if (error || !apply || (!removed && !stored.length)) {
+      this.state = old;
+      this.changed();
+      this.revision = revision;
+    }
+    return { error, cost: 0, stored, removed, detached };
   }
   floor(
     a: Point,
@@ -1355,6 +1519,7 @@ export class ClinicBuild {
     apply = false,
     preserveExisting = false,
   ): { error?: string; cost: number } {
+    if (surface === 'erase') return this.erase(a, b, apply);
     const x0 = Math.min(a.x, b.x),
       x1 = Math.max(a.x, b.x),
       z0 = Math.min(a.z, b.z),
@@ -1379,9 +1544,7 @@ export class ClinicBuild {
               'Stay on the clinic greenspace, clear of paths and neighbours.',
             cost: 0,
           };
-        if (surface === 'erase') {
-          if (index >= 0) tiles.splice(index, 1);
-        } else if (index < 0) {
+        if (index < 0) {
           tiles.push({ x, z, surface, paid: true });
           count++;
         } else if (!preserveExisting) tiles[index].surface = surface;
@@ -1435,6 +1598,7 @@ export class ClinicBuild {
     this.state.customized = true;
     this.state.credits -= credits;
     this.changed();
+    this.refreshDetached();
     return { cost };
   }
   snapshot() {
@@ -1528,6 +1692,22 @@ export class ClinicBuild {
             !['room', 'garden'].includes(p.surface),
         ) ||
         coreCells.some((c) => !s.tiles.some((p) => p.x === c.x && p.z === c.z))
+      )
+        return false;
+      if (
+        s.detached !== undefined &&
+        (!Array.isArray(s.detached) ||
+          s.detached.length > s.tiles.length ||
+          new Set(s.detached.map((p) => gridKey(p.x, p.z))).size !==
+            s.detached.length ||
+          s.detached.some(
+            (p) =>
+              !p ||
+              !Number.isInteger(p.x) ||
+              !Number.isInteger(p.z) ||
+              core.has(gridKey(p.x, p.z)) ||
+              !s.tiles.some((t) => t.x === p.x && t.z === p.z),
+          ))
       )
         return false;
       if (

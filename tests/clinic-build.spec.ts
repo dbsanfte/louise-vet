@@ -1556,12 +1556,14 @@ test('Undo reverses door and erase edits but never removes later purchases or pl
   await chooseTool(page, 'erase');
   await tap(page, -11, -4, touch);
   await tap(page, -10, 4, touch);
-  // Erasing still reviews the marked floor before removal.
+  // Releasing opens the confirmation without changing the floor.
   expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
     room,
   );
-  await expect(page.locator('[data-build="place"]')).toHaveText('Remove floor');
-  await page.locator('[data-build="place"]').click();
+  await expect(
+    page.getByRole('dialog', { name: 'Erase this space?' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Yes, erase space' }).click();
   expect(
     (await page.evaluate(() => window.buildTest.snapshot().build)).tiles,
   ).toHaveLength(room.tiles.length - 8);
@@ -1656,4 +1658,157 @@ test('unaffordable releases stay unbuilt and can be redrawn directly', async ({
   expect(await page.evaluate(() => window.buildTest.preview().visible)).toBe(
     false,
   );
+});
+
+test('erasure asks on release, keeps No unchanged, returns occupied furniture and safely preserves leftovers', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  if (touch) await page.setViewportSize({ width: 360, height: 640 });
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await open(page, true);
+  const occupants = await page.evaluate(() =>
+    window.buildTest.occupyForErase(),
+  );
+  const before = await page.evaluate(() => window.buildTest.snapshot());
+  const savedBefore = await page.evaluate(() =>
+    localStorage.getItem('louises-vet-office-v1'),
+  );
+  await chooseTool(page, 'erase');
+  await page.evaluate(() => window.buildTest.point(-8, 0, true));
+  const a = await page.evaluate(() => window.buildTest.point(-11, -4));
+  const end = await page.evaluate(() => window.buildTest.point(-5, 4));
+  const cdp = touch ? await page.context().newCDPSession(page) : undefined;
+  if (cdp) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ ...a, id: 1 }],
+    });
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: [{ ...end, id: 1 }],
+    });
+  } else {
+    await page.mouse.move(a.x, a.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 10 });
+  }
+  await expect
+    .poll(() => page.evaluate(() => window.buildTest.preview()))
+    .toMatchObject({ visible: true, color: 0x76b873, width: 6, depth: 8 });
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  expect(await page.evaluate(() => window.buildTest.snapshot())).toEqual(
+    before,
+  );
+  if (cdp) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    await cdp.detach();
+  } else await page.mouse.up();
+  const dialog = page.getByRole('dialog', { name: 'Erase this space?' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('48 floor tiles');
+  await expect(dialog).toContainText('Lounge chair');
+  await expect(page.getByRole('button', { name: 'No, keep it' })).toBeFocused();
+  expect(await page.evaluate(() => window.buildTest.snapshot())).toEqual(
+    before,
+  );
+  for (const size of touch
+    ? [
+        { width: 360, height: 640 },
+        { width: 844, height: 390 },
+      ]
+    : [page.viewportSize()!]) {
+    await page.setViewportSize(size);
+    for (const answer of ['No, keep it', 'Yes, erase space']) {
+      const box = (await page
+        .getByRole('button', { name: answer })
+        .boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.y + box.height).toBeLessThanOrEqual(size.height);
+    }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollHeight <= innerHeight + 1,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: info.outputPath(`erase-confirm-${size.width}.png`),
+    });
+  }
+  if (touch) await page.setViewportSize({ width: 360, height: 640 });
+  await page.getByRole('button', { name: 'No, keep it' }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => window.buildTest.snapshot())).toEqual(
+    before,
+  );
+  expect(
+    await page.evaluate(() => localStorage.getItem('louises-vet-office-v1')),
+  ).toBe(savedBefore);
+  // Two corner taps use the same confirmation and Escape has the same effect as No.
+  await tap(page, -11, -4, touch);
+  await tap(page, -5, 4, touch);
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => window.buildTest.snapshot())).toEqual(
+    before,
+  );
+  await tap(page, -11, -4, touch);
+  await tap(page, -5, 4, touch);
+  await page.getByRole('button', { name: 'Yes, erase space' }).click();
+  await expect(dialog).toHaveCount(0);
+  const after = await page.evaluate(() => window.buildTest.snapshot());
+  expect(after.build.tiles.length).toBe(before.build.tiles.length - 48);
+  expect(after.build.detached!.length).toBeGreaterThan(0);
+  for (const id of ['seat-5', 'seat-6', 'seat-7'])
+    expect(
+      after.build.items.find((i) => i.id === id)!.placement,
+    ).toBeUndefined();
+  expect(after.build.items.length).toBe(before.build.items.length);
+  expect(after.build.items.find((i) => i.id === 'coaster')!.placement).toEqual(
+    before.build.items.find((i) => i.id === 'coaster')!.placement,
+  );
+  expect(
+    after.leisure.pets.find((p) => p.ticket === occupants.ticket)!.phase,
+  ).toBe('rest');
+  expect(await page.evaluate(() => window.buildTest.occupantsSafe())).toBe(
+    true,
+  );
+  await expect(page.getByTestId('coins')).toHaveText('5,000');
+  expect(
+    (await page.evaluate(() => window.buildTest.scenery())).walls,
+  ).toBeGreaterThan(0);
+  await chooseTool(page, 'items');
+  await expect(page.locator('.build-card[data-recipe="seat-5"]')).toContainText(
+    `${3 + before.build.items.filter((i) => ['seat-5', 'seat-6', 'seat-7'].includes(i.recipe) && !i.placement).length} available`,
+  );
+  await chooseTool(page, 'erase');
+  await page.locator('[data-build="undo"]').click();
+  expect(
+    (await page.evaluate(() => window.buildTest.snapshot())).build,
+  ).toEqual(before.build);
+  expect(await page.evaluate(() => window.buildTest.occupantsSafe())).toBe(
+    true,
+  );
+  // Confirm again and verify the actual stored collection and room islands survive reload.
+  await tap(page, -11, -4, touch);
+  await tap(page, -5, 4, touch);
+  await page.getByRole('button', { name: 'Yes, erase space' }).click();
+  const erased = (await page.evaluate(() => window.buildTest.snapshot())).build;
+  await page.locator('[data-build="done"]').click();
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(
+    (await page.evaluate(() => window.buildTest.snapshot())).build,
+  ).toEqual(erased);
+  expect(await page.evaluate(() => window.buildTest.occupantsSafe())).toBe(
+    true,
+  );
+  expect(errors).toEqual([]);
 });

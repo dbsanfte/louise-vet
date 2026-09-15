@@ -38,6 +38,7 @@ export class ClinicBuildEditor {
   private mode: 'items' | 'spaces' = 'items';
   private spaceTool: FloorCell['surface'] = 'room';
   private spaceHistory: { state: BuildState; cost: number }[] = [];
+  private eraseDialog?: HTMLDialogElement;
   private tool: 'items' | 'camera' | 'door' | FloorCell['surface'] | 'erase' =
     'items';
   private selected?: string;
@@ -585,6 +586,8 @@ export class ClinicBuildEditor {
     }
   }
   cancel(resetSpaceHistory = false) {
+    this.eraseDialog?.remove();
+    this.eraseDialog = undefined;
     if (resetSpaceHistory) this.spaceHistory = [];
     this.releasePress();
     this.releasePrefabPress();
@@ -656,11 +659,16 @@ export class ClinicBuildEditor {
     this.doorway = undefined;
     this.preview();
     if (this.draft.surface !== 'erase') this.place();
-    else this.render();
+    else this.confirmErasure();
     document.querySelector('.build-list')!.scrollTop = 0;
   }
   private floor(start: Point, end: Point, apply = false) {
     const { from: a, to: b } = floorRectangle(start, end);
+    const surface =
+      this.prefab?.surface ??
+      this.draft?.surface ??
+      (this.tool as FloorCell['surface'] | 'erase');
+    if (surface === 'erase') return this.sim.build.erase(a, b, apply);
     const sheltered = [...this.sim.weather.active.values()].some((s) => {
       const p = toClinic(shelterTrees[s.tree]);
       return (
@@ -676,32 +684,79 @@ export class ClinicBuildEditor {
           'A family is sheltering there. Let them finish before building here.',
         cost: 0,
       };
-    const surface =
-      this.prefab?.surface ??
-      this.draft?.surface ??
-      (this.tool as FloorCell['surface'] | 'erase');
-    if (surface !== 'erase') {
-      const result = this.sim.build.autoSpace(
-        start,
-        end,
-        surface,
-        this.enclosed,
-        this.progress.coins,
-        this.actors(),
-        apply,
-      );
-      this.doorway = result.door;
-      this.automaticDoors = result.doors;
-      return result;
-    }
-    return this.sim.build.floor(
-      a,
-      b,
+    const result = this.sim.build.autoSpace(
+      start,
+      end,
       surface,
+      this.enclosed,
       this.progress.coins,
       this.actors(),
       apply,
     );
+    this.doorway = result.door;
+    this.automaticDoors = result.doors;
+    return result;
+  }
+  private confirmErasure() {
+    if (this.draft?.surface !== 'erase' || this.eraseDialog) return;
+    const { from, to } = floorRectangle(this.draft.start, this.draft.end);
+    const plan = this.sim.build.erase(from, to);
+    if (plan.error || (!plan.removed && !plan.stored.length)) {
+      this.error =
+        plan.error ?? 'There is no removable floor or furniture here.';
+      this.render();
+      return;
+    }
+    this.render();
+    const dialog = document.createElement('dialog');
+    dialog.className = 'build-erase-dialog';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-labelledby', 'erase-title');
+    dialog.setAttribute('aria-describedby', 'erase-description');
+    const items = new Map<string, number>();
+    for (const id of plan.stored) {
+      const name = this.sim.build.recipe(id).name;
+      items.set(name, (items.get(name) ?? 0) + 1);
+    }
+    dialog.innerHTML = `<h2 id="erase-title">Erase this space?</h2><div id="erase-description"><p>Remove ${plan.removed} floor tile${plan.removed === 1 ? '' : 's'}${plan.stored.length ? ` and return ${plan.stored.length} furniture item${plan.stored.length === 1 ? '' : 's'} to your collection` : ''}?</p>${items.size ? `<ul>${[...items].map(([name, count]) => `<li>${name}${count > 1 ? ` × ${count}` : ''}</li>`).join('')}</ul><p>You still own these items. Place them again from the furniture picker.</p>` : ''}<p>People and pets will move safely out of the way. Remaining edges get walls or fences.${plan.detached ? ' Separated spaces stay in place but need reconnecting before anyone can use them.' : ''}</p><p>No coins are spent or returned. The entrance, counter and exam room stay in place. You can Undo afterward.</p></div><div class="erase-dialog-actions"><button type="button" class="secondary" data-erase-answer="no" autofocus>No, keep it</button><button type="button" class="primary" data-erase-answer="yes">Yes, erase space</button></div>`;
+    const dismiss = () => {
+      this.cancel();
+      this.render();
+      document
+        .querySelector<HTMLButtonElement>(
+          '[data-build="tool"][data-value="erase"]',
+        )
+        ?.focus();
+    };
+    dialog.addEventListener('cancel', (e) => {
+      e.preventDefault();
+      dismiss();
+    });
+    dialog.addEventListener('click', (e) => {
+      const answer = (e.target as Element).closest<HTMLElement>(
+        '[data-erase-answer]',
+      )?.dataset.eraseAnswer;
+      if (answer === 'no') dismiss();
+      if (answer !== 'yes') return;
+      const before = this.sim.build.snapshot();
+      const result = this.sim.build.erase(from, to, true);
+      if (result.error) {
+        dismiss();
+        this.error = result.error;
+        this.render();
+        return;
+      }
+      this.spaceHistory.push({ state: before, cost: 0 });
+      this.cancel();
+      this.afterChange(
+        'Space erased. Furniture is back in your collection, ready to place again.',
+        before,
+      );
+      document.querySelector<HTMLButtonElement>('[data-build="undo"]')?.focus();
+    });
+    document.body.append(dialog);
+    this.eraseDialog = dialog;
+    dialog.showModal();
   }
   private preview() {
     if (this.lifting) return;
@@ -874,6 +929,10 @@ export class ClinicBuildEditor {
       this.cancel();
       this.afterChange('Lovely! Everything has a clear way through.');
     } else if (this.draft || (this.prefab && this.prefabLayout)) {
+      if (this.draft?.surface === 'erase') {
+        this.confirmErasure();
+        return;
+      }
       if (this.prefab && this.error) {
         this.render();
         return;
@@ -886,15 +945,12 @@ export class ClinicBuildEditor {
         this.render();
         return;
       }
-      const erased = this.draft?.surface === 'erase';
       if (JSON.stringify(before) !== JSON.stringify(this.sim.build.state))
         this.spaceHistory.push({ state: before, cost: result.cost });
       this.progress.coins -= result.cost;
       this.cancel();
       this.afterChange(
-        erased
-          ? 'Floor removed. Your items are safe in the clinic or collection.'
-          : 'Your new space is ready! Undo returns its coins and floor tiles.',
+        'Your new space is ready! Undo returns its coins and floor tiles.',
       );
     } else if (this.tool === 'door' && this.doorway) {
       const before = this.sim.build.snapshot();
@@ -925,6 +981,7 @@ export class ClinicBuildEditor {
     const previous = this.spaceHistory.at(-1);
     if (!previous || this.lifting || this.mode !== 'spaces') return;
     this.cancel();
+    const before = this.sim.build.snapshot();
     if (!this.sim.build.restore(previous.state)) {
       this.error = 'This space cannot be undone. Your clinic has not changed.';
       this.render();
@@ -932,7 +989,10 @@ export class ClinicBuildEditor {
     }
     this.spaceHistory.pop();
     this.progress.coins += previous.cost;
-    this.afterChange('Change undone. Your coins and floor tiles are back.');
+    this.afterChange(
+      'Change undone. Your coins and floor tiles are back.',
+      before,
+    );
   }
   private store() {
     if (!this.selected || this.lifting) return;
@@ -945,7 +1005,14 @@ export class ClinicBuildEditor {
     this.cancel();
     this.afterChange('Stored safely in your collection.');
   }
-  private afterChange(message: string) {
+  private afterChange(message: string, before?: BuildState) {
+    if (before) {
+      const moved = this.sim.leisure.reconcileBuild(
+        this.sim.households,
+        before.tiles,
+      );
+      this.world.town!.reconcileClinicBuild(moved);
+    }
     this.sim.leisure.replan(this.sim.households);
     this.sim.revision++;
     this.world.setUpgrades(this.progress.upgrades);
@@ -978,7 +1045,7 @@ export class ClinicBuildEditor {
       return `<section class="space-guide"><h3>Make a way through</h3><div class="space-options">${button('Doorways', 'door-mode', `data-value="door" aria-pressed="${!this.removeWall}"`)}${button('Remove wall', 'door-mode', `data-value="wall" aria-pressed="${this.removeWall}"`)}</div><p>Tap a blue wall frame, or choose a suggestion.</p>${entrance}<p>Confirm below to change this entrance. Doorways cost no extra coins. Keep a clear way into every space.</p><p>The front door and examination route stay in place.</p></section>`;
     const erase = surface === 'erase';
     if (erase)
-      return `<section class="space-guide"><h3>Erase floor</h3><p>${this.draft ? 'Review the marked floor, then choose <strong>Remove floor</strong>. Tap outside to cancel.' : 'Drag a rectangle, or tap two corners, to mark floor for removal.'}</p><p>Move furniture and let people step clear first. Removing floor does not refund coins.</p></section>`;
+      return `<section class="space-guide"><h3>Erase space</h3><p>Drag a rectangle, or tap two corners. On release, choose Yes to erase or No to keep everything.</p><p>Furniture returns to your collection. People and pets move safely clear, and remaining edges get walls or fences. Undo brings the space and furniture back.</p></section>`;
     const boundaries = `<div class="space-options" aria-label="Space boundary">${button('Interior', 'boundary', `data-value="enclosed" aria-pressed="${this.enclosed}"`)}${button('Exterior', 'boundary', `data-value="open" aria-pressed="${!this.enclosed}"`)}</div>`;
     const plans = clinicPrefabs
       .filter((p) => p.surface === this.spaceTool)

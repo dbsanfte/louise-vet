@@ -1,5 +1,6 @@
 import { World } from '../../src/world';
 import { ClinicBuildEditor } from '../../src/clinic-build-editor';
+import { toClinic } from '../../src/clinic-build';
 import { localToTown } from '../../src/town-map';
 import { Vector3, Box3, InstancedMesh, type OrthographicCamera } from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -19,6 +20,50 @@ ClinicBuildEditor.prototype.enter = function () {
 };
 void import('../../src/main');
 window.buildTest = {
+  occupyForErase: () => {
+    const s = world.town!.simulation;
+    const pet = [...s.leisure.pets.values()][0];
+    const owner = s.households.find((h) => h.ticket === pet.ticket)!;
+    Object.assign(owner.position, localToTown(-8, 0));
+    const activity = s.leisure.owners.get(owner.id)!;
+    activity.station = 'seat-5';
+    activity.phase = 'sit';
+    activity.route = [];
+    pet.station = s.build.itemStations('coaster')[0];
+    pet.phase = 'use';
+    pet.elapsed = 4;
+    Object.assign(pet.position, localToTown(-15, -8));
+    world.town!.update(0, true);
+    return { owner: owner.id, ticket: pet.ticket };
+  },
+  occupantsSafe: () => {
+    const s = world.town!.simulation;
+    return (
+      [...s.leisure.pets.values()].every((p) => {
+        const station = s.build.stations.find((st) => st.id === p.station);
+        return (
+          (station &&
+            s.leisure.available(station) &&
+            ['use', 'board'].includes(p.phase)) ||
+          s.build.canStand(toClinic(p.position))
+        );
+      }) &&
+      s.households
+        .filter((h) => h.inClinic)
+        .every((h) => {
+          const activity = s.leisure.owners.get(h.id),
+            station =
+              activity &&
+              s.build.stations.find((st) => st.id === activity.station);
+          return (
+            (station &&
+              s.leisure.available(station) &&
+              ['sit', 'read', 'game'].includes(activity!.phase)) ||
+            s.build.canStand(toClinic(h.position))
+          );
+        })
+    );
+  },
   itemPoint: (id: string) => {
     world.focusBuildItem(id);
     world.draw(performance.now(), 0);
@@ -138,6 +183,8 @@ window.buildTest = {
 declare global {
   interface Window {
     buildTest: {
+      occupyForErase: () => { owner: number; ticket: number };
+      occupantsSafe: () => boolean;
       itemPoint: (id: string) => { x: number; y: number };
       selection: () => string | undefined;
       camera: () => { position: number[]; target: number[]; zoom: number };

@@ -461,3 +461,47 @@
   margin: 5px 0 0;
   font-size: 14px;
 }
+
+.build-erase-dialog {
+  box-sizing: border-box;
+  width: min(560px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: 20px;
+  border: 1px solid #b9cebf;
+  border-radius: 18px;
+  background: #fffdf5;
+  color: #344f40;
+  overflow: hidden;
+}
+.build-erase-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.build-erase-dialog::backdrop {
+  background: #20382bb3;
+}
+.build-erase-dialog h2 {
+  margin: 0;
+  font-size: 24px;
+}
+#erase-description {
+  min-height: 0;
+  overflow: auto;
+  font-size: 17px;
+  line-height: 1.4;
+}
+#erase-description p {
+  margin: 0 0 12px;
+}
+.erase-dialog-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  flex-shrink: 0;
+}
+.erase-dialog-actions button {
+  min-height: 44px;
+  white-space: normal;
+}

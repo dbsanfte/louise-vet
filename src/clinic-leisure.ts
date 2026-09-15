@@ -257,6 +257,71 @@ export class ClinicLeisure {
       }
     }
   }
+  /** Build time is paused. Put affected occupants on separate, reachable ground
+   * before removing their furniture from the rendered scene or saving the edit. */
+  reconcileBuild(households: Household[], previousTiles: readonly Point[]) {
+    const oldFloor = new Set(previousTiles.map((p) => `${p.x},${p.z}`));
+    const inside = (p: Point) => {
+      const local = toClinic(p);
+      return (
+        this.build.contains(local) ||
+        oldFloor.has(`${Math.floor(local.x)},${Math.floor(local.z)}`)
+      );
+    };
+    const families = households.filter((h) => h.inClinic && inside(h.position));
+    const pets = [...this.pets.values()];
+    const occupied = [
+      ...families.map((h) => toClinic(h.position)),
+      ...pets.map((p) => toClinic(p.position)),
+    ];
+    const moved = new Set<number>();
+    const relocate = (position: Point, index: number) => {
+      const safe = this.build.safe(
+        toClinic(position),
+        occupied.filter((_, i) => i !== index),
+      );
+      occupied[index] = safe;
+      Object.assign(position, localToTown(safe.x, safe.z));
+    };
+    families.forEach((h, index) => {
+      const activity = this.owners.get(h.id),
+        station =
+          activity &&
+          this.build.stations.find((s) => s.id === activity.station);
+      const valid = Boolean(station && this.available(station));
+      const seated =
+        valid && activity && ['sit', 'read', 'game'].includes(activity.phase);
+      if (
+        (activity && !valid) ||
+        (!seated && !this.build.canStand(toClinic(h.position)))
+      ) {
+        relocate(h.position, index);
+        this.owners.delete(h.id);
+        moved.add(h.id);
+      }
+    });
+    pets.forEach((p, index) => {
+      const station = this.station(p.station);
+      const using =
+        station &&
+        this.available(station) &&
+        ['use', 'board'].includes(p.phase);
+      if (
+        (p.station && !this.available(station)) ||
+        (!using && !this.build.canStand(toClinic(p.position)))
+      ) {
+        relocate(p.position, families.length + index);
+        p.station = '';
+        p.phase = 'rest';
+        p.route = [];
+        p.called = false;
+        p.remaining = 2;
+        p.elapsed = 0;
+      }
+    });
+    this.replan(households);
+    return moved;
+  }
   readonly owners = new Map<number, OwnerActivity>();
   readonly pets = new Map<number, PetActivity>();
   private owned: UpgradeId[] = [];
@@ -274,6 +339,7 @@ export class ClinicLeisure {
   available(s: Station | undefined) {
     return Boolean(
       s &&
+      this.build.stationAccessible(s) &&
       !this.unavailable.has(s.id) &&
       (!s.upgrade ||
         this.owned.includes(s.upgrade as UpgradeId) ||
