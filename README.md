@@ -103,7 +103,7 @@ and charges only for the new tiles. Invalid rectangles spend nothing and can be
 redrawn. There is no Build space confirmation button.
 
 The dedicated controls row has a back-arrow **Undo**, **Erase**, **Doors** and
-**Camera**. Undo reverses consecutive space edits and restores their coins/floor
+**Camera** (desktop only). Undo reverses consecutive space edits and restores their coins/floor
 credits, including prefabs, door changes and erased floor. It saves immediately. Picking furniture,
 opening Shop, leaving Build or reloading clears that space history.
 Ctrl/Cmd+Z also undoes; desktop nudge arrows plus **C** set each rectangle corner.
@@ -128,8 +128,7 @@ shells using kit credits, then 3 coins per tile; add furniture separately. Purch
 kits with unused credits come first in their surface list.
 
 **Doors** edits entrances and shared wall sections while keeping every space
-reachable. Two fingers pan/pinch/twist in every tool; **Camera** additionally lets
-one finger orbit. Desktop arrow keys and camera buttons remain available.
+reachable. Two fingers pan/pinch/twist in every tool. Touch Build menus omit **Camera**; it remains a desktop option. Desktop arrow keys and camera buttons remain available.
 **Whole plot** frames the buildable grounds; **Done** returns to the clinic.
 
 Buy furniture in **Clinic shop** to add it to your collection. Every purchase
@@ -165,7 +164,7 @@ On desktop, use the **↶ / ↷ camera buttons** to turn your view in the office
 Build, alongside pan and zoom buttons. Phones and tablets hide that button row:
 in the office, drag one finger to turn, or use two fingers to pan and pinch to zoom.
 In every Build tool, pinch to zoom, drag two fingers to pan and twist
-them to turn. **Camera** additionally enables one-finger orbit. Room shortcuts remain visible. **Rotate** (or
+them to turn. The **Camera** button is shown only on desktop. Room shortcuts remain visible. **Rotate** (or
 **R**) turns selected furniture; camera rotation keeps the item facing the same way.
 
 Hookville also fits the window: **Homes** pages through the household directory, **Home info** shows the selected family, and **Town news** pages through updates. **Back to the clinic** stays beside the map.
@@ -194,7 +193,7 @@ room’s door, and Louise walks back to reception.
 
 Treat dispensers, water dispensers, bouncy toy boxes, yarn corners, bird aviaries
 and friendly play trees can all be purchased directly. Place them on your custom
-floor or garden, with enough space and a clear path to use them. Healthy birds fly, cats climb, and both share the tree peacefully. Dispenser refills are included.
+floor or garden, with enough space and a clear path to use them. Healthy birds fly, cats climb, and both share the tree peacefully. Dispenser refills are included. Fish now have **Fish bubble dock** and **Reef explorer dock** activities, travelling in their own bowls on little trolleys. Also available are **Rainbow agility tunnel**, **Snuffle garden**, **Feather dance**, **Burrowing box**, **Bird flying hoops** and **Paw-and-beak piano**. Every copy is purchased separately, stored until placed, and usable on suitable custom floor without a room-kit prerequisite.
 
 ## Run the web container
 
@@ -390,7 +389,7 @@ python3 scripts/blender-build.py --headless --all
 
 The VS Code task **Game: rebuild Blender models (headless)** runs the same command.
 It needs neither Windows Blender nor a running MCP server. Use `--examination`
-instead of `--all` to rebuild only anatomy and instruments, `--pets` for the eleven dog/cat/bird varieties and bird skeleton, `--town` for Hookville scenery, `--vehicles` for its four ordinary traffic models, `--street` for lampposts, hydrants and dog-walk cleanup props, `--park` for its pet park and ducks, `--emergencies` for police/fire stations, engine, ladder and responder kits, `--leisure` for modular clinic rooms and amusements, `--room` for the connected examination room, or omit scope flags
+instead of `--all` to rebuild only anatomy and instruments, `--pets` for the eleven dog/cat/bird varieties and bird skeleton, `--town` for Hookville scenery, `--vehicles` for its four ordinary traffic models, `--street` for lampposts, hydrants and dog-walk cleanup props, `--park` for its pet park and ducks, `--emergencies` for police/fire stations, engine, ladder and responder kits, `--leisure` for modular clinic rooms and amusements, `--room` for the connected examination room, `--amusements` for fish docks, bowl trolley and six further pet activities, or omit scope flags
 to rebuild only the clinic and animated characters. A full rebuild takes several
 minutes. `BLENDER_PROJECT_ROOT` can direct output into a separate directory.
 This builds from the Python authoring script, so it does not need to open a source
@@ -408,4 +407,4 @@ rules there so setup instructions and product design do not drift apart.
 
 On phones and tablets, the examination fits the screen: tools, body guides, live readings, notes and next/exit buttons have separate space. Rotate the device to change the layout without losing the visit. **Visit info** opens the owner’s story; longer care notes scroll within their notebook.
 
-After placing the correct care tool, read its activity card and choose **Start when ready**. Spread cream, trace the bandage ribbon, make comb/brush strokes, aim drops, ease a splinter out, steady a cooling pad, control vaccine pressure or pour water. Drag the comb, brush, dropper, forceps or ice pack with a finger or mouse on its illustrated track or the slider below; keyboard arrows work too. **Finish care** confirms a successful activity. **Cancel care activity** returns to placement; **Stop visit** returns to the office without a reward. Cream patches can also be tapped individually.
+After placing the correct care tool, read its activity card and choose **Start when ready**. Apply the tool on a rendered close-up of the patient: catch hopping fleas, spread cream gently, wrap a bandage around the actual paw, brush teeth or tangles, aim ear drops, ease out a splinter, follow breathing with the cooling pad, control vaccine pressure or carefully pour bowl water. Drag with a finger or mouse; arrow keys aim and Space applies contact. Pressure and tilt sliders support direct touch and keyboard input. The discomfort meter warns when care is too rough, with a calm retry if the pet startles. **Finish care** confirms success; **Cancel care activity** returns to placement, and **Stop visit** returns to the office without a reward. Clear local conditions such as fleas need their specific finding, without an unrelated heartbeat clue.

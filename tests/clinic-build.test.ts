@@ -1,3 +1,4 @@
+import { extraAmusements } from '../src/extra-amusements.ts';
 import { clinicPrefabs, prefabCandidates } from '../src/clinic-prefabs.ts';
 import { floorRectangle, edgeCentre, wallKey } from '../src/clinic-spaces.ts';
 import { test } from 'node:test';
@@ -45,7 +46,9 @@ test('legacy clinics migrate exact furniture, floors, active turns and balances 
   assert.ok(migrated.restore(old));
   migrated.configureLeisure(owned);
   assert.equal(migrated.build.customized, false);
-  for (const r of buildRecipes)
+  for (const r of buildRecipes.filter(
+    (r) => !extraAmusements.some((a) => a.id === r.id),
+  ))
     assert.deepEqual(
       migrated.build.placement(r.id),
       { x: r.x, z: r.z, rotation: 0 },
@@ -1294,3 +1297,83 @@ for (const surface of ['room', 'garden'] as const)
     assert.equal(b.stationAccessible(station()), true);
     assert.ok(new ClinicBuild().restore(b.snapshot()));
   });
+
+test('extra species amusements are paid stored copies with saved placement and safe unloading', () => {
+  for (const amusement of extraAmusements) {
+    const s = new TownSimulation(visits, () => 0.5);
+    const species = amusement.id.startsWith('fish-')
+      ? 'goldfish'
+      : amusement.id === 'bird-hoops'
+        ? 'bird'
+        : amusement.id === 'dig-box' || amusement.id === 'snuffle-mat'
+          ? 'hamster'
+          : 'cat';
+    const patient = visits.findIndex(
+      (v) =>
+        v.species === species && !v.clinical?.fever && !v.clinical?.fracture,
+    );
+    s.seedClinic([patient]);
+    s.configureClinic(8, 22);
+    const ids = [
+      'expansion',
+      'pet-room',
+      'play-annex',
+      'sun-courtyard',
+      amusement.id,
+    ] as const;
+    s.configureLeisure([...ids]);
+    assert.equal(
+      s.build.placement(amusement.id),
+      undefined,
+      'never invent an overlapping legacy position',
+    );
+    s.build.buy(amusement.id);
+    assert.equal(
+      s.build.items.filter((i) => i.recipe === amusement.id).length,
+      2,
+    );
+    assert.equal(
+      s.build.floor(
+        { x: -17, z: -24 },
+        { x: -12, z: -20 },
+        'garden',
+        5000,
+        [],
+        true,
+      ).error,
+      undefined,
+    );
+    assert.equal(
+      s.build.place(amusement.id, { x: -14, z: -22, rotation: Math.PI / 2 }),
+      undefined,
+      amusement.id,
+    );
+    s.leisure.replan(s.households);
+    let rider: import('../src/clinic-leisure.ts').PetActivity | undefined;
+    for (let i = 0; i < 2200 && !rider; i++) {
+      s.update(0.1);
+      rider = [...s.leisure.pets.values()].find(
+        (p) => p.station === amusement.id && p.phase === 'use',
+      );
+    }
+    assert.ok(rider, amusement.id + ' has an eligible rider');
+    const station = s.build.stations.find((st) => st.id === amusement.id)!;
+    assert.ok(station.species?.includes(s.visit(rider.ticket).species));
+    const loaded = new TownSimulation(visits);
+    assert.ok(loaded.restore(s.snapshot()));
+    loaded.configureLeisure([...ids]);
+    assert.deepEqual(loaded.leisure.snapshot(), s.leisure.snapshot());
+    s.leisure.beginMove(amusement.id);
+    let ready = false;
+    for (let i = 0; i < 600 && !ready; i++) {
+      s.leisure.update(0.1, s.households, s.tickets, (id) => s.visit(id));
+      ready = s.leisure.movingReady(amusement.id, s.households);
+    }
+    assert.ok(ready, amusement.id + ' releases its rider before moving');
+    assert.equal(s.build.place(amusement.id, undefined), undefined);
+    s.leisure.replan(s.households);
+    s.leisure.endMove();
+    assert.ok(!s.build.stations.some((st) => st.id === amusement.id));
+    callToRoom(s, rider.ticket);
+  }
+});

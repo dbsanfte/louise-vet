@@ -133,7 +133,7 @@ Two prominent mode buttons separate **Place furniture** from **Build spaces**.
 Place furniture contains the player's **collection**, with All, Seats, Pets and
 Decor filters on larger screens. Build spaces has separate **Floor** and **Garden**
 choices; its pictured floor plans never appear among furniture cards. A dedicated
-controls row holds the back-arrow **Undo**, eraser **Erase**, **Doors** and **Camera**
+controls row holds the back-arrow **Undo**, eraser **Erase**, **Doors** and (on desktop) **Camera**
 buttons. A selected prefab replaces Doors with **Rotate** until placed or cancelled. Every furniture purchase in **Shop** buys one
 additional copy; there is no per-type ownership limit. Chairs, benches, wheels,
 other amusements and decorations remain available to buy again while the player
@@ -283,7 +283,7 @@ and zoom remain available with the Camera tool. Desktop players also have arrow
 keys and camera buttons, including left/right turn while placing furniture;
 turning the camera does not rotate the selected item. Phones and tablets with
 primary touch input hide the office/Build camera button row. Two-finger pan, pinch
-and twist work in every Build tool; **Camera** also enables one-finger orbit.
+and twist work in every Build tool. Touch Build menus omit **Camera**; these gestures provide camera control without an extra mode button.
 Furniture Rotate has a button and R shortcut; on-screen nudge and confirmation controls also
 support keyboard and touch placement. Pictures, wrapped names and availability badges have separate space in each
 furniture card on desktop and touch screens.
@@ -341,7 +341,21 @@ admits one pet at a time and at most three pets travelling to or waiting in line
 other pets wait beside their owners until space opens. Cats rear and paw at the
 post, rodents run inside the turning wheel, and carousel riders travel with the
 platform. Coaster riders follow the car around the track and over its hill; Ferris wheel cabins remain upright as the rim turns, with one occupied cabin per turn. Toy play uses animated paw movements. Broken-bone and fever patients
-rest beside their owners; goldfish stay in their bowls and do not use rides.
+rest beside their owners. Goldfish stay in their own bowls and use only the two fish docks, travelling on a visible bowl trolley rather than walking or using dry rides.
+
+Eight additional repeatable shop amusements broaden the collection. Fish visit the
+**Fish bubble dock** for underwater bubbles or the **Reef explorer dock** to swim
+through a hoop inside their own bowl. The **Rainbow agility tunnel** suits dogs,
+cats, rabbits and rodents; the **Snuffle garden** suits dogs, rabbits and rodents;
+**Feather dance** is for cats; the **Burrowing box** is for rabbits and rodents;
+**Bird flying hoops** provides a flapping flight course with a safe landing;
+and the **Paw-and-beak piano** suits mammals and birds. These have pictured shop
+and inventory cards, cost coins per copy, need no room kit and can be placed on
+any suitable connected built floor. New copies and recovered copies start stored;
+legacy saves never acquire overlapping automatic placements. Each has the usual
+single-user queue, named thoughts, rest, recall and move/store unloading behavior.
+Fish remain submerged, and recalled birds finish landing before an item is moved.
+New activity turns last twelve seconds and earn no additional score.
 
 Turns last 7 seconds at the post, 8 at the exercise wheel/carousel, 12 at the rollercoaster/Ferris wheel, and 6 at the toy corner,
 followed by a 7-second rest. Arrival check-in pauses for 1.5 seconds; seated
@@ -893,7 +907,7 @@ Findings appear in care notes after inspection. Actual mesh targets and anatomic
 regions must agree, including either visible ear and the animal's paws; the
 player must not need to guess an invisible hotspot.
 
-Each sick visit currently has two key findings. Other sensible checks produce
+Each sick visit defines its own required key findings. A clear local finding is enough for a sting, fleas, tangled fur, ear irritation, tartar, a tooth cavity or a splinter. Fractures, fever, water problems and community rescue visits retain their two relevant checks. The counter uses the actual required total (for example **1/1** or **2/2**), flashes for a new key finding and stays green once that total is reached. Extra observations do not delay diagnosis. Other sensible checks produce
 normal observations or suggest a closer look. An inappropriate tool/location
 pair explains where the tool works. Surface inspection must not pronounce a
 hidden ear or tooth problem healthy. Magnifier and X-ray clues require the
@@ -983,60 +997,53 @@ vaccine, gentle brush, water care, fine forceps, and the v2 cooling pad. Togethe
 with the seven diagnostic instruments (including the thermometer), all sixteen
 have Blender-authored models.
 
-Correct tool/body placement opens an instrument-specific **care activity**. A
-modal card shows the instructions before **Start when ready**; nothing moves while
-the child reads. The 3D patient waits still behind the activity so controls remain
-responsive on software graphics. Diagnostic anatomy viewers and live readings
-remain unchanged; these activities replace the shared care timing bar.
+Correct tool/body placement opens a **care activity** with a close-up of the
+same Blender patient and the selected instrument. Read the instructions and choose
+**Start when ready**. Care does not advance while reading. The main world renderer
+pauses behind the dialog; a separate close-up keeps contact and feedback clear.
 
-| Care tool      | Activity and success                                                                                                                                                                   |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Soothing cream | Spread an even layer across six patches, by dragging or tapping each one; all patches must be covered.                                                                                 |
-| Soft bandage   | Drag a bandage roll along three sloping coils around the paw, through seven numbered markers. Stay on the dotted ribbon; a slip returns to the last marker, keeping finished sections. |
-| Flea comb      | Make three outward strokes along the fur, returning the comb between passes; six directional movements lift the fleas.                                                                 |
-| Gentle brush   | Make six alternating little strokes. Mouth care cleans three storybook teeth; coat care smooths three tangles.                                                                         |
-| Ear drops      | Align the nozzle with each of three successive striped guides, then release one drop at a time. Off-target clicks release nothing.                                                     |
-| Fine forceps   | Grip the splinter, then ease to three successive marks, pausing at each for 0.85 active seconds. Pulling past a mark prompts a steadier retry.                                         |
-| Cooling pad    | Follow a slowly moving comfort guide with the pad for 4 seconds of accumulated alignment. Losing alignment gradually reduces settling progress.                                        |
-| Vaccine        | Tap to begin a gentle pressure increase, then tap Pause vaccine in the striped green target. Early, late or unattended attempts apply no vaccine and cause no injury.                  |
-| Water care     | Start and stop a pour into a practice bowl, allowing the final trickle to settle near the fill line. A short pour can resume; overfilling starts a harmless fresh attempt.             |
+| Care tool      | Activity and success                                                                                                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Soothing cream | Drag slow little circles across six sore patches. Coverage needs movement and a gentle pace; tapping alone does not apply cream. The discomfort meter warns before the pet startles.                    |
+| Soft bandage   | Drag the roll along three coils projected around the actual 3D paw. A visible bandage builds up on that paw. Follow seven markers in order; slipping keeps the preceding half-coil checkpoint.          |
+| Flea comb      | Follow six moving, hopping fleas across the fur and catch each with a nearby comb stroke. Stationary clicks and arbitrary sweeps miss them.                                                             |
+| Gentle brush   | Use small, gentle circles on three marked teeth or coat tangles. Each patch needs sustained brushing; scrubbing too quickly or heavily increases discomfort.                                            |
+| Ear drops      | Aim over the ear ring, hold steady until it fills, then release one storybook drop. Repeat three times; off-target or premature presses release nothing.                                                |
+| Fine forceps   | Aim at the splinter, choose Grip splinter, then drag slowly along the extraction line, pausing at three successive marks. Sideways pulls, rushing and overshooting increase discomfort.                 |
+| Cooling pad    | Hold lightly over the warm patch and follow its breathing motion for four seconds of alignment. Lifting pauses contact; losing alignment reduces progress.                                              |
+| Vaccine        | Aim and hold steady at the marked fur patch, then begin the plunger and hold it within the gentle pressure range. Excess pressure increases discomfort. This replaces the old start/stop timing button. |
+| Water care     | Aim the bottle over the actual bowl opening, tilt it for a slow pour, and straighten it near the fill line. Fast splashes increase discomfort; an overflow resets the fill attempt.                     |
 
-The comb, brush, dropper, forceps and blue cooling pad can be dragged directly
-along their illustrated tracks with a mouse or finger after **Start when ready**;
-the labelled sliders below move the same tools and retain native keyboard arrow
-controls. Both tracks and sliders provide roomy touch targets and keep following
-a captured finger even if it strays above or below the track, without scrolling
-the card. Lifting, cancelling the gesture or losing focus releases the drag.
-Forceps stay still until **Grip splinter**; drops still need **Release a drop**
-after aiming. Cream patches are individually focusable buttons. The bandage board supports
-mouse or finger dragging with pointer capture, and keyboard arrows move the same
-roll in two dimensions along the same ribbon. Clicking the numbers or jumping to
-a later coil cannot wrap the paw. The roll and completed ribbon show progress;
-lifting, losing focus, or cancelling a pointer pauses at the current position
-without a penalty, ready to continue. Slipping off the path costs one mistake
-and returns the roll to the preceding marker, rather than undoing all the wraps. Colour
-is reinforced by stripes, arrows, numbers, progress text and feedback. The native
-dialog keeps focus inside its controls and fits phone, desktop and short landscape
-windows. **Cancel care activity** or Escape returns to tool placement; **Stop
-visit** requeues the pet without rewards. Both remain in the activity card.
+Mouse or finger dragging moves the visible instrument in two dimensions.
+Pointer capture keeps it attached to the gesture, without scrolling the dialog.
+Keyboard arrows aim; holding Space applies cream, brushing, combing or the pad.
+Bandage arrows move the same roll along the same coils. The vaccine plunger and
+water-bottle tilt have directly draggable, keyboard-accessible sliders; releasing a
+slider stops pressure or flow. Drops and forceps retain their explicit action
+buttons after aiming. All guides show progress through numbers, rings and text
+as well as colour. Controls and feedback have dedicated space so the target does
+not move under a held finger when a message changes.
+
+Discomfort is a game meter, separate from care progress. Lift the tool for a
+break when it rises. Filling it startles the pet, stops the attempt and offers
+**Try gently again**; that button settles the pet and resets that activity's
+coverage or treatment progress. A bandage slip instead keeps completed sections.
+There is no injury, lost medicine, countdown or punishment for reading.
+The equipment upgrade widens aiming and bandage guides. Section 8 owns tuning.
 
 Completing the movement enables **Finish care**. Only that confirmation completes
-the visit and awards its single reward; repeat input cannot earn another reward.
-Mistakes give friendly guidance and gently reduce quality, never cause injury,
-consume medicine or impose deadlines. Cancelling preserves mistakes for the same
-visit; stopping or reloading starts that unfinished visit afresh. Progress within
-an activity is not saved. Hidden tabs pause active time; losing window focus stops
-pressure/pouring input, and vaccine pressure restarts harmlessly from zero.
-Aiming and timing guides are slightly tighter, vaccine pressure and water flow
-advance a little faster, and cooling requires following a broader moving guide
-for longer. Cream, combing and brushing retain their simpler coverage/stroke
-controls. The equipment upgrade widens alignment/pressure/fill guides and the
-bandage tracing corridor. There is still no time limit for reading or wrapping.
-Exact scoring and tolerances belong in section 8.
+the visit and awards its single reward; repeated input cannot earn another reward.
+**Cancel care activity** or Escape returns to tool placement; **Stop visit**
+requeues the pet without rewards. These controls remain available on desktop and
+touch, including compact portrait and landscape screens. Cancelling keeps mistakes
+for this visit. Stopping or reloading starts the unfinished visit afresh; partial
+activity progress is not saved. Hidden tabs pause active time and losing window
+focus releases contact, pressure and pouring.
 
-These are illustrated hand-skill activities tied to correct 3D placement. They do
-not deform the animal mesh, physically insert a needle or simulate real veterinary
-procedures, dosages or fluids.
+The animal, instruments, paw bandage and visible contact effects are rendered in
+3D. The guided paths and discomfort rules are approachable game abstractions;
+there is no tissue deformation, real needle insertion, dosage instruction or
+physical medical simulation.
 
 ### Fever and thermometer — v2
 
@@ -1062,7 +1069,7 @@ household schedules also create fever visits for named pets under V2-04.
   with the latest note first; key findings carry a **Key clue** badge. Switching
   to diagnosis opens Key clues. The controls show clue progress and note count.
   A newly discovered key clue gives the **Key clues** button three gentle pulses
-  over 2.4 seconds; repeat observations do not restart the signal. At 2/2 it stays
+  over 2.4 seconds; repeat observations do not restart the signal. At the required total (1/1 or 2/2), it stays
   green, with a tick and Ready label, regardless of the selected notebook page.
   Reduced-motion settings use a steady outline instead of pulses. Ordinary notes
   do not trigger the key-clue signal; beginning another visit resets it.
@@ -1092,7 +1099,7 @@ household schedules also create fever visits for named pets under V2-04.
   Primary touch devices hide this button row in office and Build, including
   landscape phones and tablets; room shortcuts remain at the bottom of the scene.
   In Build, two-finger pan, pinch and twist work in every tool without placing or
-  moving furniture. **Camera** additionally enables one-finger orbit.
+  moving furniture. The extra **Camera** mode button is desktop-only.
   Narrow desktop windows retain their camera buttons.
   Panning stays on the ground within a circle enclosing the owned clinic rooms
   and examination room, growing with expansions. Tilt and zoom are bounded so
@@ -1161,16 +1168,16 @@ retaining pet/owner identity; they are not unrestricted generated diagnoses.
 
 | Pet / owner    | Species  | Problem and key investigation                                                                         | Care in this slice                                   |
 | -------------- | -------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Luna / Amelia  | Dog      | Bee sting: magnify paw swelling; listen at chest.                                                     | Cream on paw.                                        |
-| Milo / Oliver  | Cat      | Ear irritation: scope inflamed ear; listen at chest.                                                  | Drops at ear.                                        |
+| Luna / Amelia  | Dog      | Bee sting: magnify paw swelling.                                                                      | Cream on paw.                                        |
+| Milo / Oliver  | Cat      | Ear irritation: scope inflamed ear.                                                                   | Drops at ear.                                        |
 | Pip / Sophie   | Rabbit   | Fractured front leg, labelled **Sore paw** in choices: X-ray displacement; listen to quick heartbeat. | Support bandage at paw; follow-up in aftercare text. |
-| Peanut / Noah  | Hamster  | Fleas: magnify coat specks; listen at chest.                                                          | Comb coat.                                           |
-| Sunny / Isla   | Gerbil   | Tangled fur: magnify trapped bedding/tangle; listen at chest.                                         | Brush coat.                                          |
+| Peanut / Noah  | Hamster  | Fleas: magnify the moving coat specks.                                                                | Comb coat.                                           |
+| Sunny / Isla   | Gerbil   | Tangled fur: magnify trapped bedding/tangle.                                                          | Brush coat.                                          |
 | Bubbles / Leo  | Goldfish | Water needs care: test bowl water; inspect healthy fin.                                               | Water care in bowl.                                  |
 | Hazel / Grace  | Dog      | Scheduled vaccination: find upper-body coat spot; no diagnostic clues.                                | Vaccine placement and pressure control.              |
-| Cleo / Freddie | Cat      | Teeth need a clean: mirror reveals tartar; listen at chest.                                           | Brush mouth.                                         |
-| Scout / Amelia | Dog      | Splinter: magnify wooden fragment in paw; listen to worried heartbeat.                                | Fine forceps at paw.                                 |
-| Poppy / Grace  | Cat      | Tooth cavity: mirror reveals crater; listen at chest.                                                 | Gentle cleaning and dental appointment in aftercare. |
+| Cleo / Freddie | Cat      | Teeth need a clean: mirror reveals tartar.                                                            | Brush mouth.                                         |
+| Scout / Amelia | Dog      | Splinter: magnify wooden fragment in paw.                                                             | Fine forceps at paw.                                 |
+| Poppy / Grace  | Cat      | Tooth cavity: mirror reveals crater.                                                                  | Gentle cleaning and dental appointment in aftercare. |
 | Maple / Isla   | Dog      | Fever: thermometer on coat; listen to quicker heartbeat.                                              | Cooling pad on coat and a quiet rest.                |
 
 Ten further neighbours begin with healthy checkups, then join the same recurring
@@ -1187,13 +1194,13 @@ without a diagnosis choice or unnecessary care.
 
 Rescue visits keep the same named pet, breed and owner:
 
-| Trigger                                 | Checks                                           | Diagnosis and care                                              |
-| --------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
-| Reunited dog/cat or chase with sore paw | Magnifier on paw; stethoscope on chest           | Scratched paw; soothing cream on paw.                           |
-| Tree-rescued bird                       | Magnifier on feathers; stethoscope on chest      | Sore wing patch; cooling pad on feathers.                       |
-| Car contact or cat’s jump from a tree   | X-ray on paw; stethoscope on chest               | Broken bone; support bandage on paw.                            |
-| House-fire rescue, mammals and birds    | Stethoscope on chest; magnifier on coat/feathers | Smoke irritation and a mild burn; cooling pad on coat/feathers. |
-| House-fire rescue, goldfish             | Water tester in bowl; magnifier on fins          | Smoky bowl water; water care in the bowl.                       |
+| Trigger                                 | Checks                                           | Diagnosis and care                                               |
+| --------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------- |
+| Reunited dog/cat or chase with sore paw | Magnifier on paw; stethoscope on chest           | Scratched paw; soothing cream on paw.                            |
+| Tree-rescued bird                       | Magnifier on feathers; stethoscope on chest      | Sore wing patch; cooling pad on feathers.                        |
+| Car contact or cat’s jump from a tree   | X-ray on paw; stethoscope on chest               | Broken bone; support bandage on paw.                             |
+| House-fire rescue, mammals and birds    | Stethoscope on chest; magnifier on coat/feathers | Smoke irritation and a mild burn; gentle cream on coat/feathers. |
+| House-fire rescue, goldfish             | Water tester in bowl; magnifier on fins          | Smoky bowl water; water care in the bowl.                        |
 
 Post-fire care uses a quicker heartbeat and a localized pink skin finding, with
 reassuring notes about smoky air and recovery. It is simplified fictional care;
@@ -1219,7 +1226,7 @@ total. There is no rent, debt, or operating-cost countdown in this slice.
 
 **Current tuning:** a new clinic starts with 120 coins, 3 treats, no upgrades,
 0 treated pets, and an initial happiness display of 100. Care quality begins at
-100; each mistake subtracts 4, and successful vaccine pressure adds `round(abs(pressure − 0.5) × 20)` as a small precision deduction. Other activity types have no additional precision deduction. Quality has a floor of 50. Plants and seating then
+100; each mistake subtracts 4. A full discomfort meter, bandage slip or overflowing pour counts as one activity mistake. There is no additional precision deduction. Quality has a floor of 50. Plants and seating then
 add their bonuses to satisfaction, clamped to 50–100.
 
 For a completed visit, the fee is `35 + round(satisfaction × 0.35)` and the tip is
@@ -1230,49 +1237,62 @@ A perfect unbonused visit with stock earns 94 coins. Aborting cannot claim these
 rewards. [Game rules](../src/game.ts) and [care skill rules](../src/care-skill.ts) implement
 the tuning.
 
-Current care difficulty uses a guide half-width of 0.09 (0.14 with equipment).
-Vaccine pressure advances at 0.29 per active second; water pours at 0.28, with
-flow decaying by 0.8 per second after stopping. Forceps need 0.85 seconds at each
-mark. Cooling follows `0.5 + sin(activeSeconds × 1.05) × 0.28` for four seconds
-of accumulated alignment; time outside the guide drains progress at half speed.
-Bandage tracing allows a normalized distance of 0.05 from the ribbon (0.07 with
-equipment), checks the full stroke between pointer events, and checkpoints each
-half-coil. These are game controls, not physical medical measurements.
+Current care aiming tolerance is 0.08 in normalized board coordinates (0.115
+with equipment), and bandage tolerance is 0.045 (0.065 with equipment). Coils
+checkpoint every sixteen of their ninety-six segments. Drops require 0.45 active
+seconds of steady aim; forceps require 0.5 seconds at each mark and a movement
+speed below 0.75 board units/second. Cream and brush patches need 0.12 normalized units of
+gentle brushing travel, independent of pointer-event frequency; speed above 1.15 units/second or pointer pressure above
+0.82 increases discomfort. Cooling needs four seconds of lightly held alignment;
+its target moves horizontally ±0.12 and vertically ±0.055, and off-target time
+reduces progress at one second per second. Vaccine aiming takes 0.4 seconds,
+followed by three seconds at 32–62% plunger pressure; above 72% raises discomfort.
+Water begins at 15%; tilt × 0.24 determines fill per second. Stop within 60–70%
+and settle for 0.45 seconds; above 76% resets the pour. Fast pouring above 72%
+tilts the discomfort meter upward. These are game controls, not medical values.
 
 ### Purchases
 
-| Purchase               | Current price | Current effect                                                                                                                              |
-| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Leafy plant            | 60            | One plant; the first purchase adds +3 satisfaction per visit.                                                                               |
-| Treat shelf refill     | 35            | Add six treats; repeatable purchase.                                                                                                        |
-| Comfy waiting seats    | 90            | One bench with two usable seats; the first purchase adds +4 satisfaction per visit.                                                         |
-| Steady-paw tool kit    | 150           | Widens alignment, pressure and fill guide half-width from 0.09 to 0.14, and bandage path tolerance from 0.05 to 0.07, on normalized scales. |
-| Tell the neighbourhood | 110           | Poster; shortens introductory invitation cadence from 22 to 13 active seconds and future routine-care intervals by the same ratio.          |
-| Room for more paws     | 240           | 48 free floor tiles and three stored lounge chairs; patient capacity four to six, including the pet being examined.                         |
-| Books and magazines    | 65            | Book trolley and seated reading throughout the clinic.                                                                                      |
-| Tabletop games         | 130           | Two-seat board-game table.                                                                                                                  |
-| Pet playground         | 300           | 84 free floor tiles and a stored toy corner; capacity up to eight.                                                                          |
-| Scratching post        | 85            | One cat scratching attraction.                                                                                                              |
-| Exercise wheel         | 110           | One hamster/gerbil running attraction.                                                                                                      |
-| Pet rollercoaster      | 260           | One dog/cat/rabbit car on a gentle oval hill track.                                                                                         |
-| Pet Ferris wheel       | 220           | One occupied level cabin per slow revolution.                                                                                               |
-| Gentle merry-go-round  | 160           | One gentle dog/rabbit ride.                                                                                                                 |
-| Play garden extension  | 300           | 48 free floor tiles; capacity unchanged.                                                                                                    |
-| Treat dispenser        | 80            | Storybook snacks for dogs, cats, rabbits and rodents.                                                                                       |
-| Water dispenser        | 65            | Drinking breaks for mammals and birds.                                                                                                      |
-| Bouncy toy box         | 120           | Moving ball play for dogs, rabbits and rodents.                                                                                             |
-| Yarn-ball corner       | 75            | Rolling yarn for cats.                                                                                                                      |
-| Bird aviary            | 200           | Flying circuit and perches for birds.                                                                                                       |
-| Friendly play tree     | 180           | Peaceful climbing/perching turns for cats and birds.                                                                                        |
-| Sunshine courtyard     | 360           | 48 free floor tiles; capacity unchanged.                                                                                                    |
-| Puzzle picnic table    | 150           | Two reserved customer game seats with a parasol.                                                                                            |
-| Bubble chase           | 130           | Moving bubble play for dogs, cats and rabbits.                                                                                              |
-| Cosy cat nook          | 95            | Soft hooded resting bed for cats.                                                                                                           |
-| Bird chime arch        | 115           | Flying, perching and playing beside swaying chimes.                                                                                         |
-| Blooming flower border | 85            | Decorative raised flower planters.                                                                                                          |
-| Pawprint bunting       | 70            | Colourful reception flags; decorative only.                                                                                                 |
-| Cosy welcome rug       | 75            | Paw-patterned reception rug; decorative only.                                                                                               |
-| Happy pets gallery     | 90            | Three framed pet pictures in reception; decorative only.                                                                                    |
+| Purchase               | Current price | Current effect                                                                                                                     |
+| ---------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Leafy plant            | 60            | One plant; the first purchase adds +3 satisfaction per visit.                                                                      |
+| Treat shelf refill     | 35            | Add six treats; repeatable purchase.                                                                                               |
+| Comfy waiting seats    | 90            | One bench with two usable seats; the first purchase adds +4 satisfaction per visit.                                                |
+| Steady-paw tool kit    | 150           | Widens tool aiming from 0.08 to 0.115 and bandage tracing from 0.045 to 0.065 on normalized scales.                                |
+| Tell the neighbourhood | 110           | Poster; shortens introductory invitation cadence from 22 to 13 active seconds and future routine-care intervals by the same ratio. |
+| Room for more paws     | 240           | 48 free floor tiles and three stored lounge chairs; patient capacity four to six, including the pet being examined.                |
+| Books and magazines    | 65            | Book trolley and seated reading throughout the clinic.                                                                             |
+| Tabletop games         | 130           | Two-seat board-game table.                                                                                                         |
+| Pet playground         | 300           | 84 free floor tiles and a stored toy corner; capacity up to eight.                                                                 |
+| Scratching post        | 85            | One cat scratching attraction.                                                                                                     |
+| Exercise wheel         | 110           | One hamster/gerbil running attraction.                                                                                             |
+| Pet rollercoaster      | 260           | One dog/cat/rabbit car on a gentle oval hill track.                                                                                |
+| Pet Ferris wheel       | 220           | One occupied level cabin per slow revolution.                                                                                      |
+| Gentle merry-go-round  | 160           | One gentle dog/rabbit ride.                                                                                                        |
+| Play garden extension  | 300           | 48 free floor tiles; capacity unchanged.                                                                                           |
+| Treat dispenser        | 80            | Storybook snacks for dogs, cats, rabbits and rodents.                                                                              |
+| Water dispenser        | 65            | Drinking breaks for mammals and birds.                                                                                             |
+| Bouncy toy box         | 120           | Moving ball play for dogs, rabbits and rodents.                                                                                    |
+| Yarn-ball corner       | 75            | Rolling yarn for cats.                                                                                                             |
+| Bird aviary            | 200           | Flying circuit and perches for birds.                                                                                              |
+| Friendly play tree     | 180           | Peaceful climbing/perching turns for cats and birds.                                                                               |
+| Sunshine courtyard     | 360           | 48 free floor tiles; capacity unchanged.                                                                                           |
+| Puzzle picnic table    | 150           | Two reserved customer game seats with a parasol.                                                                                   |
+| Bubble chase           | 130           | Moving bubble play for dogs, cats and rabbits.                                                                                     |
+| Cosy cat nook          | 95            | Soft hooded resting bed for cats.                                                                                                  |
+| Bird chime arch        | 115           | Flying, perching and playing beside swaying chimes.                                                                                |
+| Blooming flower border | 85            | Decorative raised flower planters.                                                                                                 |
+| Pawprint bunting       | 70            | Colourful reception flags; decorative only.                                                                                        |
+| Cosy welcome rug       | 75            | Paw-patterned reception rug; decorative only.                                                                                      |
+| Happy pets gallery     | 90            | Three framed pet pictures in reception; decorative only.                                                                           |
+| Fish bubble dock       | 120           | Fish swim beside gentle bubbles in their own water, using a bowl trolley to reach the dock.                                        |
+| Reef explorer dock     | 155           | Fish explore an underwater hoop in their own bowl.                                                                                 |
+| Rainbow agility tunnel | 145           | Dogs, cats, rabbits and rodents travel through colourful hoops.                                                                    |
+| Snuffle garden         | 95            | Dogs, rabbits and rodents sniff through soft tufts.                                                                                |
+| Feather dance          | 110           | Cats pounce at a swaying feather toy.                                                                                              |
+| Burrowing box          | 125           | Rabbits and rodents dig and explore soft bedding.                                                                                  |
+| Bird flying hoops      | 150           | Birds flap through hoops and land before recall.                                                                                   |
+| Paw-and-beak piano     | 135           | Mammals and birds play moving, lighting keys, with quiet synthesized notes when clinic sound is enabled.                           |
 
 Furniture and decoration rows are repeatable: the listed price buys one additional
 copy (a bench includes its seats, and grouped decorations move as one furnishing).
@@ -1524,21 +1544,21 @@ rollback on the single-node k3s host.
 IDs are stable references. Detailed rules live above; this table records scope
 and evidence, not a competing set of mechanics.
 
-| ID  | Feature                                    | Status             | Scope, evidence, or completion target                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| --- | ------------------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F01 | Browser and container foundation           | Implemented        | Local and public HTTPS hosting at louise.vet, devcontainer, tested-image CI deployment with rollback. [Workflow](../.github/workflows/ci.yml), [README](../README.md). [Production operations](../deploy/README.md).                                                                                                                                                                                                                                                                                                               |
-| F02 | Reception and customer traffic             | Implemented        | Side entry, face-to-face counter, selectable queue, arrivals/capacity. [World](../src/world.ts), [UI flow](../src/main.ts).                                                                                                                                                                                                                                                                                                                                                                                                        |
-| F03 | Louise, owners, and animated pets          | Implemented        | Personalised Louise, women and men with sculpted faces and articulated strides, seven species, eleven dog/cat/bird breed meshes, soft examination coats, Idle/Walk/Sit/Read/Play clips and uninterrupted bird flight. [Credits](assets.md), [animation checks](../tests/animations.test.ts), [model rendering checks](../tests/model-polish.spec.ts). Breed identity persists between views; articulated legs, wings, speed-matched walking and smoothed headings. [Breed care and visual checks](../tests/pet-varieties.spec.ts). |
-| F04 | Interactive diagnosis                      | Implemented        | Draggable instruments, visible anatomy, observations, two clues and diagnosis for authored sick visits; explicit species-appropriate routine-check guidance, whole-bowl water contact, physiology-based heart rates and matching frame-independent audio. [Heartbeat contract](#heartbeat-physiology). [Examinations](../src/examination.ts), [clinical checks](../tests/clinical.test.ts), [browser checks](../tests/examination.spec.ts).                                                                                        |
-| F05 | Skilled treatment                          | Implemented        | Correct 3D placement plus nine instrument-specific care activities, three-coil bandage tracing with checkpoints, tighter aiming/timing and sustained cooling, harmless retries, draggable tracks and sliders, keyboard alternatives and explicit Finish care. [Rules](../src/care-skill.ts), [UI](../src/care-skill-view.ts), [rule checks](../tests/care-skill.test.ts), [activity browser checks](../tests/care-skill.spec.ts). Illustrated activities; no mesh deformation or physical medical simulation.                      |
-| F06 | Routine vaccination                        | Implemented        | Placement then controlled vaccine pressure, no diagnosis, harmless retries. [Rules](../src/game.ts), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                      |
-| F07 | Friendly visit controls                    | Implemented        | Abort/requeue, fixed actions, scrollable notes, rounded text, body guides, and a viewport-sized compact examination with separate tool/readout/notebook areas, rotation support and Visit info. [Compact layout checks](../tests/exam-layout.spec.ts). [UI](../src/main.ts), [styles](../src/style.css), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                  |
-| F08 | Authored case collection                   | Implemented        | Eleven visits in section 7, with skin, ear, tooth, bone, and water findings. [Case data](../src/game.ts), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                 |
-| F09 | Satisfaction, earnings, and saving         | Implemented        | Local completed progress and shop effects; saved community visits; an unfinished examination restarts from its queue. [Rules](../src/game.ts), [economy checks](../tests/economy.test.ts).                                                                                                                                                                                                                                                                                                                                         |
-| F10 | Clinic improvement                         | Partial            | Thirty-eight pictured shop items include floor kits, repeatable furniture, usable seats and owner/pet amusements; V2-13 supplies placement and expansion. [Rules](../src/game.ts), [world](../src/world.ts). Retail browsing remains future work.                                                                                                                                                                                                                                                                                  |
-| F11 | Customer shopping on arrival/departure     | Approved / planned | Completion-time treat sale exists under F09. Complete the broader feature when customers can make an understandable purchase from displayed stock during arrival/departure, with consistent inventory and rewards.                                                                                                                                                                                                                                                                                                                 |
-| F12 | Longer campaign and returning-pet stories  | Exploratory        | Current day label is a milestone only. Decide whether campaign progression or persistent follow-ups improve the caring loop before specifying levels/unlocks.                                                                                                                                                                                                                                                                                                                                                                      |
-| F13 | Narration and broader presentation variety | Exploratory        | Narrated reading, more owner/pet variants, and music are possible additions; no asset list or delivery commitment yet.                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ID  | Feature                                    | Status             | Scope, evidence, or completion target                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| --- | ------------------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F01 | Browser and container foundation           | Implemented        | Local and public HTTPS hosting at louise.vet, devcontainer, tested-image CI deployment with rollback. [Workflow](../.github/workflows/ci.yml), [README](../README.md). [Production operations](../deploy/README.md).                                                                                                                                                                                                                                                                                                                           |
+| F02 | Reception and customer traffic             | Implemented        | Side entry, face-to-face counter, selectable queue, arrivals/capacity. [World](../src/world.ts), [UI flow](../src/main.ts).                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| F03 | Louise, owners, and animated pets          | Implemented        | Personalised Louise, women and men with sculpted faces and articulated strides, seven species, eleven dog/cat/bird breed meshes, soft examination coats, Idle/Walk/Sit/Read/Play clips and uninterrupted bird flight. [Credits](assets.md), [animation checks](../tests/animations.test.ts), [model rendering checks](../tests/model-polish.spec.ts). Breed identity persists between views; articulated legs, wings, speed-matched walking and smoothed headings. [Breed care and visual checks](../tests/pet-varieties.spec.ts).             |
+| F04 | Interactive diagnosis                      | Implemented        | Draggable instruments, visible anatomy, observations, condition-specific one- or two-clue requirements and diagnosis for authored sick visits; explicit species-appropriate routine-check guidance, whole-bowl water contact, physiology-based heart rates and matching frame-independent audio. [Heartbeat contract](#heartbeat-physiology). [Examinations](../src/examination.ts), [clinical checks](../tests/clinical.test.ts), [browser checks](../tests/examination.spec.ts).                                                             |
+| F05 | Skilled treatment                          | Implemented        | Correct 3D placement plus nine activities on a rendered patient close-up: hopping-flea catches, gentle cream/brush coverage, actual 3D paw wrapping, aim/pressure/flow/extraction skills, discomfort and calm retries, touch/keyboard controls and explicit Finish care. [Rules](../src/care-skill.ts), [UI](../src/care-skill-view.ts), [rule checks](../tests/care-skill.test.ts), [activity browser checks](../tests/care-skill.spec.ts). Uses [3D care scene](../src/care-scene.ts); no tissue deformation or physical medical simulation. |
+| F06 | Routine vaccination                        | Implemented        | Placement then controlled vaccine pressure, no diagnosis, harmless retries. [Rules](../src/game.ts), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                  |
+| F07 | Friendly visit controls                    | Implemented        | Abort/requeue, fixed actions, scrollable notes, rounded text, body guides, and a viewport-sized compact examination with separate tool/readout/notebook areas, rotation support and Visit info. [Compact layout checks](../tests/exam-layout.spec.ts). [UI](../src/main.ts), [styles](../src/style.css), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                              |
+| F08 | Authored case collection                   | Implemented        | Eleven visits in section 7, with skin, ear, tooth, bone, and water findings. [Case data](../src/game.ts), [visit checks](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                             |
+| F09 | Satisfaction, earnings, and saving         | Implemented        | Local completed progress and shop effects; saved community visits; an unfinished examination restarts from its queue. [Rules](../src/game.ts), [economy checks](../tests/economy.test.ts).                                                                                                                                                                                                                                                                                                                                                     |
+| F10 | Clinic improvement                         | Partial            | Forty-six pictured shop items include floor kits, repeatable furniture, usable seats and owner/pet amusements; V2-13 supplies placement and expansion. [Rules](../src/game.ts), [world](../src/world.ts). Retail browsing remains future work.                                                                                                                                                                                                                                                                                                 |
+| F11 | Customer shopping on arrival/departure     | Approved / planned | Completion-time treat sale exists under F09. Complete the broader feature when customers can make an understandable purchase from displayed stock during arrival/departure, with consistent inventory and rewards.                                                                                                                                                                                                                                                                                                                             |
+| F12 | Longer campaign and returning-pet stories  | Exploratory        | Current day label is a milestone only. Decide whether campaign progression or persistent follow-ups improve the caring loop before specifying levels/unlocks.                                                                                                                                                                                                                                                                                                                                                                                  |
+| F13 | Narration and broader presentation variety | Exploratory        | Narrated reading, more owner/pet variants, and music are possible additions; no asset list or delivery commitment yet.                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 Development milestones group work; they are not player levels or release dates:
 
@@ -1561,7 +1581,7 @@ Development milestones group work; they are not player levels or release dates:
 | V2-05 | Recoverable road accidents                 | Implemented | Traffic contact creates a dog/cat fracture; a stopped driver gets out, summons the owner and resumes after collection. The owner carries the patient to care and waits safely if full. Emergency driver coverage: [sequence checks](../tests/emergencies.test.ts). [Contact/capacity checks](../tests/community.test.ts), [rendered care journeys](../tests/community.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | V2-06 | Fever examination                          | Implemented | Maple’s playable fever visit; rendered thermometer and cooling pad, normal/off-target feedback, and species-appropriate fever heart rates. [ECG and audio checks](../tests/examination.spec.ts). [Clinical models](../tests/clinical.test.ts), [contact checks](../tests/town.spec.ts), [all-case check](../tests/clinic.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | V2-07 | Visible clue summary                       | Implemented | Fixed care notebook with Key clues/Care notes pages, a new-clue pulse and persistent green completion state, newest observations first, internal scrolling, dedicated compact layout space, visible next/exit controls on desktop and phone. [Compact layout checks](../tests/exam-layout.spec.ts). [Routine guidance and clue feedback checks](../tests/routine-guidance.spec.ts). [Clue viewport check](../tests/town.spec.ts), [notes scrolling check](../tests/care-notes.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| V2-08 | Modular clinic and waiting activities      | Implemented | Connected lounge, enlarged playground, play-garden extension and Sunshine courtyard clear of pavements, capacity up to eight, inward-facing lounge seating and furniture-aware routes, six new dispenser/toy/aviary/tree activities, flying birds, rollercoaster and Ferris wheel with animated occupants, usable seats/books/board games, species-appropriate single-pet rides with FIFO queues, one arrival check-in, stable waiting places, a player-triggered return to the desk, and saved activities. [Rules and simulation checks](../tests/leisure.test.ts), [shop, rooms, activities and recall browser checks](../tests/leisure.spec.ts). Viewport-sized office with patient/activity pages: [layout and ride browser checks](../tests/playground.spec.ts). The courtyard has a textured lawn, picket fence and clear stepping-stone entrance, plus puzzles, bubbles, a cat nook, bird chimes and decorations; [courtyard checks](../tests/courtyard.test.ts), [scroll/purchase checks](../tests/shop-scroll.spec.ts). Free bounded clinic orbit/pan/zoom with room jumps, desktop camera buttons and gesture-only touch camera controls: [camera checks](../tests/clinic-camera.spec.ts). Hover/tap names for people, pets and attractions, with following five-second bubbles, bold names, regular messages, mouth-pointing speech tails, animal thought clouds and sound-only replies, unchanged patient menus and everyday activity/event dialogue: [identity checks](../tests/clinic-identity.spec.ts). V2-13 adds construction and rearrangement. No ride fares.                                                                                                                    |
+| V2-08 | Modular clinic and waiting activities      | Implemented | Connected lounge, enlarged playground, play-garden extension and Sunshine courtyard clear of pavements, capacity up to eight, inward-facing lounge seating and furniture-aware routes, dispenser/toy/aviary/tree activities plus eight species-appropriate additions including submerged fish docks and bowl trolleys, flying birds, rollercoaster and Ferris wheel with animated occupants, usable seats/books/board games, species-appropriate single-pet rides with FIFO queues, one arrival check-in, stable waiting places, a player-triggered return to the desk, and saved activities. [Rules and simulation checks](../tests/leisure.test.ts), [shop, rooms, activities and recall browser checks](../tests/leisure.spec.ts). Viewport-sized office with patient/activity pages: [layout and ride browser checks](../tests/playground.spec.ts). The courtyard has a textured lawn, picket fence and clear stepping-stone entrance, plus puzzles, bubbles, a cat nook, bird chimes and decorations; [courtyard checks](../tests/courtyard.test.ts), [scroll/purchase checks](../tests/shop-scroll.spec.ts). Free bounded clinic orbit/pan/zoom with room jumps, desktop camera buttons and gesture-only touch camera controls: [camera checks](../tests/clinic-camera.spec.ts). Hover/tap names for people, pets and attractions, with following five-second bubbles, bold names, regular messages, mouth-pointing speech tails, animal thought clouds and sound-only replies, unchanged patient menus and everyday activity/event dialogue: [identity checks](../tests/clinic-identity.spec.ts). V2-13 adds construction and rearrangement. No ride fares.                                  |
 | V2-09 | Connected examination room and escort      | Implemented | Included furnished room with opening door and shared close-up models. Louise meets the selected family at the desk and leads them inside before care; the main call button hides immediately during collection/escort and returns on cancellation or return to reception; cancellation, abort, completion and reload use doorway return routes. [Movement checks](../tests/room.test.ts), [desktop/touch room checks](../tests/exam-room.spec.ts). The treatment suite and clinical access remain anchored in Build.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | V2-10 | Police, fire service and rescue stories    | Implemented | Visible owner pursuits with an initial pet speed boost, distance-triggered police reports, lost-pet searches, dog chases, tree flights/climbs and ladder handovers, driver collection, safely extinguished house fires, every resident pet’s care, service cameras and saved phases. [Director checks](../tests/emergencies.test.ts), [rendering and care checks](../tests/emergencies.spec.ts), [authored rescue scene checks](../tests/emergency-visual.spec.ts). Named pets and owners express contextual feelings throughout the story using the shared bubble system. First opportunity at 35 seconds, then 100–160 seconds between starts with a twenty-second rest after responders return. Pending clinic care does not block the next story. One story at a time; authored public rescue trees, distance-based noticing and exterior-only house rescues.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | V2-11 | Street furniture and dog stops             | Implemented | Seventeen lamps, six hydrants, reserved sniffing stops, male-only leg-lift wees and owner poo pickup before resuming outdoor walks. One poo per dog on outings of twelve town units at the next safe spot, more frequent random poos, 45–90-second random-stop cooldowns and sniffing opportunities; saved outing progress/phases/cooldowns; no clinic or road stops, litter buildup or rewards. [Rules and save checks](../tests/dog-walks.test.ts), [rendered poses](../tests/street-visual.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -1596,7 +1616,7 @@ identifies coverage without claiming every visual requirement is automated.
   the page or interfering with dialogs; returning to the clinic ends town input.
 - Reception supports desktop/touch orbit, pan and zoom plus desktop keyboard and
   camera buttons. Touch office/Build views hide the camera button row while
-  preserving gestures and room shortcuts; Build offers a Camera tool. Its circular
+  preserving gestures and room shortcuts; only desktop Build offers a Camera tool. Its circular
   pan boundary covers owned rooms, expands with purchases,
   and keeps the camera on the grounds. Quick jumps remain usable without locking
   movement or retaining gesture momentum; dialogs and care isolate camera input.
@@ -1701,7 +1721,7 @@ and [rendered pointer, tracking, expiry and event checks](../tests/clinic-identi
 provide evidence.
 
 Eligible pets form ordered lines, one pet uses each attraction, turns end and
-later turns remain possible. Fever/fracture patients rest and fish do not ride.
+later turns remain possible. Fever/fracture/burn patients rest. Fish use only their submerged bowl activities and travel on a trolley; they never walk or board dry rides.
 The exercise wheel, carousel, rollercoaster car and level Ferris wheel cabins move with their occupants. Raised rides unload at the station before recall, and active turns survive reload. No scenery intersects the
 expanded footprint or hides the playground; the complete foundation and rides stay off pavements and roads. Room controls work on desktop and
 phone without scrolling the browser or a sidebar. All patient and activity pages keep navigation, room controls and pending-call cancellation visible. Calling a pet releases its ride,
@@ -1910,7 +1930,7 @@ interrupting the clinic's caring loop.
 
 Decision **D13:** add a purchasable garden wing with reserved activity spaces, rather than a placement editor. Birds use authored flight clips and cats/birds take peaceful tree turns; recalled climbers and flyers return to ground level. This gives waiting pets more variety while keeping care and its rewards central.
 
-Decision **D14:** replace the shared care timing bar with nine instrument-specific activities. Bandages now require tracing a continuous three-coil ribbon, with numbered recovery markers and a keyboard alternative, to practise controlled movement rather than button order. Retain real 3D tool placement and diagnostic viewers, then use an unhurried illustrated card with touch/keyboard controls and explicit completion. This broadens hand skill while keeping retries gentle and rewards tied to completed care.
+Decision **D14**, revised: replace the shared timing bar with nine tool-specific, gentle hand-skill activities. The earlier illustrated tracks are superseded by contact on a rendered patient close-up, hopping fleas, actual paw-bandage geometry and discomfort/retry feedback. Preserve unhurried instructions, touch/keyboard access, cancellation and explicit completion. Required diagnostic evidence follows each condition; clear local findings no longer need an unrelated heartbeat check.
 
 Decision **D15:** community helpers resolve automatic, recoverable emergencies in
 one continuous story linking home, streets, rescue and clinic. Allow exciting
@@ -1957,7 +1977,7 @@ Community visit and persistence evidence: [simulation](../src/town-simulation.ts
 [rendered journeys/checkups/reloads](../tests/community.spec.ts).
 
 Modular clinic: [room/station plan](../src/clinic-layout.json),
-[activity and queue simulation](../src/clinic-leisure.ts), [enrichment movement](../src/clinic-enrichment.ts),
+[activity and queue simulation](../src/clinic-leisure.ts), [enrichment movement](../src/clinic-enrichment.ts), [extra catalogue](../src/extra-amusements.ts), [submerged fish play](../src/fish-enrichment.ts),
 [fixtures and moving attractions](../src/clinic-furniture.ts),
 [Blender generator](../scripts/create-clinic-leisure.py),
 [unit checks](../tests/leisure.test.ts), [browser checks](../tests/leisure.spec.ts),
@@ -1983,7 +2003,7 @@ Hookville park: [shared plan](../src/park-layout.json), [park routines and saved
 [animated scenery](../src/park-scenery.ts), [Blender generator](../scripts/create-park-assets.py),
 [simulation checks](../tests/park.test.ts), [browser checks](../tests/park.spec.ts).
 
-Care activities: [rules](../src/care-skill.ts), [dialog and controls](../src/care-skill-view.ts), [unit checks](../tests/care-skill.test.ts), [browser checks](../tests/care-skill.spec.ts). The isolated browser harness under `tests/fixtures/` is not a production entry point.
+Care activities: [rendered close-up](../src/care-scene.ts), [layout](../src/care-layout.css), [rules](../src/care-skill.ts), [dialog and controls](../src/care-skill-view.ts), [unit checks](../tests/care-skill.test.ts), [browser checks](../tests/care-skill.spec.ts). The isolated browser harness under `tests/fixtures/` is not a production entry point.
 
 Community emergencies: [director](../src/emergencies.ts), [service routes](../src/emergency-map.ts), [rendering](../src/emergency-scenery.ts), [Blender authoring](../scripts/create-emergency-assets.py), [sequence/save checks](../tests/emergencies.test.ts), and [browser scenes/care](../tests/emergencies.spec.ts), and [deterministic rescue scene inspection](../tests/emergency-visual.spec.ts).
 

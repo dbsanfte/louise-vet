@@ -524,3 +524,44 @@ owners(
   ['Hello, little friend!'],
   "Hello! Let's see how you're feeling today.|Come in and get comfortable. I'm here to help.|We can take our time with your checkup.|Hello! I'm glad you came to see me.|Let's find out what will help you feel better.",
 );
+
+pets(
+  ['fish-bubbles'],
+  'A bubble tickled my fin.|I can swim beside these bubbles.|Up they go!|This water feels lovely.|I like the tiny bubbles.',
+  'That bubble went past my nose.|There is room to turn around.|I will follow this little bubble.|My fins feel floaty.|One more swim through the bubbles.',
+);
+pets(
+  ['fish-reef'],
+  'I can see through that hoop.|The coral has lovely colours.|I will swim around again.|There is a little arch to explore.|That looks like a good hiding place.',
+  'I like watching the reef.|Here comes the hoop again.|I can turn beside the coral.|A peaceful little swim.|There is something new to look at.',
+);
+pets(
+  ['agility-tunnel'],
+  'I can see the other end!|Through the tunnel I go.|That was a good run.|I want to try it again.|The stripes go all the way through.',
+  'Here I come!|There is plenty of room in here.|Out the other side!|I can take my time.|Back through the tunnel.',
+);
+pets(
+  ['snuffle-mat'],
+  'I can smell a little snack.|Something is hiding in this tuft.|My nose found it!|This mat feels soft.|I will check this corner.',
+  'There is another lovely smell.|A little sniff over here.|Found a tasty nibble!|This is a good searching spot.|I like finding things with my nose.',
+);
+pets(
+  ['cat-feather'],
+  'I am watching that feather.|Wait for it… pounce!|It moved again!|I nearly caught it.|A little bat with my paw.',
+  'That feather is coming back.|I can reach it from here.|I will crouch and wait.|Got it for a moment!|One more little pounce.',
+);
+pets(
+  ['dig-box'],
+  'This bedding is lovely and soft.|I can dig a little hollow.|There is something under here.|A cosy little burrow.|My paws are busy.',
+  'I will dig in this corner.|A little pile for me.|This is a good exploring box.|I found the tunnel!|Time to peep out again.',
+);
+pets(
+  ['bird-hoops'],
+  'I can fly through that hoop.|There is room for my wings.|Through the blue one!|I will fly back to the perch.|That was a lovely little flight.',
+  'My wings are feeling busy.|Here comes the next hoop.|I can see my landing place.|Another turn through the course.|A little rest, then more flying.',
+);
+pets(
+  ['pet-piano'],
+  'That key lit up!|I made a little tune.|What happens on this key?|The colours follow my taps.|I will try the next one.',
+  'A soft tap makes it light up.|This is my favourite key.|I can make a little pattern.|Another colourful note.|I like playing this little piano.',
+);

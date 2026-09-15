@@ -352,7 +352,7 @@ test('rescue care is species appropriate, with fish water checks and gentle smok
       assert.equal(visit.treatment, 'water-care');
       assert.ok(visit.checks.some((c) => c.tool === 'water-test'));
     } else {
-      assert.equal(visit.treatment, 'cooling');
+      assert.equal(visit.treatment, 'cream');
       assert.equal(visit.clinical?.skin, 'burn');
       assert.ok(visit.checks.some((c) => c.tool === 'listen'));
     }

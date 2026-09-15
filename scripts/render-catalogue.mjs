@@ -3,6 +3,10 @@ import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 
 // Start the web container first. Only the generated catalogue portraits are written.
+const selected = process.argv
+  .find((a) => a.startsWith('--only='))
+  ?.slice(7)
+  .split(',');
 const prefabsOnly = process.argv.includes('--prefabs');
 const baseURL = process.env.CATALOGUE_BASE_URL ?? 'http://web:8080';
 const result = await build({
@@ -33,7 +37,7 @@ try {
   await page.route('**/models/**', async (r) =>
     r.fulfill({ response: await r.fetch() }),
   );
-  await page.route('**/catalogue-render.html', (r) =>
+  await page.route('**/catalogue-render.html*', (r) =>
     r.fulfill({
       contentType: 'text/html',
       body: '<!doctype html><script type="module" src="/catalogue-render.js"></script>',
@@ -42,7 +46,9 @@ try {
   await page.route('**/catalogue-render.js', (r) =>
     r.fulfill({ contentType: 'application/javascript', body: script }),
   );
-  await page.goto(`${baseURL}/catalogue-render.html`);
+  await page.goto(
+    `${baseURL}/catalogue-render.html${selected ? '?only=' + selected.join(',') : ''}`,
+  );
   await page.waitForFunction(() => window.catalogueImages, undefined, {
     timeout: 45000,
   });

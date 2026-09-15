@@ -47,7 +47,9 @@ fill.position.set(-4, 3, -2);
 scene.add(fill);
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 200);
 const images: Record<string, string> = {};
+const selected = new URLSearchParams(location.search).get('only')?.split(',');
 for (const [id, model] of models) {
+  if (selected && !selected.includes(id)) continue;
   model.visible = true;
   model.position.set(0, 0, 0);
   model.rotation.set(0, 0, 0);

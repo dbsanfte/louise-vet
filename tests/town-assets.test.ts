@@ -291,3 +291,48 @@ test('traffic has four different Blender bodies within the road footprint, with 
   assert.equal(shapes.size, 4);
   assert.equal(paints.size, 4);
 });
+
+test('extra amusement models have distinct shapes and stay inside their build footprints', async () => {
+  const { extraAmusements } = await import('../src/extra-amusements.ts');
+  const { Box3 } = await import('three');
+  const signatures = new Set<string>();
+  for (const item of extraAmusements) {
+    const b = await readFile(
+      new URL(`../public/models/clinic/${item.id}.glb`, import.meta.url),
+    );
+    const { scene } = await new GLTFLoader().parseAsync(
+      b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength),
+      '',
+    );
+    scene.updateMatrixWorld(true);
+    const bounds = new Box3().setFromObject(scene),
+      size = bounds.getSize(new Vector3());
+    assert.ok(
+      size.x <= item.width + 0.01 && size.z <= item.depth + 0.01,
+      item.id + ' fits its navigation footprint',
+    );
+    assert.ok(size.y > 0.15, item.id + ' has visible geometry');
+    const shape: number[] = [];
+    scene.traverse((o) => {
+      if (o instanceof Mesh) {
+        const p = o.geometry.attributes.position;
+        for (let i = 0; i < p.count; i++)
+          shape.push(
+            ...new Vector3()
+              .fromBufferAttribute(p, i)
+              .applyMatrix4(o.matrixWorld)
+              .toArray()
+              .map((v) => Math.round(v * 1000)),
+          );
+      }
+    });
+    signatures.add(
+      createHash('sha256').update(JSON.stringify(shape)).digest('hex'),
+    );
+  }
+  assert.equal(
+    signatures.size,
+    extraAmusements.length,
+    'fish docks have their own designs too',
+  );
+});

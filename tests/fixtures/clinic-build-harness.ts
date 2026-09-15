@@ -30,6 +30,50 @@ ClinicBuildEditor.prototype.enter = function () {
 };
 void import('../../src/main');
 window.buildTest = {
+  fish: () => {
+    const result: {
+      name: string;
+      trolley: boolean;
+      swimming: number[];
+      submerged: boolean;
+      hoop: boolean;
+      bubbles: number;
+    }[] = [];
+    world.scene.updateMatrixWorld(true);
+    world.scene.traverse((o) => {
+      if (o.name !== 'SwimmingInsideBowl') return;
+      let model = o.parent!;
+      while (model.parent && !model.userData.petName) model = model.parent;
+      const b = new Box3()
+        .setFromObject(o)
+        .applyMatrix4(o.parent!.matrixWorld.clone().invert());
+      const visible = (part: import('three').Object3D) => {
+        let p: import('three').Object3D | null = part;
+        while (p) {
+          if (!p.visible) return false;
+          p = p.parent;
+        }
+        return true;
+      };
+      result.push({
+        name: model.userData.petName,
+        trolley: Boolean(model.getObjectByName('BowlTrolley')?.visible),
+        swimming: [...o.position.toArray(), o.rotation.y],
+        submerged:
+          b.min.y > 0.09 &&
+          b.max.y < 1.24 &&
+          b.min.x > -0.94 &&
+          b.max.x < 0.94 &&
+          b.min.z > -0.96 &&
+          b.max.z < 0.96,
+        hoop: Boolean(o.parent!.getObjectByName('UnderwaterReefHoop')?.visible),
+        bubbles: o.parent!.children.filter(
+          (c) => c.name === 'UnderwaterPlayBubble' && visible(c),
+        ).length,
+      });
+    });
+    return result;
+  },
   examFloor: (closeUp = false, angle = 0, filteredShadows = false) => {
     world.renderer.shadowMap.type = filteredShadows
       ? PCFShadowMap
@@ -241,6 +285,14 @@ window.buildTest = {
 declare global {
   interface Window {
     buildTest: {
+      fish: () => {
+        name: string;
+        trolley: boolean;
+        swimming: number[];
+        submerged: boolean;
+        hoop: boolean;
+        bubbles: number;
+      }[];
       examFloor: (
         closeUp?: boolean,
         angle?: number,

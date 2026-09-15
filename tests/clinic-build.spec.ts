@@ -702,11 +702,16 @@ test('illustrated catalogue stacks all copies, explains availability, and keeps 
   const camera = await page.evaluate(() => window.buildTest.camera());
   if (mobile) {
     await expect(page.locator('#scene-controls')).toBeHidden();
-    await chooseTool(page, 'camera');
-    await touchCamera(page, 'orbit');
+    await expect(
+      page.locator('[data-build="tool"][data-value="camera"]'),
+    ).toHaveCount(0);
+    await touchCamera(page, 'twist');
     const orbit = await page.evaluate(() => window.buildTest.camera());
     expect(orbit.position).not.toEqual(camera.position);
-    expect(orbit.target).toEqual(camera.target);
+    // Native two-finger coordinates round by a pixel and can include a tiny pan.
+    expect(
+      Math.hypot(...orbit.target.map((n, i) => n - camera.target[i])),
+    ).toBeLessThan(0.05);
     await touchCamera(page, 'pan-zoom');
     const moved = await page.evaluate(() => window.buildTest.camera());
     expect(moved.target).not.toEqual(orbit.target);
@@ -1059,7 +1064,11 @@ test('space modes show Garden prefabs and Undo refunds consecutive builds withou
   const second = await page.evaluate(() => window.buildTest.snapshot().build);
   expect(second.tiles.length).toBe(first.tiles.length + 24);
   await page.screenshot({ path: info.outputPath('released-space-built.png') });
-  await chooseTool(page, 'camera');
+  if (!touch) await chooseTool(page, 'camera');
+  else
+    await expect(
+      page.locator('[data-build="tool"][data-value="camera"]'),
+    ).toHaveCount(0);
   await expect(page.locator('[data-build="store"]')).toHaveCount(0);
   if (touch) await touchCamera(page, 'pan-zoom');
   await page.locator('[data-build="undo"]').click();
@@ -2048,4 +2057,102 @@ test('examination floors have one visible surface through floor edits, Undo, rel
   }
   await inspect(42, true, Math.PI / 2);
   await inspect(0);
+});
+
+test('fish docks have real catalogue pictures, independent paid copies and submerged play reached by trolley', async ({
+  page,
+}, info) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await open(
+    page,
+    true,
+    ['expansion', 'pet-room', 'fish-bubbles', 'fish-reef'],
+    false,
+    ['Bubbles', 'Coral'],
+  );
+  const touch = info.project.name === 'mobile';
+  await expect(
+    page.locator('[data-build="tool"][data-value="camera"]'),
+  ).toHaveCount(touch ? 0 : 1);
+  await page.locator('[data-build="shop"]').click();
+  for (const id of [
+    'fish-bubbles',
+    'fish-reef',
+    'agility-tunnel',
+    'snuffle-mat',
+    'cat-feather',
+    'dig-box',
+    'bird-hoops',
+    'pet-piano',
+  ]) {
+    const card = page
+      .locator('.shop-card')
+      .filter({ has: page.locator(`[data-upgrade="${id}"]`) });
+    await card.scrollIntoViewIfNeeded();
+    await expect(card.locator('img')).toBeVisible();
+    await expect
+      .poll(() =>
+        card
+          .locator('img')
+          .evaluate((e) => (e as HTMLImageElement).naturalWidth),
+      )
+      .toBe(256);
+  }
+  const buy = page.locator('[data-upgrade="fish-bubbles"]');
+  await buy.click();
+  await expect(page.getByTestId('coins')).toHaveText('4,880');
+  await expect(buy).toBeEnabled();
+  await page.getByRole('button', { name: 'Close shop', exact: true }).click();
+  await expect(
+    page.locator('.build-card[data-recipe="fish-bubbles"]'),
+  ).toHaveCount(1);
+  await expect(
+    page.locator('.build-card[data-recipe="fish-bubbles"]'),
+  ).toContainText('2 available');
+  for (const [id, z] of [
+    ['fish-bubbles', -6],
+    ['fish-reef', -9],
+  ] as const) {
+    await page.locator(`[data-build="pick"][data-id="${id}"]`).click();
+    await tap(page, -14, z, touch);
+    await expect(page.locator('#build-feedback')).toContainText('Lovely');
+  }
+  const models = await page.evaluate(() => window.buildTest.models());
+  for (const id of ['fish-bubbles', 'fish-reef'])
+    expect(models.find((m) => m.id === id)?.visible).toBe(true);
+  await page.locator('[data-build="done"]').click();
+  const seen = new Set<string>();
+  for (let i = 0; i < 90 && seen.size < 2; i++) {
+    const state = await page.evaluate(() => {
+      window.buildTest.step(2);
+      return {
+        pets: window.buildTest.snapshot().leisure.pets,
+        fish: window.buildTest.fish(),
+      };
+    });
+    for (const p of state.pets.filter(
+      (p) => p.phase === 'use' && p.station.startsWith('fish-'),
+    )) {
+      // Each dock lights its corresponding underwater activity; inspect every active fish.
+      const active = state.fish.filter((f) => f.bubbles > 0);
+      expect(active.length).toBeGreaterThan(0);
+      for (const f of active) {
+        expect(f.trolley).toBe(true);
+        expect(f.submerged, f.name).toBe(true);
+      }
+      seen.add(p.station);
+    }
+  }
+  expect([...seen].sort()).toEqual(['fish-bubbles', 'fish-reef']);
+  await page.screenshot({ path: info.outputPath('fish-dock-play.png') });
+  const before = await page.evaluate(() => window.buildTest.snapshot().build);
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(await page.evaluate(() => window.buildTest.snapshot().build)).toEqual(
+    before,
+  );
+  expect(errors).toEqual([]);
 });

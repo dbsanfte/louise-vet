@@ -290,3 +290,25 @@ test('water tools hit the whole visible bowl while optical tools can reach the f
   clean();
   assert.equal(fish.getObjectByName('bowl_water'), undefined);
 });
+
+test('visible local problems need their specific evidence, while fever and checkups retain supporting checks', async () => {
+  const { communityVisit } = await import('../src/game.ts');
+  const flea = visits.find((v) => v.name === 'Peanut')!;
+  assert.deepEqual(
+    flea.checks.map((c) => [c.tool, c.zone]),
+    [['inspect', 'coat']],
+  );
+  const finding = examine(flea, 'inspect', 'coat', true);
+  assert.ok(finding.kind === 'finding' && finding.clueIndex === 0);
+  const optional = examine(flea, 'listen', 'chest');
+  assert.ok(optional.kind === 'finding' && optional.clueIndex === -1);
+  for (const name of ['Luna', 'Milo', 'Cleo', 'Scout', 'Poppy'])
+    assert.equal(visits.find((v) => v.name === name)!.checks.length, 1);
+  for (const reason of ['checkup', 'fever', 'post-fire', 'accident'] as const) {
+    const visit = communityVisit(
+      visits.find((v) => v.species === 'dog')!,
+      reason,
+    );
+    assert.equal(visit.checks.length, 2, reason);
+  }
+});

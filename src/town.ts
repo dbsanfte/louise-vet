@@ -24,6 +24,8 @@ import type { ClinicInfo } from './clinic-identity';
 import { characterFeeling } from './character-feelings';
 import { petReply } from './pet-replies';
 import { messagesFor } from './character-voices';
+import { FishEnrichment } from './fish-enrichment';
+import { addBowlWater } from './fishbowl';
 import type { BubbleCandidate } from './speech-bubbles';
 
 export type TownPick = number | { label: string } | undefined;
@@ -105,6 +107,8 @@ export class Town {
       visit: Visit;
       placed: boolean;
       perch?: THREE.Group;
+      trolley?: THREE.Object3D;
+      aquatic?: FishEnrichment;
     }[];
   }[] = [];
   private contactShadows?: THREE.InstancedMesh;
@@ -279,6 +283,16 @@ export class Town {
         model.userData.townLabel = `${visit.name} · ${h.owner}’s ${visit.species}`;
         model.scale.setScalar(0.4);
         const animation = new Character(model, i * 0.31);
+        let trolley: THREE.Object3D | undefined;
+        let aquatic: FishEnrichment | undefined;
+        if (visit.species === 'goldfish') {
+          addBowlWater(model, false);
+          aquatic = new FishEnrichment(model);
+          trolley = this.cloneCharacter('clinic/bowl-trolley');
+          trolley.name = 'BowlTrolley';
+          trolley.visible = false;
+          model.add(trolley);
+        }
         let perch: THREE.Group | undefined;
         if (visit.species === 'bird') {
           perch = new THREE.Group();
@@ -305,7 +319,15 @@ export class Town {
           this.group.add(perch);
         }
         this.group.add(model);
-        return { model, animation, visit, placed: false, perch };
+        return {
+          model,
+          animation,
+          visit,
+          placed: false,
+          perch,
+          trolley,
+          aquatic,
+        };
       });
       const trail = new OwnerTrail(
         h.inClinic && h.routine === 'clinic-wait'
@@ -752,6 +774,25 @@ export class Town {
         sleeping ||=
           play?.station.split('@')[0] === 'cat-nook' && play.phase === 'use';
         p.model.userData.sleeping = sleeping;
+        if (p.trolley) {
+          p.trolley.visible = Boolean(play && play.phase !== 'rest');
+          if (p.trolley.visible) {
+            p.model.position.y = Math.max(0.28, p.model.position.y);
+            p.trolley.traverse((part) => {
+              if (part.name.startsWith('TrolleyWheel'))
+                part.rotation.x += distance(previous, p.model.position) / 0.048;
+            });
+            p.animation.setMotion('Walk');
+          }
+        }
+        p.aquatic?.update(
+          play?.phase === 'use'
+            ? this.simulation.build.stations.find((s) => s.id === play.station)
+                ?.kind
+            : undefined,
+          play?.elapsed ?? 0,
+          dt,
+        );
         p.placed = true;
         p.model.rotation.y = turnToward(previousFacing, p.model.rotation.y, dt);
         let petDistance = distance(previous, p.model.position);

@@ -162,3 +162,53 @@ test('every person and pet has looping Blender clips that move its parts', async
     character.dispose();
   }
 });
+
+test('fish activity moves the swimmer inside its bowl and preserves original fin animation', async () => {
+  const { FishEnrichment } = await import('../src/fish-enrichment.ts');
+  const { Box3 } = await import('three');
+  const b = await readFile(
+    new URL('../public/models/goldfish.glb', import.meta.url),
+  );
+  const gltf = await new GLTFLoader().parseAsync(
+    b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength),
+    '',
+  );
+  gltf.scene.animations = gltf.animations;
+  const character = new Character(gltf.scene),
+    fish = new FishEnrichment(gltf.scene);
+  character.setMotion('Walk');
+  const start = gltf.scene.getObjectByName('fin')!.quaternion.toArray();
+  const bowl = gltf.scene.getObjectByName('bowl_rim')!,
+    original = pose(bowl);
+  for (const kind of ['fish-bubbles', 'fish-reef'])
+    for (let i = 0; i < 120; i++) {
+      fish.update(kind, i * 0.1, 0.1);
+      character.update(0.1);
+      gltf.scene.updateMatrixWorld(true);
+      const box = new Box3().setFromObject(fish.swimmer);
+      assert.ok(
+        box.min.y > 0.09 && box.max.y < 1.24,
+        'gills and fins stay in water',
+      );
+      assert.ok(
+        box.min.x > -0.94 &&
+          box.max.x < 0.94 &&
+          box.min.z > -0.96 &&
+          box.max.z < 0.96,
+        'swimming stays within the bowl',
+      );
+      assert.deepEqual(
+        pose(bowl),
+        original,
+        'only the fish swims, not its bowl',
+      );
+    }
+  assert.notDeepEqual(
+    gltf.scene.getObjectByName('fin')!.quaternion.toArray(),
+    start,
+  );
+  assert.equal(fish.hoop.visible, true);
+  fish.update(undefined, 0, 0.1);
+  assert.equal(fish.hoop.visible, false);
+  assert.ok(fish.bubbles.every((b) => !b.visible));
+});

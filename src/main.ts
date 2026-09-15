@@ -5,6 +5,7 @@ import { CareSkillView } from './care-skill-view';
 import { zoneLabel, checkInstruction } from './game';
 import './style.css';
 import './examination-layout.css';
+import './care-layout.css';
 import './build-layout.css';
 import { arrangeExamination } from './exam-layout';
 import { World } from './world';
@@ -492,7 +493,7 @@ function renderCase() {
     <div class="owner-note"><p>“${patient.quote}”</p><span>— ${patient.owner}, ${patient.name}’s person</span></div>
     <ol class="case-steps">${steps.map((label, i) => `<li class="${i === step ? 'current' : i < step ? 'complete' : ''}"><span>${i < step ? icon('check') : i + 1}</span>${label}</li>`).join('')}</ol>
     </div><div class="case-work" data-purpose="${patient.purpose}">
-    ${vaccination ? `<div class="care-plan"><span>${icon('heart')} VACCINATION VISIT</span><h3>${timing ? 'A gentle touch' : 'Find a comfy spot'}</h3><p>${timing ? 'You found the spot! Now keep your hand steady.' : `The vaccine is ready. Find the soft patch of fur on ${patient.name}’s upper body. Turn her around and tap the matching body marker.`}</p></div><p class="instruction">${timing ? 'Begin gently, then pause in the striped pressure patch. A wobbly try gives no vaccine and you can try again.' : 'No mystery to solve today — just a little practice with careful hands.'}</p>` : ''}
+    ${vaccination ? `<div class="care-plan"><span>${icon('heart')} VACCINATION VISIT</span><h3>${timing ? 'A gentle touch' : 'Find a comfy spot'}</h3><p>${timing ? 'You found the spot! Now keep your hand steady.' : `The vaccine is ready. Find the soft patch of fur on ${patient.name}’s upper body. Turn her around and tap the matching body marker.`}</p></div><p class="instruction">${timing ? 'Aim carefully, then keep the plunger in the gentle pressure range. You can pause or try again.' : 'No mystery to solve today — just a little practice with careful hands.'}</p>` : ''}
     ${mode === 'examine' ? `<div class="section-title"><h3>${patient.purpose === 'checkup' ? 'Standard checks' : 'Look & listen'}</h3><span>${findings.size}/${patient.checks.length} key clues</span></div>${patient.purpose === 'checkup' ? `<p class="instruction">Two standard checks for ${patient.name}. Choose a check below, then use its tool at the listed spot or choose the labelled body guide. Both ticks unlock Finish healthy checkup.</p><ol class="routine-checks" aria-label="Standard checks">${patient.checks.map((check, i) => `<li><button class="secondary ${findings.has(i) ? 'check-done' : ''}" data-action="tool" data-tool="${check.tool}" aria-pressed="${selectedTool === check.tool}">${icon(findings.has(i) ? 'check' : 'search')}<span>${checkInstruction(check, patient!.species)}${findings.has(i) ? '<strong>Done</strong>' : ''}</span></button></li>`).join('')}</ol>` : `<p class="instruction">Choose a tool, then hold and drag it over ${patient.name}. Look closely at what you see and hear. The body guides can help you place your tool.</p>`}<div class="tool-grid">${diagnosticTools.map(toolButton).join('')}</div>` : ''}
     ${
       mode === 'diagnose'
@@ -534,7 +535,7 @@ function renderCase() {
           .join('')
       : '';
   byId('stage-footer').innerHTML =
-    `<span class="footer-tip">${icon(selectedTool ? toolInfo[selectedTool].icon : 'heart')} ${selectedTool ? `${toolInfo[selectedTool].name} selected · ${patient.species === 'goldfish' && selectedTool === 'inspect' ? 'Look closely at the fins and scales' : patient.species === 'bird' ? toolInfo[selectedTool].hint.replace(/coat/g, 'feathers') : toolInfo[selectedTool].hint}` : mode === 'diagnose' ? 'Use both clues to choose your diagnosis.' : patient.purpose === 'checkup' ? 'Follow the two standard checks.' : 'Choose a tool to begin. Take your time looking and listening.'}</span><span class="clinic-total">${queue.length} waiting patiently</span>`;
+    `<span class="footer-tip">${icon(selectedTool ? toolInfo[selectedTool].icon : 'heart')} ${selectedTool ? `${toolInfo[selectedTool].name} selected · ${patient.species === 'goldfish' && selectedTool === 'inspect' ? 'Look closely at the fins and scales' : patient.species === 'bird' ? toolInfo[selectedTool].hint.replace(/coat/g, 'feathers') : toolInfo[selectedTool].hint}` : mode === 'diagnose' ? 'Use your key findings to choose your diagnosis.' : patient.purpose === 'checkup' ? 'Follow the two standard checks.' : 'Choose a tool to begin. Take your time looking and listening.'}</span><span class="clinic-total">${queue.length} waiting patiently</span>`;
   world.setInstrument(
     selectedTool,
     !timing && ['examine', 'treat', 'place-vaccine'].includes(mode),
@@ -580,6 +581,7 @@ function renderPrecision() {
         cancel: cancelCareActivity,
         stop: () => returnToReception(true),
       },
+      world.careModels(patient),
     );
 }
 
@@ -621,7 +623,7 @@ function renderModal() {
         ? 'The vaccine is ready. Find the soft patch on the upper body, or tap the Coat guide. Then follow the gentle-pressure activity. There is no diagnosis to choose today.'
         : patient.purpose === 'checkup'
           ? 'Follow the two standard checks. Choose a check, then use its tool at the listed spot or tap a labelled body guide. Both ticks unlock Finish healthy checkup.'
-          : `Choose a tool, then hold and drag it over ${patient.name}, or tap a labelled body guide. Your discoveries stay in Key clues and Care notes. Both key clues unlock Choose a diagnosis.`;
+          : `Choose a tool, then hold and drag it over ${patient.name}, or tap a labelled body guide. Your discoveries stay in Key clues and Care notes. Find the key clues for this concern to unlock Choose a diagnosis.`;
     content = `<p class="modal-intro">${patient.breed} · ${patient.age}</p>${byId('sidebar').querySelector('.case-details')?.innerHTML ?? ''}<p>${help}</p><p>Use Look around to turn your patient. Stop visit returns you to the office; your patient can try again later.</p>`;
   } else if (modal === 'shop') {
     title = 'Make it feel like home';
@@ -651,7 +653,7 @@ function renderModal() {
       [
         'search',
         'Be a little detective',
-        'For a poorly pet, choose tools and tap body markers to collect two key clues. Drag to rotate; scroll or pinch to zoom.',
+        'For a poorly pet, choose tools and tap body markers to find the key clues for their concern. Drag to rotate; scroll or pinch to zoom.',
       ],
       [
         'book',
@@ -1146,13 +1148,13 @@ app.addEventListener('click', (event) => {
       mode = 'treat';
       audio.play('success');
       announce(
-        'That fits both clues. Let’s help our little friend feel better.',
+        'That fits the key findings. Let’s help our little friend feel better.',
       );
       render();
     } else {
       mistakes++;
       announce(
-        'That doesn’t quite fit both clues. Take another look at your care notes.',
+        'That doesn’t quite fit the key findings. Take another look at your care notes.',
       );
     }
   } else if (action === 'apply') applyCare();
@@ -1312,6 +1314,7 @@ try {
     renderClinicTitle();
   };
   let last = performance.now();
+  let lastPianoNote = '';
   function frame(now: number) {
     const elapsed = document.hidden ? 0 : (now - last) / 1000;
     const dt = Math.min(elapsed, 0.5);
@@ -1326,6 +1329,18 @@ try {
           !modal &&
           simulation.emergencies.active?.phase === 'dispatch',
       );
+      const pianoPet =
+        mode === 'reception' && !modal && !builder?.active
+          ? [...simulation.leisure.pets.values()].find(
+              (p) =>
+                p.phase === 'use' && p.station.split('@')[0] === 'pet-piano',
+            )
+          : undefined;
+      const pianoKey = pianoPet ? Math.floor(pianoPet.elapsed * 2) : 0;
+      const pianoNote = pianoPet ? `${pianoPet.station}:${pianoKey}` : '';
+      if (pianoNote && pianoNote !== lastPianoNote)
+        audio.play('piano', pianoKey);
+      lastPianoNote = pianoNote;
       if (timing && !modal) careActivity?.update(dt);
       document.querySelectorAll<HTMLElement>('.body-spot').forEach((el) => {
         const zone = el.dataset.zone as Zone;

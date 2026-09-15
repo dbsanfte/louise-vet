@@ -1,11 +1,38 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CareSkill, careSkills, type CareTool } from '../src/care-skill.ts';
-import { bandagePattern } from '../src/bandage-pattern.ts';
+import {
+  CareSkill,
+  careSkills,
+  carePatches,
+  type CareTool,
+} from '../src/care-skill.ts';
+import { bandagePattern, type TracePoint } from '../src/bandage-pattern.ts';
 import { visits } from '../src/game.ts';
 const tick = (s: CareSkill, seconds: number) => {
   for (let i = 0; i < Math.ceil(seconds / 0.05); i++) s.update(0.05);
 };
+function stroke(s: CareSkill, to: TracePoint, seconds = 0.8) {
+  const from = { ...s.position },
+    count = Math.ceil(seconds / 0.05);
+  for (let i = 1; i <= count; i++) {
+    s.move({
+      x: from.x + ((to.x - from.x) * i) / count,
+      y: from.y + ((to.y - from.y) * i) / count,
+    });
+    s.update(0.05);
+  }
+}
+function circle(s: CareSkill, p: TracePoint) {
+  s.press({ x: p.x + 0.035, y: p.y });
+  for (let i = 1; i <= 36; i++) {
+    s.move({
+      x: p.x + Math.cos(i * 0.3) * 0.035,
+      y: p.y + Math.sin(i * 0.3) * 0.035,
+    });
+    s.update(0.05);
+  }
+  s.release();
+}
 function complete(tool: CareTool) {
   const s = new CareSkill(tool);
   s.start();
@@ -15,247 +42,295 @@ function complete(tool: CareTool) {
       for (const point of bandagePattern) s.traceWrap(point);
       break;
     case 'spread':
-      for (let i = 0; i < 6; i++) s.act(i);
+    case 'brush':
+      for (const p of carePatches.slice(0, tool === 'cream' ? 6 : 3))
+        circle(s, p);
       break;
     case 'comb':
-    case 'brush':
-      for (let i = 0; i < 6; i++) s.input(i % 2 ? 0 : 1);
+      for (let i = 0; i < 6; i++) {
+        const p = s.fleaPosition(i);
+        s.press({ x: p.x - 0.03, y: p.y });
+        s.move(p);
+        s.update(0.05);
+        s.release();
+      }
       break;
     case 'aim':
       for (let i = 0; i < 3; i++) {
-        s.input(s.target);
+        s.press(s.targetPoint);
+        tick(s, 0.6);
+        s.release();
         s.act();
       }
       break;
     case 'pull':
+      s.press(s.targetPoint);
       s.act();
       for (let i = 0; i < 3; i++) {
-        s.input(s.target);
-        tick(s, 0.9);
+        stroke(s, s.targetPoint);
+        tick(s, 0.6);
       }
       break;
     case 'steady':
-      for (let i = 0; i < 90; i++) {
-        s.input(s.target);
+      s.press(s.targetPoint);
+      for (let i = 0; i < 85; i++) {
+        s.move(s.targetPoint);
         s.update(0.05);
       }
       break;
     case 'pressure':
+      s.press(s.targetPoint);
+      tick(s, 0.5);
+      s.release();
       s.act();
-      tick(s, 1.7);
-      s.act();
+      s.input(0.45);
+      tick(s, 3.1);
       break;
     case 'pour':
-      s.act();
-      tick(s, 1.8);
-      s.act();
-      tick(s, 1);
+      s.press(s.targetPoint);
+      s.release();
+      s.input(0.5);
+      tick(s, 4.2);
+      s.input(0);
+      tick(s, 0.5);
       break;
   }
   return s;
 }
-test('every prescribed care tool has a suitable, completable activity', () => {
-  for (const v of visits) assert.ok(v.treatment in careSkills, v.treatment);
+test('all nine tool-specific activities are achievable and complete only once', () => {
+  for (const v of visits) assert.ok(v.treatment in careSkills);
   for (const tool of Object.keys(careSkills) as CareTool[]) {
     const s = complete(tool);
     assert.ok(s.complete, tool);
     assert.equal(s.progress, 1);
     assert.equal(s.misses, 0, tool);
     const before = { stage: s.stage, misses: s.misses };
-    s.act(0);
-    s.input(0);
-    tick(s, 4);
-    assert.deepEqual(
-      { stage: s.stage, misses: s.misses },
-      before,
-      'completed care cannot be applied twice',
-    );
-  }
-});
-test('reading time is unhurried and no action can skip starting', () => {
-  for (const tool of Object.keys(careSkills) as CareTool[]) {
-    const s = new CareSkill(tool),
-      value = s.value;
-    s.act(0);
+    s.act();
+    s.press({ x: 0, y: 0 });
     s.input(1);
-    s.beginWrap(bandagePattern[0]);
-    for (const point of bandagePattern) s.traceWrap(point);
-    tick(s, 10);
-    assert.equal(s.value, value);
-    assert.equal(s.elapsed, 0);
-    assert.equal(s.complete, false);
+    tick(s, 4);
+    assert.deepEqual({ stage: s.stage, misses: s.misses }, before);
   }
 });
-test('bandages require continuous tracing, preserve checkpoints and resume after lifting', () => {
+test('reading never starts care, and arbitrary clicks or sliders cannot replace contact', () => {
+  for (const tool of Object.keys(careSkills) as CareTool[]) {
+    const s = new CareSkill(tool);
+    s.act();
+    s.input(1);
+    s.press(carePatches[0]);
+    s.move(carePatches[1]);
+    s.beginWrap(bandagePattern[0]);
+    for (const p of bandagePattern) s.traceWrap(p);
+    tick(s, 20);
+    assert.equal(s.elapsed, 0);
+    assert.equal(s.progress, 0);
+  }
+  for (const tool of ['cream', 'brush', 'comb'] as const) {
+    const s = new CareSkill(tool);
+    s.start();
+    for (let i = 0; i < 6; i++) {
+      s.act();
+      s.input(i % 2);
+      s.press(carePatches[i]);
+      s.release();
+      tick(s, 1);
+    }
+    assert.equal(s.progress, 0, tool);
+  }
+});
+test('gentle circles cover every patch; fast or heavy scrubbing startles and requires a fresh attempt', () => {
+  const s = new CareSkill('cream');
+  s.start();
+  circle(s, carePatches[0]);
+  assert.equal(s.covered.size, 1);
+  s.press(carePatches[1]);
+  for (let i = 0; i < 80; i++) {
+    s.move({ x: i % 2 ? 0.1 : 0.9, y: 0.38 });
+    s.update(0.05);
+  }
+  assert.ok(s.startled);
+  assert.equal(s.complete, false);
+  assert.equal(s.misses, 1);
+  tick(s, 60);
+  assert.ok(s.startled, 'time alone cannot resume after startling');
+  s.restart();
+  assert.equal(s.progress, 0);
+  assert.equal(s.pain, 0);
+  for (const p of carePatches) circle(s, p);
+  assert.ok(s.complete);
+  assert.equal(s.qualityLoss, 4);
+  const heavy = new CareSkill('brush');
+  heavy.start();
+  heavy.press(carePatches[0], 1);
+  for (let i = 0; i < 60; i++) {
+    heavy.move({ x: 0.32 + Math.sin(i) * 0.01, y: 0.38 }, 1);
+    heavy.update(0.05);
+  }
+  assert.ok(heavy.startled);
+});
+test('fleas move and hop; only a comb stroke close to a flea catches it', () => {
+  const s = new CareSkill('comb');
+  s.start();
+  const before = s.fleaPosition(0);
+  tick(s, 1.4);
+  assert.notDeepEqual(s.fleaPosition(0), before);
+  assert.ok(s.fleaPosition(0).hop > 0);
+  s.press({ x: 0, y: 0 });
+  s.move({ x: 0.01, y: 0 });
+  s.update(0.05);
+  assert.equal(s.covered.size, 0);
+  const flea = s.fleaPosition(0);
+  s.release();
+  s.press({ x: flea.x - 0.025, y: flea.y });
+  s.move(flea);
+  s.update(0.05);
+  assert.ok(s.covered.has(0));
+  assert.equal(s.complete, false);
+});
+test('bandage follows continuous coils, retaining checkpoints on a slip or lift', () => {
   const s = new CareSkill('bandage');
   s.start();
-  for (let i = 0; i < 7; i++) s.act(i);
-  assert.equal(s.progress, 0, 'clicking numbered steps no longer wraps');
-  assert.equal(s.beginWrap(bandagePattern[48]), false, 'start at the roll');
+  assert.equal(s.beginWrap(bandagePattern[48]), false);
   s.beginWrap(bandagePattern[0]);
   s.traceWrap(bandagePattern[32]);
-  assert.equal(s.progress, 0, 'cannot jump to another coil');
+  assert.equal(s.progress, 0);
   assert.equal(s.misses, 1);
   s.beginWrap(bandagePattern[0]);
-  for (const point of bandagePattern.slice(0, 24)) s.traceWrap(point);
-  assert.ok(s.wrapProgress > 22);
+  for (const p of bandagePattern.slice(0, 24)) s.traceWrap(p);
   s.traceWrap({ x: 1.5, y: 0.5 });
-  assert.equal(s.wrapProgress, 16, 'an off-ribbon stroke keeps its checkpoint');
-  assert.equal(s.misses, 2);
-  s.traceWrap(bandagePattern[96]);
-  assert.equal(s.misses, 2, 'one miss per interrupted stroke');
+  assert.equal(s.wrapProgress, 16);
   s.beginWrap(s.wrapPosition);
-  for (const point of bandagePattern.slice(16, 40)) s.traceWrap(point);
+  for (const p of bandagePattern.slice(16, 40)) s.traceWrap(p);
   s.releaseWrap();
   const progress = s.wrapProgress;
   s.traceWrap(bandagePattern[96]);
-  assert.equal(s.wrapProgress, progress, 'hovering does not wrap');
+  assert.equal(s.wrapProgress, progress);
   s.beginWrap(s.wrapPosition);
-  for (const point of bandagePattern.slice(39)) s.traceWrap(point);
+  for (const p of bandagePattern.slice(39)) s.traceWrap(p);
   assert.ok(s.complete);
-  assert.equal(s.progress, 1);
   assert.equal(s.wrapping, false);
 });
-test('tighter treatment targets still support equipment and unhurried retries', () => {
-  const drops = new CareSkill('drops');
-  drops.start();
-  drops.input(drops.target + 0.11);
-  drops.act();
-  assert.equal(drops.stage, 0, 'old edge of guide now needs more precise aim');
-  const assisted = new CareSkill('drops', true);
-  assisted.start();
-  assisted.input(assisted.target + 0.11);
-  assisted.act();
-  assert.equal(assisted.stage, 1, 'equipment still widens the guide');
-  const cooling = new CareSkill('cooling');
-  cooling.start();
-  for (let i = 0; i < 55; i++) {
-    cooling.input(cooling.target);
-    cooling.update(0.05);
-  }
-  assert.equal(
-    cooling.complete,
-    false,
-    'cooling needs longer than one short pass',
-  );
-  for (let i = 0; i < 30; i++) {
-    cooling.input(cooling.target);
-    cooling.update(0.05);
-  }
-  assert.ok(cooling.complete);
-  const unattended = new CareSkill('cooling');
-  unattended.start();
-  unattended.input(0.5);
-  tick(unattended, 20);
-  assert.equal(
-    unattended.complete,
-    false,
-    'a parked pad cannot follow the moving guide',
-  );
-  assert.ok(
-    new CareSkill('bandage', true).wrapTolerance >
-      new CareSkill('bandage').wrapTolerance,
-  );
-});
-test('cream needs full coverage and strokes need direction changes', () => {
-  const cream = new CareSkill('cream');
-  cream.start();
-  for (let i = 0; i < 10; i++) cream.act(0);
-  assert.equal(cream.covered.size, 1);
-  cream.act(8);
-  assert.equal(cream.complete, false);
-  for (const tool of ['comb', 'brush'] as const) {
-    const s = new CareSkill(tool);
-    s.start();
-    for (let i = 0; i < 6; i++) s.input(1);
-    assert.equal(s.stage, 1);
-    assert.equal(s.complete, false);
-    for (let i = 1; i < 6; i++) s.input(i % 2 ? 0 : 1);
-    assert.ok(s.complete);
-  }
-});
-test('drops cannot release off target; forceps must grip and pause at every mark', () => {
-  const drops = new CareSkill('drops');
-  drops.start();
-  drops.act();
-  assert.equal(drops.stage, 0);
-  assert.equal(drops.misses, 1);
-  drops.input(drops.target);
-  drops.act();
-  assert.equal(drops.stage, 1);
-  const pull = new CareSkill('forceps');
-  pull.start();
-  pull.input(0.8);
-  tick(pull, 1);
-  assert.equal(pull.stage, 0);
-  pull.act();
-  pull.input(0.95);
-  tick(pull, 1);
-  assert.equal(pull.stage, 0);
-  assert.equal(pull.misses, 1);
-  pull.input(pull.target);
-  tick(pull, 0.3);
-  assert.equal(pull.stage, 0);
-  tick(pull, 0.6);
-  assert.equal(pull.stage, 1);
-});
-test('vaccine pressure and water flow allow harmless retries without premature completion', () => {
-  const s = new CareSkill('vaccine');
+test('drops require steady aim; forceps need a grip, a slow straight pull and pauses', () => {
+  const d = new CareSkill('drops');
+  d.start();
+  d.act();
+  assert.equal(d.stage, 0);
+  d.press(d.targetPoint);
+  d.act();
+  assert.equal(d.stage, 0);
+  tick(d, 0.6);
+  d.act();
+  assert.equal(d.stage, 1);
+  const s = new CareSkill('forceps');
   s.start();
+  s.press({ x: 0, y: 0 });
   s.act();
-  tick(s, 0.1);
+  assert.equal(s.gripped, false);
+  s.press(s.targetPoint);
   s.act();
-  assert.equal(s.complete, false);
-  assert.equal(s.misses, 1);
+  stroke(s, { x: 0.95, y: 0.8 });
+  tick(s, 2);
+  assert.ok(s.startled);
+  assert.equal(s.stage, 0);
+  s.restart();
+  s.press(s.targetPoint);
   s.act();
-  tick(s, 5);
-  assert.equal(s.complete, false);
-  assert.equal(s.holding, false);
-  s.act();
-  tick(s, 1.7);
-  s.act();
-  assert.ok(s.complete);
-  const pour = new CareSkill('water-care');
-  pour.start();
-  pour.act();
-  tick(pour, 1);
-  pour.act();
-  tick(pour, 1);
-  assert.equal(pour.complete, false);
-  pour.act();
-  tick(pour, 0.8);
-  pour.act();
-  tick(pour, 1);
-  assert.ok(pour.complete, 'a small pour can be resumed');
-  const over = new CareSkill('water-care');
-  over.start();
-  over.act();
-  tick(over, 4);
-  assert.equal(over.complete, false);
-  assert.equal(over.holding, false);
-  assert.equal(over.misses, 1);
+  stroke(s, s.targetPoint, 0.8);
+  tick(s, 0.2);
+  assert.ok(s.stage <= 1, 'cannot skip all three extraction marks');
 });
-test('cooling requires sustained alignment; equipment widens guided targets', () => {
+test('cooling requires held alignment; lifting pauses, a parked pad does not complete', () => {
   const s = new CareSkill('cooling');
   s.start();
-  tick(s, 4);
+  s.press(s.targetPoint);
+  for (let i = 0; i < 30; i++) {
+    s.move(s.targetPoint);
+    s.update(0.05);
+  }
+  s.release();
+  const progress = s.progress;
+  tick(s, 0.2);
+  assert.ok(s.progress <= progress);
   assert.equal(s.complete, false);
-  s.input(0);
-  tick(s, 4);
-  assert.equal(s.complete, false);
-  for (let i = 0; i < 85; i++) {
-    s.input(s.target);
+  for (let i = 0; i < 100; i++) {
+    s.press(s.targetPoint);
     s.update(0.05);
   }
   assert.ok(s.complete);
-  for (const tool of [
-    'drops',
-    'forceps',
-    'vaccine',
-    'water-care',
-    'cooling',
-  ] as const)
-    assert.ok(
-      new CareSkill(tool, true).tolerance > new CareSkill(tool).tolerance,
-    );
+  const parked = new CareSkill('cooling');
+  parked.start();
+  parked.press({ x: 0.5, y: 0.5 });
+  tick(parked, 30);
+  assert.equal(parked.complete, false);
+});
+test('vaccine needs aim and gentle pressure; water needs alignment, slow flow and a deliberate stop', () => {
+  const v = new CareSkill('vaccine');
+  v.start();
+  v.input(0.45);
+  tick(v, 8);
+  assert.equal(v.progress, 0);
+  v.press(v.targetPoint);
+  tick(v, 0.5);
+  v.act();
+  v.input(1);
+  tick(v, 2);
+  assert.ok(v.startled);
+  assert.equal(v.complete, false);
+  const w = new CareSkill('water-care');
+  w.start();
+  w.press({ x: 0, y: 0 });
+  w.input(0.5);
+  tick(w, 6);
+  assert.equal(w.waterLevel, 0.15);
+  w.press(w.targetPoint);
+  w.input(0.5);
+  tick(w, 4.2);
+  assert.equal(w.complete, false, 'must stop pouring');
+  w.input(0);
+  tick(w, 0.5);
+  assert.ok(w.complete);
+  const over = new CareSkill('water-care');
+  over.start();
+  over.press(over.targetPoint);
+  over.input(0.5);
+  tick(over, 6);
+  assert.equal(over.complete, false);
+  assert.equal(over.misses, 1);
+  assert.equal(over.value, 0);
+});
+test('equipment widens guides without bypassing the interaction', () => {
+  for (const tool of Object.keys(careSkills) as CareTool[]) {
+    const assisted = new CareSkill(tool, true),
+      plain = new CareSkill(tool);
+    assert.ok(assisted.tolerance > plain.tolerance);
+    assert.ok(assisted.wrapTolerance > plain.wrapTolerance);
+    assisted.start();
+    tick(assisted, 60);
+    assert.equal(assisted.complete, false);
+  }
+});
+
+test('brushing coverage and gentle speed do not depend on pointer-event frequency', () => {
+  const run = (every: number) => {
+    const s = new CareSkill('cream');
+    s.start();
+    s.press({ x: 0.355, y: 0.38 });
+    for (let frame = 1; frame <= 24; frame++) {
+      if (frame % every === 0)
+        s.move({
+          x: 0.32 + Math.cos((frame / 60) * 4) * 0.035,
+          y: 0.38 + Math.sin((frame / 60) * 4) * 0.035,
+        });
+      s.update(1 / 60);
+    }
+    return s;
+  };
+  const frequent = run(1),
+    touch = run(2),
+    batched = run(4);
+  for (const s of [touch, batched]) {
+    assert.ok(Math.abs(s.progress - frequent.progress) < 0.005);
+    assert.equal(s.pain, 0);
+    assert.equal(s.misses, 0);
+  }
 });

@@ -566,7 +566,6 @@ export class ClinicLeisure {
   }
   canPlay(visit: Visit) {
     return (
-      visit.species !== 'goldfish' &&
       !visit.clinical?.fracture &&
       !visit.clinical?.fever &&
       visit.clinical?.skin !== 'burn'

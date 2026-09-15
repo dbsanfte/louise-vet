@@ -1,3 +1,4 @@
+import { extraAmusements } from './extra-amusements.ts';
 import plan from './clinic-layout.json' with { type: 'json' };
 import {
   edgeCells,
@@ -244,14 +245,17 @@ export const buildRecipes: BuildRecipe[] = [
             bubbles: 'Bubble chase',
             'cat-nook': 'Cosy cat nook',
             'bird-chimes': 'Bird chime arch',
+            ...Object.fromEntries(extraAmusements.map((a) => [a.id, a.name])),
           } as Record<string, string>
         )[s.id],
         s.upgrade,
         s.kind,
         s.x,
         s.z,
-        s.kind === 'coaster' ? 4.5 : s.kind === 'ferris' ? 3.5 : 1.6,
-        s.kind === 'coaster' ? 3.3 : s.kind === 'ferris' ? 1.8 : 1.55,
+        extraAmusements.find((a) => a.id === s.kind)?.width ??
+          (s.kind === 'coaster' ? 4.5 : s.kind === 'ferris' ? 3.5 : 1.6),
+        extraAmusements.find((a) => a.id === s.kind)?.depth ??
+          (s.kind === 'coaster' ? 3.3 : s.kind === 'ferris' ? 1.8 : 1.55),
         [s.id],
       ),
     ),
@@ -545,7 +549,12 @@ export class ClinicBuild {
     }
     const legacyRecipes = buildRecipes.filter((r) => r.upgrade === id);
     for (const r of legacyRecipes)
-      this.addCopy(r, migrate ? { x: r.x, z: r.z, rotation: 0 } : undefined);
+      this.addCopy(
+        r,
+        migrate && !extraAmusements.some((a) => a.id === r.id)
+          ? { x: r.x, z: r.z, rotation: 0 }
+          : undefined,
+      );
     const product = upgrades.find((u) => u.id === id);
     if (!legacyRecipes.length && product && 'furniture' in product)
       this.addCopy(buildRecipes.find((r) => r.id === product.furniture)!);

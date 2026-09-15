@@ -26,16 +26,23 @@ export function bandageFraction(progress: number) {
     lengths[bandageEnd]
   );
 }
-export function bandagePoint(progress: number): TracePoint {
+export function bandagePoint(
+  progress: number,
+  path: readonly TracePoint[] = bandagePattern,
+): TracePoint {
   const i = Math.min(Math.floor(progress), bandageEnd - 1);
-  const a = bandagePattern[i],
-    b = bandagePattern[i + 1];
+  const a = path[i],
+    b = path[i + 1];
   const t = progress - i;
   return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }
 
 /** Project onto the nearby ribbon only: another coil cannot steal progress. */
-export function projectBandage(point: TracePoint, progress: number) {
+export function projectBandage(
+  point: TracePoint,
+  progress: number,
+  path: readonly TracePoint[] = bandagePattern,
+) {
   let distance = Infinity,
     next = progress;
   for (
@@ -43,8 +50,8 @@ export function projectBandage(point: TracePoint, progress: number) {
     i < Math.min(bandageEnd, Math.floor(progress) + 8);
     i++
   ) {
-    const a = bandagePattern[i],
-      b = bandagePattern[i + 1];
+    const a = path[i],
+      b = path[i + 1];
     const dx = b.x - a.x,
       dy = b.y - a.y;
     const t = Math.max(

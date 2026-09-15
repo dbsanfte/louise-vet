@@ -1,3 +1,4 @@
+import { extraAmusements } from './extra-amusements';
 import { ClinicBuildScenery } from './clinic-build-scenery';
 import { buildRecipes, type ClinicBuild } from './clinic-build';
 import { TownSurfaces } from './town-surfaces';
@@ -25,6 +26,7 @@ export class ClinicFurniture {
   async load() {
     const surfaces = new TownSurfaces();
     const names = [
+      ...extraAmusements.map((a) => a.id),
       'sun-courtyard',
       'puzzle-table',
       'bubbles',
@@ -309,6 +311,40 @@ export class ClinicFurniture {
         (p) => p.station === id && p.phase === 'use',
       );
       const kind = leisure.station(id)!.kind;
+      const feather = model.getObjectByName('FeatherArm');
+      if (feather)
+        feather.rotation.y = rider ? Math.sin(rider.elapsed * 1.3) * 0.55 : 0;
+      for (let i = 0; i < 5; i++) {
+        const key = model.getObjectByName('PianoKey' + i);
+        if (key) {
+          const pressed = Boolean(
+            rider && Math.floor(rider.elapsed * 2) % 5 === i,
+          );
+          key.position.y = 0.41 - (pressed ? 0.045 : 0);
+          key.traverse((part) => {
+            if (
+              !(part instanceof THREE.Mesh) ||
+              !(part.material instanceof THREE.MeshStandardMaterial)
+            )
+              return;
+            if (part.userData.independentKeyPaint !== part.uuid) {
+              part.material = part.material.clone();
+              part.userData.independentKeyPaint = part.uuid;
+            }
+            part.material.emissive.setHex(pressed ? 0x63501b : 0x000000);
+          });
+        }
+        const bubble = model.getObjectByName('AquaticBubble' + i);
+        if (bubble) {
+          bubble.visible = Boolean(rider);
+          const t = ((rider?.elapsed ?? 0) * 0.4 + i / 5) % 1;
+          bubble.position.set(
+            Math.sin(i * 2) * 0.2,
+            0.3 + t * 0.5,
+            0.1 + Math.cos(i * 2) * 0.15,
+          );
+        }
+      }
       const wheel = model.getObjectByName('WheelRotor'),
         carousel = model.getObjectByName('CarouselRotor');
       if (wheel) wheel.rotation.x = rider ? rider.elapsed * 4 : 0;

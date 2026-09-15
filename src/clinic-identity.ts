@@ -1,3 +1,4 @@
+import { extraAmusements } from './extra-amusements.ts';
 import type { PetActivity } from './clinic-leisure.ts';
 import type { Species } from './game.ts';
 
@@ -12,6 +13,9 @@ export const clinicAttractions: Record<
   string,
   { name: string; feeling: string }
 > = {
+  ...Object.fromEntries(
+    extraAmusements.map((a) => [a.id, { name: a.name, feeling: a.id }]),
+  ),
   scratch: {
     name: 'Scratching post',
     feeling: 'Ooh, lovely scratch!',

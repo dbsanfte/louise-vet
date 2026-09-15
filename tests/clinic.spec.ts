@@ -43,6 +43,10 @@ test('examine, diagnose, place treatment, earn rewards, and keep progress', asyn
     .getByRole('button', { name: 'Front paw on Luna', exact: true })
     .click();
   await expect(page.locator('.findings')).toContainText('small pink bump');
+  await expect(page.locator('[data-action=diagnose]')).toBeEnabled();
+  await expect(page.locator('[data-tab=clues]')).toContainText('1/1');
+  await expect(page.locator('[data-tab=clues]')).toHaveClass(/clues-complete/);
+  // A sensible extra heartbeat observation is optional for a visible sting.
   await page.getByRole('button', { name: 'Stethoscope', exact: true }).click();
   await page
     .getByRole('button', { name: 'Chest on Luna', exact: true })
@@ -66,7 +70,9 @@ test('examine, diagnose, place treatment, earn rewards, and keep progress', asyn
   await page
     .getByRole('button', { name: 'Front paw on Luna', exact: true })
     .click();
-  await expect(page.getByRole('meter')).toBeVisible();
+  await expect(
+    page.getByRole('meter', { name: 'Care progress' }),
+  ).toBeVisible();
   await completeCareSkill(page);
   await expect(
     page.getByRole('heading', { name: 'Luna feels better!' }),
@@ -119,7 +125,11 @@ test('a patient can return to the queue without claiming a reward', async ({
   const canvas = page.locator('#world > canvas');
   const beforeRotation = await canvas.screenshot();
   await page.getByRole('button', { name: 'Rotate animal right' }).click();
-  expect((await canvas.screenshot()).equals(beforeRotation)).toBe(false);
+  await expect
+    .poll(async () => !(await canvas.screenshot()).equals(beforeRotation), {
+      intervals: [300, 600, 1000],
+    })
+    .toBe(true);
   await page.getByRole('button', { name: 'Reset camera' }).click();
   await page.getByRole('button', { name: 'Stop visit', exact: false }).click();
   await expect(page.locator('#app')).toHaveAttribute('data-mode', 'reception');
@@ -237,16 +247,27 @@ test('all authored visits are playable and every pet can receive care', async ({
       // A miss must leave the vaccine unapplied, and stopping during timing
       // must return the same patient with no reward or lingering treatment.
       await page.getByRole('button', { name: 'Start when ready' }).click();
-      await page
-        .getByRole('button', { name: 'Give vaccine', exact: true })
-        .click();
-      await page
-        .getByRole('button', { name: 'Pause vaccine', exact: true })
-        .click();
-      await expect(page.locator('.skill-feedback')).toContainText(
-        'No vaccine given',
+      const board = (await page.locator('.skill-canvas').boundingBox())!;
+      await page.mouse.move(
+        board.x + board.width / 2,
+        board.y + board.height / 2,
       );
-      await expect(page.getByRole('meter')).toBeVisible();
+      await page.mouse.down();
+      await page.waitForTimeout(600);
+      await page.mouse.up();
+      await page
+        .getByRole('button', { name: 'Begin gentle press', exact: true })
+        .click();
+      await page.getByRole('slider', { name: 'Plunger pressure' }).press('End');
+      await expect(page.locator('.skill-dialog')).toHaveAttribute(
+        'data-startled',
+        'true',
+      );
+      await expect(page.locator('.skill-feedback')).toContainText('startled');
+      await expect(page.locator('[data-skill-finish]')).toBeDisabled();
+      await expect(
+        page.getByRole('meter', { name: 'Care progress' }),
+      ).toBeVisible();
       await expect(page.getByTestId('coins')).toHaveText(coinsBefore!);
       await page
         .locator('.skill-dialog')
@@ -331,13 +352,20 @@ test('vaccination pressure can be cancelled, retried and confirmed for exactly o
     .getByRole('button', { name: `Coat on ${visits[id].name}`, exact: true })
     .click();
   await page.getByRole('button', { name: 'Start when ready' }).click();
-  await page.getByRole('button', { name: 'Give vaccine', exact: true }).click();
+  const board = (await page.locator('.skill-canvas').boundingBox())!;
+  await page.mouse.move(board.x + board.width / 2, board.y + board.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(600);
+  await page.mouse.up();
   await page
-    .getByRole('button', { name: 'Pause vaccine', exact: true })
+    .getByRole('button', { name: 'Begin gentle press', exact: true })
     .click();
-  await expect(page.locator('.skill-feedback')).toContainText(
-    'No vaccine given',
+  await page.getByRole('slider', { name: 'Plunger pressure' }).press('End');
+  await expect(page.locator('.skill-dialog')).toHaveAttribute(
+    'data-startled',
+    'true',
   );
+  await expect(page.locator('[data-skill-finish]')).toBeDisabled();
   await expect(page.getByTestId('coins')).toHaveText('120');
   await page.getByRole('button', { name: 'Cancel care activity' }).click();
   await expect(page.locator('#app')).toHaveAttribute(

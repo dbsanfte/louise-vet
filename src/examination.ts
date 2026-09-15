@@ -131,6 +131,17 @@ export class Examination {
     if (!asset) throw new Error(`Missing examination model: ${name}`);
     return asset.clone(true);
   }
+  careTool(tool: Tool) {
+    return this.clone('tool-' + tool);
+  }
+  careMouth(visit: Visit) {
+    return this.clone(
+      'mouth-' +
+        (['dog', 'cat'].includes(visit.species) ? 'carnivore' : 'rodent') +
+        '-' +
+        (visit.clinical?.teeth ?? 'healthy'),
+    );
+  }
   setPatient(visit: Visit, animal: THREE.Group) {
     this.cleanupPatient();
     this.visit = visit;

@@ -27,6 +27,7 @@ import { messagesFor } from './character-voices';
 const assetNames = [
   'clinic',
   'clinic/examination-room',
+  'clinic/bowl-trolley',
   'louise',
   'visitor',
   'visitor-ponytail',
@@ -894,6 +895,15 @@ export class World {
     this.controls.enabled = false;
     this.scene.background = new THREE.Color('#e9e8d9');
     this.resize();
+  }
+  careModels(visit: Visit) {
+    return {
+      patient: this.clone(petAsset(visit)),
+      tool: this.examination.careTool(visit.treatment),
+      detail:
+        visit.zone === 'mouth' ? this.examination.careMouth(visit) : undefined,
+      visit,
+    };
   }
   showTreatment(visit: Visit) {
     this.clearClinicPick();

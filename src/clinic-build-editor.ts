@@ -1169,15 +1169,18 @@ export class ClinicBuildEditor {
       extra = '',
       disabled = false,
     ) => button(`${icon(glyph)}<span>${name}</span>`, action, extra, disabled);
+    const cameraControl = matchMedia('(pointer: coarse)').matches
+      ? ''
+      : control(
+          'Camera',
+          'search',
+          'tool',
+          `data-value="camera" aria-pressed="${this.tool === 'camera'}"`,
+        );
     const controls =
       this.mode === 'spaces'
-        ? `${control('Undo', 'undo', 'undo', 'aria-label="Undo last space"', !this.spaceHistory.length || this.lifting)}${control('Erase', 'erase', 'tool', `data-value="erase" aria-pressed="${this.tool === 'erase'}"`)}${this.prefab ? control('Rotate', 'rotate', 'rotate') : control('Doors', 'door', 'tool', `data-value="door" aria-pressed="${this.tool === 'door'}"`)}${control('Camera', 'search', 'tool', `data-value="camera" aria-pressed="${this.tool === 'camera'}"`)}`
-        : control(
-            'Camera',
-            'search',
-            'tool',
-            `data-value="camera" aria-pressed="${this.tool === 'camera'}"`,
-          );
+        ? `${control('Undo', 'undo', 'undo', 'aria-label="Undo last space"', !this.spaceHistory.length || this.lifting)}${control('Erase', 'erase', 'tool', `data-value="erase" aria-pressed="${this.tool === 'erase'}"`)}${this.prefab ? control('Rotate', 'rotate', 'rotate') : control('Doors', 'door', 'tool', `data-value="door" aria-pressed="${this.tool === 'door'}"`)}${cameraControl}`
+        : cameraControl;
     sidebar.setAttribute('aria-label', 'Build editor');
     sidebar.dataset.buildMode = this.mode;
     sidebar.innerHTML = `<div class="build-heading"><h2>Build your clinic</h2>${button('Shop', 'shop')}</div><nav class="build-modes" aria-label="Build mode">${modeButton('items', 'Place furniture', 'chair')}${modeButton('spaces', 'Build spaces', 'grid')}</nav>${this.mode === 'spaces' ? `<nav class="build-surfaces" aria-label="Space surface">${button(`${icon('grid')}<span>Floor</span>`, 'tool', `data-value="room" aria-pressed="${this.tool === 'room'}"`)}${button(`${icon('leaf')}<span>Garden</span>`, 'tool', `data-value="garden" aria-pressed="${this.tool === 'garden'}"`)}</nav>` : ''}<nav class="build-controls" aria-label="${this.mode === 'spaces' ? 'Space editing' : 'Furniture'} controls">${controls}</nav><p class="build-price">${this.progress.coins} coins · ${this.sim.build.state.credits} free floor tiles · then ${floorPrice} coins/tile</p><nav class="build-filters" aria-label="Collection filters" ${this.mode === 'spaces' ? 'hidden' : ''}>${[

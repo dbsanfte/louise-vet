@@ -67,6 +67,9 @@
   border-radius: 10px;
   background: #edf1e8;
 }
+.build-controls:empty {
+  display: none;
+}
 #app[data-building='true']
   :is(.build-modes, .build-surfaces, .build-controls)
   button {

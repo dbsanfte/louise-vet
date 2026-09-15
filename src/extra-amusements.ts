@@ -1,0 +1,98 @@
+/** Extra collection pieces have no legacy automatic placement. */
+export const extraAmusements = [
+  {
+    id: 'fish-bubbles',
+    furniture: 'fish-bubbles',
+    name: 'Fish bubble dock',
+    price: 120,
+    kind: 'Pet amusement',
+    icon: 'star',
+    description:
+      'A little bowl trolley brings fish to a dock with gentle underwater bubbles.',
+    width: 1.6,
+    depth: 1.55,
+  },
+  {
+    id: 'fish-reef',
+    furniture: 'fish-reef',
+    name: 'Reef explorer dock',
+    price: 155,
+    kind: 'Pet amusement',
+    icon: 'star',
+    description:
+      'Fish watch colourful reef shapes and swim through a little hoop in their own water.',
+    width: 1.6,
+    depth: 1.55,
+  },
+  {
+    id: 'agility-tunnel',
+    furniture: 'agility-tunnel',
+    name: 'Rainbow agility tunnel',
+    price: 145,
+    kind: 'Pet amusement',
+    icon: 'star',
+    description:
+      'A bright open tunnel for pets to trot, hop and scurry through.',
+    width: 2.6,
+    depth: 1.8,
+  },
+  {
+    id: 'snuffle-mat',
+    furniture: 'snuffle-mat',
+    name: 'Snuffle garden',
+    price: 95,
+    kind: 'Pet amusement',
+    icon: 'star',
+    description:
+      'Soft tufts hide little storybook snacks for curious noses to find.',
+    width: 1.8,
+    depth: 1.8,
+  },
+  {
+    id: 'cat-feather',
+    furniture: 'cat-feather',
+    name: 'Feather dance',
+    price: 110,
+    kind: 'Pet amusement',
+    icon: 'star',
+    description: 'Cats stalk, pounce and bat at a swaying feather toy.',
+    width: 1.8,
+    depth: 1.8,
+  },
+  {
+    id: 'dig-box',
+    furniture: 'dig-box',
+    name: 'Burrowing box',
+    price: 125,
+    kind: 'Pet amusement',
+    icon: 'star',
+    description:
+      'A shallow, soft digging box with tunnels and treasures for little explorers.',
+    width: 2,
+    depth: 1.8,
+  },
+  {
+    id: 'bird-hoops',
+    furniture: 'bird-hoops',
+    name: 'Bird flying hoops',
+    price: 150,
+    kind: 'Pet amusement',
+    icon: 'star',
+    description:
+      'Birds flap through a colourful course of hoops and return to their perch.',
+    width: 2.4,
+    depth: 1.8,
+  },
+  {
+    id: 'pet-piano',
+    furniture: 'pet-piano',
+    name: 'Paw-and-beak piano',
+    price: 135,
+    kind: 'Pet amusement',
+    icon: 'star',
+    description:
+      'Pets press big colourful keys with paws or beaks and watch them light up.',
+    width: 1.8,
+    depth: 1.8,
+  },
+] as const;

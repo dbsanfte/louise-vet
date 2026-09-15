@@ -112,7 +112,7 @@ for (const [kind, name, phase] of [
     expect(errors).toEqual([]);
   });
 
-test('a rescued pet gets smoke and skin checks, cooling care and a completed visit', async ({
+test('a rescued pet gets smoke and skin checks, soothing care and a completed visit', async ({
   page,
 }) => {
   const s = scene('fire', 'Milo', 'return');
@@ -138,7 +138,9 @@ test('a rescued pet gets smoke and skin checks, cooling care and a completed vis
       exact: true,
     })
     .click();
-  await page.getByRole('button', { name: 'Cooling pad', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Soothing cream', exact: true })
+    .click();
   await page.getByRole('button', { name: 'Coat on Milo', exact: true }).click();
   await completeCareSkill(page);
   await expect(page.locator('#app')).toHaveAttribute('data-mode', 'result');

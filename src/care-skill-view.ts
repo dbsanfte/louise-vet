@@ -1,382 +1,345 @@
 import { CareSkill } from './care-skill';
-import { bandagePattern, type TracePoint } from './bandage-pattern';
-import { toolInfo } from './game';
+import { CareScene, loadCareModels, type CareModels } from './care-scene';
+import { toolInfo, visits } from './game';
 import { icon } from './icons';
-/** Small DOM activities stay responsive while the 3D patient waits safely. */
+import type { TracePoint } from './bandage-pattern';
+/** The same contact controls serve the rendered tool, touch and keyboard. */
 export class CareSkillView {
   readonly dialog = document.createElement('dialog');
-  private painted = false;
-  private sliderDrag: {
-    pointer: number;
-    control: HTMLElement;
-    offset: number;
-  } | null = null;
-  private wrapPointer: number | null = null;
+  private scene?: CareScene;
+  private disposed = false;
+  private pointer: number | null = null;
+  private offset: TracePoint = { x: 0, y: 0 };
   private lastMessage = '';
   constructor(
     readonly skill: CareSkill,
     mount: HTMLElement,
     callbacks: { finish: () => void; cancel: () => void; stop: () => void },
+    models?: CareModels,
   ) {
     const kind = skill.spec.kind;
     this.dialog.className = 'skill-dialog';
     this.dialog.dataset.skill = kind;
     this.dialog.dataset.tool = skill.tool;
+    this.dialog.dataset.ready = 'false';
     this.dialog.setAttribute('aria-labelledby', 'skill-title');
     this.dialog.setAttribute('aria-describedby', 'skill-instructions');
-    const cells =
-      kind === 'spread'
-        ? `<div class="skill-patches">${Array.from({ length: 6 }, (_, i) => `<button data-cell="${i}" aria-label="Cream patch ${i + 1}"><span>${i + 1}</span></button>`).join('')}</div>`
-        : kind === 'wrap'
-          ? this.wrapBoard()
-          : '';
-    const marks =
-      kind === 'comb' || (kind === 'brush' && skill.surface === 'fur')
-        ? '<div class="skill-fur">' +
-          Array.from(
-            { length: 6 },
-            (_, i) => `<span data-clean="${Math.floor(i / 2)}">•</span>`,
-          ).join('') +
-          '</div>'
-        : kind === 'brush'
-          ? '<div class="skill-teeth">' +
-            Array.from(
-              { length: 3 },
-              (_, i) => `<span data-clean="${i}">✦</span>`,
-            ).join('') +
-            '</div>'
-          : '';
-    const liquid =
-      kind === 'pour'
-        ? '<div class="skill-bowl"><div class="skill-water"></div><span class="skill-fill-line">Fill line</span></div>'
+    const slider =
+      kind === 'pressure' || kind === 'pour'
+        ? `<label for="skill-position">${kind === 'pressure' ? 'Plunger pressure' : 'Bottle tilt'} <span class="pressure-guide">${kind === 'pressure' ? 'Gentle: 32–62%' : 'Slow pour: 25–60%'}</span></label><input id="skill-position" type="range" min="0" max="100" step="2" value="0" aria-label="${kind === 'pressure' ? 'Plunger pressure' : 'Bottle tilt'}"><span class="skill-input-value">0%</span>`
         : '';
-    const rail = !cells
-      ? `<div class="skill-rail ${kind}"><span class="skill-target"></span><span class="skill-marker">${kind === 'aim' ? '↓' : kind === 'pull' ? '⌁' : kind === 'steady' ? '▰' : kind === 'comb' || kind === 'brush' ? '↔' : '│'}</span></div>`
+    const action = ['aim', 'pull', 'pressure'].includes(kind)
+      ? `<button class="primary" data-skill-action>${skill.spec.action}</button>`
       : '';
-    const slider = ['comb', 'brush', 'aim', 'pull', 'steady'].includes(kind)
-      ? `<label class="skill-slider-label" for="skill-position">${skill.spec.action === 'Grip splinter' ? 'Ease the forceps' : kind === 'aim' ? 'Aim the nozzle' : skill.spec.action}</label><input id="skill-position" type="range" min="0" max="100" step="2" value="${skill.value * 100}" aria-describedby="skill-instructions">`
-      : '';
-    const action = ['aim', 'pull', 'pressure', 'pour'].includes(kind)
-      ? `<button class="primary skill-action" data-skill-action>${skill.spec.action}</button>`
-      : '';
-    this.dialog.innerHTML = `<header class="skill-header"><span class="mini-badge">${icon(toolInfo[skill.tool].icon)}</span><div><small>${toolInfo[skill.tool].name}</small><h2 id="skill-title">${skill.spec.title}</h2></div><button class="icon-button" data-skill-cancel aria-label="Cancel care activity">${icon('close')}</button></header><p id="skill-instructions">${skill.spec.hint}</p><div class="skill-board">${cells}${marks}${liquid}${rail}<p class="skill-step"></p></div><div class="skill-controls">${slider}${action}<button class="primary" data-skill-start>Start when ready</button></div><div class="skill-progress" role="meter" aria-label="Care progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div><p class="skill-feedback" aria-live="polite"></p><footer><button class="secondary" data-skill-stop>← Stop visit</button><button class="primary" data-skill-finish disabled>Finish care</button></footer>`;
+    const guide =
+      kind === 'wrap'
+        ? '<svg class="care-wrap-guide" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true"><path class="care-wrap-path"/></svg>' +
+          Array.from(
+            { length: 7 },
+            (_, i) =>
+              `<span class="care-wrap-marker" data-wrap-marker="${i}" aria-hidden="true">${i + 1}</span>`,
+          ).join('')
+        : kind === 'pull'
+          ? '<svg class="care-wrap-guide" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true"><path class="care-wrap-path" d="M.35,.65 L.7,.27"/></svg>' +
+            [1, 2, 3]
+              .map(
+                (i) =>
+                  `<span class="care-wrap-marker" style="left:${(0.35 + (i * 0.35) / 3) * 100}%;top:${(0.65 - (i * 0.38) / 3) * 100}%" aria-hidden="true">${i}</span>`,
+              )
+              .join('')
+          : '';
+    this.dialog.innerHTML = `<header class="skill-header"><span class="mini-badge">${icon(toolInfo[skill.tool].icon)}</span><div><small>${toolInfo[skill.tool].name}</small><h2 id="skill-title">${skill.spec.title}</h2></div><button class="icon-button" data-skill-cancel aria-label="Cancel care activity">${icon('close')}</button></header><div class="care-viewport"><div class="skill-canvas" tabindex="0" role="group" aria-label="${kind === 'wrap' ? 'Bandage wrapping around the 3D paw' : 'Apply ' + toolInfo[skill.tool].name + ' to the patient'}"><span class="care-loading">Loading your patient…</span>${guide}<span class="care-target" aria-hidden="true"></span><span class="care-cursor" aria-hidden="true">+</span>${Array.from({ length: 6 }, (_, i) => `<span class="care-mark" data-care-mark="${i}" aria-hidden="true"></span>`).join('')}</div><p class="skill-step"></p></div><div class="care-instructions"><p id="skill-instructions">${skill.spec.hint}</p><p class="skill-keyhint">${kind === 'wrap' ? 'Arrow keys move the roll along the coils. Stop to pause.' : 'Arrow keys aim. Hold Space to apply. Release to pause.'}</p><div class="skill-controls">${slider}${action}<button class="primary" data-skill-start disabled>Start when ready</button><button class="primary" data-skill-retry hidden>Try gently again</button></div><div class="care-meters"><label>Care progress<div class="skill-progress" role="meter" aria-label="Care progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label><label class="care-comfort" ${kind === 'wrap' || kind === 'comb' || kind === 'aim' ? 'hidden' : ''}>Discomfort <span class="care-comfort-label">Comfortable</span><div class="skill-pain" role="meter" aria-label="Discomfort" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label></div><p class="skill-feedback" role="status"></p></div><footer><button class="secondary" data-skill-stop>← Stop visit</button><button class="primary" data-skill-finish disabled>Finish care</button></footer>`;
     mount.append(this.dialog);
+    const bind = (selector: string, fn: () => void) =>
+      this.dialog.querySelector(selector)?.addEventListener('click', fn);
+    bind('[data-skill-cancel]', callbacks.cancel);
+    bind('[data-skill-stop]', callbacks.stop);
+    bind('[data-skill-finish]', () => {
+      if (skill.complete) callbacks.finish();
+    });
     this.dialog.addEventListener('cancel', (e) => {
       e.preventDefault();
       callbacks.cancel();
     });
-    this.dialog
-      .querySelector('[data-skill-cancel]')!
-      .addEventListener('click', callbacks.cancel);
-    this.dialog
-      .querySelector('[data-skill-stop]')!
-      .addEventListener('click', callbacks.stop);
-    this.dialog
-      .querySelector('[data-skill-finish]')!
-      .addEventListener('click', () => {
-        if (skill.complete) callbacks.finish();
-      });
-    this.dialog
-      .querySelector('[data-skill-start]')!
-      .addEventListener('click', () => {
-        skill.start();
-        this.refresh();
-        this.dialog
-          .querySelector<HTMLElement>(
-            '#skill-position, [data-skill-action], [data-cell], .skill-wrap',
-          )
-          ?.focus();
-      });
-    const input =
-      this.dialog.querySelector<HTMLInputElement>('#skill-position');
-    input?.addEventListener('input', (e) => {
-      skill.input(Number((e.target as HTMLInputElement).value) / 100);
+    const board = this.dialog.querySelector<HTMLElement>('.skill-canvas')!;
+    bind('[data-skill-start]', () => {
+      if (!this.scene) return;
+      skill.start();
+      this.refresh();
+      board.focus({ preventScroll: true });
+    });
+    bind('[data-skill-retry]', () => {
+      skill.restart();
+      this.refresh();
+      board.focus({ preventScroll: true });
+    });
+    bind('[data-skill-action]', () => {
+      skill.act();
       this.refresh();
     });
-    // Both the pictured tool and its labelled range accept the same gesture.
-    // Capture keeps a finger controlling the tool even beyond the track's edges.
-    if (input) {
-      const rail = this.dialog.querySelector<HTMLElement>('.skill-rail')!;
-      rail.dataset.draggable = 'true';
-      for (const control of [rail, input]) {
-        const metrics = () => {
-          const bounds = control.getBoundingClientRect();
-          // Native range thumbs travel between inset centres, unlike the picture.
-          const inset =
-            control === input
-              ? (parseFloat(
-                  getComputedStyle(input).getPropertyValue(
-                    '--skill-thumb-size',
-                  ),
-                ) || 32) / 2
-              : 0;
-          return {
-            left: bounds.left + inset,
-            width: Math.max(1, bounds.width - inset * 2),
-          };
-        };
-        const move = (e: PointerEvent) => {
-          const drag = this.sliderDrag;
-          if (
-            !drag ||
-            drag.pointer !== e.pointerId ||
-            drag.control !== control ||
-            input.disabled
-          )
-            return;
-          const bounds = metrics();
-          skill.input((e.clientX - bounds.left - drag.offset) / bounds.width);
+    const point = (e: PointerEvent) => {
+      const r = board.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) / r.width,
+        y: (e.clientY - r.top) / r.height,
+      };
+    };
+    board.addEventListener('pointerdown', (e) => {
+      if (
+        !e.isPrimary ||
+        e.button !== 0 ||
+        this.pointer !== null ||
+        !this.scene ||
+        !skill.started ||
+        skill.complete ||
+        skill.startled
+      )
+        return;
+      e.preventDefault();
+      const p = point(e);
+      if (kind === 'wrap') {
+        if (!skill.beginWrap(p)) {
           this.refresh();
+          return;
+        }
+        this.offset = {
+          x: p.x - skill.wrapPosition.x,
+          y: p.y - skill.wrapPosition.y,
         };
-        control.addEventListener('pointerdown', (e) => {
-          if (
-            !e.isPrimary ||
-            e.button !== 0 ||
-            input.disabled ||
-            this.sliderDrag
-          )
-            return;
-          e.preventDefault();
-          input.focus({ preventScroll: true });
-          const bounds = metrics();
-          const offset = e.clientX - (bounds.left + skill.value * bounds.width);
-          this.sliderDrag = {
-            pointer: e.pointerId,
-            control,
-            // Grabbing the side of a handle should not make the tool jump.
-            offset: Math.abs(offset) <= 18 ? offset : 0,
-          };
-          control.setPointerCapture(e.pointerId);
-          move(e);
-        });
-        control.addEventListener('pointermove', move);
-        for (const event of [
-          'pointerup',
-          'pointercancel',
-          'lostpointercapture',
-        ])
-          control.addEventListener(event, (e) => {
-            if ((e as PointerEvent).pointerId === this.sliderDrag?.pointer)
-              this.releaseSlider();
+      } else skill.press(p, e.pressure);
+      this.pointer = e.pointerId;
+      board.setPointerCapture(e.pointerId);
+      board.focus({ preventScroll: true });
+      this.refresh();
+    });
+    board.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== this.pointer) return;
+      const p = point(e);
+      if (kind === 'wrap')
+        skill.traceWrap({ x: p.x - this.offset.x, y: p.y - this.offset.y });
+      else skill.move(p, e.pressure);
+      this.refresh();
+    });
+    for (const event of ['pointerup', 'pointercancel', 'lostpointercapture'])
+      board.addEventListener(event, (e) => {
+        if ((e as PointerEvent).pointerId === this.pointer) this.pause();
+      });
+    board.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const d: Record<string, TracePoint> = {
+        ArrowLeft: { x: -0.015, y: 0 },
+        ArrowRight: { x: 0.015, y: 0 },
+        ArrowUp: { x: 0, y: -0.015 },
+        ArrowDown: { x: 0, y: 0.015 },
+      };
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (!e.repeat) skill.press(skill.position);
+      } else if (d[e.key]) {
+        e.preventDefault();
+        if (kind === 'wrap') {
+          if (!skill.wrapping) skill.beginWrap(skill.wrapPosition);
+          skill.traceWrap({
+            x: skill.wrapPosition.x + d[e.key].x,
+            y: skill.wrapPosition.y + d[e.key].y,
+          });
+        } else
+          skill.move({
+            x: skill.position.x + d[e.key].x,
+            y: skill.position.y + d[e.key].y,
           });
       }
-      input.addEventListener('blur', () => this.releaseSlider());
-    }
-    if (kind === 'wrap') {
-      const board = this.dialog.querySelector<HTMLElement>('.skill-wrap')!;
-      let offset: TracePoint = { x: 0, y: 0 };
-      const position = (e: PointerEvent) => {
-        const bounds = board.getBoundingClientRect();
-        return {
-          x: (e.clientX - bounds.left) / bounds.width,
-          y: (e.clientY - bounds.top) / bounds.height,
-        };
-      };
-      board.addEventListener('pointerdown', (e) => {
-        if (!e.isPrimary || e.button !== 0 || this.wrapPointer !== null) return;
+      this.refresh();
+    });
+    board.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
         e.preventDefault();
-        const p = position(e);
-        if (skill.beginWrap(p)) {
-          offset = {
-            x: p.x - skill.wrapPosition.x,
-            y: p.y - skill.wrapPosition.y,
-          };
-          this.wrapPointer = e.pointerId;
-          board.setPointerCapture(e.pointerId);
-          board.focus({ preventScroll: true });
-        }
+        this.pause();
+      }
+    });
+    board.addEventListener('blur', () => this.pause());
+    const input =
+      this.dialog.querySelector<HTMLInputElement>('#skill-position');
+    if (input) {
+      input.addEventListener('input', () => {
+        skill.input(Number(input.value) / 100);
         this.refresh();
       });
-      board.addEventListener('pointermove', (e) => {
-        if (e.pointerId !== this.wrapPointer) return;
-        const p = position(e);
-        skill.traceWrap({ x: p.x - offset.x, y: p.y - offset.y });
+      let drag: number | null = null;
+      const move = (e: PointerEvent) => {
+        if (e.pointerId !== drag) return;
+        const b = input.getBoundingClientRect();
+        skill.input((e.clientX - b.left - 16) / Math.max(1, b.width - 32));
         this.refresh();
+      };
+      input.addEventListener('pointerdown', (e) => {
+        if (input.disabled || !e.isPrimary || e.button !== 0) return;
+        e.preventDefault();
+        input.focus({ preventScroll: true });
+        drag = e.pointerId;
+        input.setPointerCapture(e.pointerId);
+        move(e);
       });
+      input.addEventListener('pointermove', move);
       for (const event of ['pointerup', 'pointercancel', 'lostpointercapture'])
-        board.addEventListener(event, (e) => {
-          if ((e as PointerEvent).pointerId === this.wrapPointer) {
-            this.releaseWrap();
+        input.addEventListener(event, (e) => {
+          if ((e as PointerEvent).pointerId === drag) {
+            drag = null;
+            skill.input(0);
             this.refresh();
           }
         });
-      board.addEventListener('keydown', (e) => {
-        const direction: Record<string, TracePoint> = {
-          ArrowLeft: { x: -0.02, y: 0 },
-          ArrowRight: { x: 0.02, y: 0 },
-          ArrowUp: { x: 0, y: -0.02 },
-          ArrowDown: { x: 0, y: 0.02 },
-        };
-        if (!direction[e.key] || e.altKey || e.ctrlKey || e.metaKey) return;
-        e.preventDefault();
-        if (this.wrapPointer !== null) return;
-        if (!skill.wrapping) skill.beginWrap(skill.wrapPosition);
-        skill.traceWrap({
-          x: skill.wrapPosition.x + direction[e.key].x,
-          y: skill.wrapPosition.y + direction[e.key].y,
-        });
-        this.refresh();
-      });
-      board.addEventListener('blur', () => {
-        this.releaseWrap();
+      input.addEventListener('blur', () => {
+        drag = null;
+        skill.input(0);
         this.refresh();
       });
     }
-    this.dialog
-      .querySelector('[data-skill-action]')
-      ?.addEventListener('click', () => {
-        skill.act();
-        this.refresh();
-      });
-    this.dialog
-      .querySelectorAll<HTMLButtonElement>('[data-cell]')
-      .forEach((b) =>
-        b.addEventListener('click', () => {
-          skill.act(Number(b.dataset.cell));
-          this.refresh();
-        }),
-      );
-    // Cream supports a continuous stroke as well as separately focused buttons.
-    if (kind === 'spread') {
-      const board = this.dialog.querySelector('.skill-patches')!;
-      const paint = (e: PointerEvent) => {
-        const b = document
-          .elementFromPoint(e.clientX, e.clientY)
-          ?.closest<HTMLElement>('[data-cell]');
-        if (b && board.contains(b)) {
-          skill.act(Number(b.dataset.cell));
-          this.refresh();
-        }
-      };
-      board.addEventListener('pointerdown', (e) => {
-        this.painted = true;
-        paint(e as PointerEvent);
-        (e.target as HTMLElement).setPointerCapture(
-          (e as PointerEvent).pointerId,
-        );
-      });
-      board.addEventListener('pointermove', (e) => {
-        if (this.painted) paint(e as PointerEvent);
-      });
-      for (const event of ['pointerup', 'pointercancel', 'lostpointercapture'])
-        board.addEventListener(event, () => (this.painted = false));
+    this.dialog.showModal();
+    const prepare = (models: CareModels) => {
+      if (this.disposed) return;
+      this.scene = new CareScene(board, skill, models);
+      this.dialog.dataset.ready = 'true';
+      this.dialog.querySelector('.care-loading')!.remove();
+      this.refresh();
+      this.dialog.querySelector<HTMLElement>('[data-skill-start]')!.focus();
+    };
+    if (models) prepare(models);
+    else {
+      const visit =
+        visits.find(
+          (v) => v.treatment === skill.tool && v.zone === skill.zone,
+        ) ?? visits.find((v) => v.treatment === skill.tool)!;
+      void loadCareModels(visit)
+        .then(prepare)
+        .catch(() => {
+          if (!this.disposed) {
+            this.dialog.querySelector('.care-loading')!.textContent =
+              'The patient could not load. Close this activity and try again.';
+          }
+        });
     }
     this.refresh();
-    this.dialog.showModal();
-    this.dialog.querySelector<HTMLElement>('[data-skill-start]')!.focus();
   }
   refresh() {
     const s = this.skill,
-      kind = s.spec.kind;
+      k = s.spec.kind;
     this.dialog.dataset.complete = String(s.complete);
     this.dialog.dataset.started = String(s.started);
+    this.dialog.dataset.startled = String(s.startled);
     const start =
       this.dialog.querySelector<HTMLButtonElement>('[data-skill-start]')!;
     start.hidden = s.started;
-    this.dialog
-      .querySelectorAll<HTMLButtonElement | HTMLInputElement>(
-        '[data-cell], [data-skill-action], #skill-position',
-      )
-      .forEach(
-        (e) =>
-          (e.disabled =
-            !s.started ||
-            s.complete ||
-            (e.id === 'skill-position' && kind === 'pull' && !s.gripped)),
-      );
+    start.disabled = !this.scene;
+    this.dialog.querySelector<HTMLButtonElement>('[data-skill-retry]')!.hidden =
+      !s.startled;
+    const input =
+      this.dialog.querySelector<HTMLInputElement>('#skill-position');
+    if (input) {
+      input.disabled =
+        !s.started ||
+        s.complete ||
+        s.startled ||
+        (k === 'pressure' && !s.gripped);
+      input.value = String(Math.round(s.value * 100));
+      this.dialog.querySelector('.skill-input-value')!.textContent =
+        `${Math.round(s.value * 100)}%`;
+    }
     const action = this.dialog.querySelector<HTMLButtonElement>(
       '[data-skill-action]',
     );
     if (action) {
+      action.disabled = !s.started || s.complete || s.startled;
       action.hidden =
-        !s.started || s.complete || (kind === 'pull' && s.gripped);
-      action.textContent =
-        kind === 'pressure' && s.holding
-          ? 'Pause vaccine'
-          : kind === 'pour' && s.holding
-            ? 'Stop pouring'
-            : s.spec.action;
+        !s.started ||
+        s.startled ||
+        ((k === 'pull' || k === 'pressure') && s.gripped);
     }
-    const input =
-      this.dialog.querySelector<HTMLInputElement>('#skill-position');
-    if (input) {
-      this.dialog.querySelector<HTMLElement>('.skill-rail')!.dataset.disabled =
-        String(input.disabled);
-      if (input.disabled) this.releaseSlider();
-    }
-    if (input && Math.abs(Number(input.value) - s.value * 100) > 0.1)
-      input.value = String(s.value * 100);
-    const target = this.dialog.querySelector<HTMLElement>('.skill-target');
-    if (target) {
-      target.hidden = ['comb', 'brush'].includes(kind);
-      target.style.left = `${(s.target - s.tolerance) * 100}%`;
-      target.style.width = `${s.tolerance * 200}%`;
-      target.dataset.target = String(s.target);
-    }
-    const marker = this.dialog.querySelector<HTMLElement>('.skill-marker');
-    if (marker) marker.style.left = `${Math.min(s.value, 1) * 100}%`;
-    const water = this.dialog.querySelector<HTMLElement>('.skill-water');
-    if (water) water.style.height = `${s.value * 100}%`;
-    if (kind === 'wrap') {
-      const roll = this.dialog.querySelector<HTMLElement>('.bandage-roll')!;
-      roll.style.left = `${s.wrapPosition.x * 100}%`;
-      roll.style.top = `${s.wrapPosition.y * 100}%`;
+    const target = this.dialog.querySelector<HTMLElement>('.care-target')!;
+    target.hidden =
+      !['aim', 'pull', 'steady', 'pressure', 'pour'].includes(k) || s.complete;
+    const p = s.targetPoint;
+    target.style.left = `${p.x * 100}%`;
+    target.style.top = `${p.y * 100}%`;
+    target.dataset.x = String(p.x);
+    target.dataset.y = String(p.y);
+    target.style.setProperty(
+      '--alignment',
+      `${Math.min(1, s.stable / (k === 'steady' ? 4 : 0.45)) * 100}%`,
+    );
+    const cursor = this.dialog.querySelector<HTMLElement>('.care-cursor')!;
+    const pos = k === 'wrap' ? s.wrapPosition : s.position;
+    cursor.style.left = `${pos.x * 100}%`;
+    cursor.style.top = `${pos.y * 100}%`;
+    cursor.hidden = !s.started || s.complete;
+    if (k === 'wrap') {
       this.dialog
-        .querySelector('.bandage-trail')!
-        .setAttribute('stroke-dasharray', `${s.progress} 1`);
+        .querySelector('.care-wrap-path')!
+        .setAttribute(
+          'd',
+          s.wrapPath.map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`).join(' '),
+        );
       this.dialog
         .querySelectorAll<HTMLElement>('[data-wrap-marker]')
-        .forEach((marker) => {
-          const index = Number(marker.dataset.wrapMarker);
-          marker.classList.toggle('done', index * 16 <= s.wrapProgress);
-          marker.classList.toggle('next', index === s.stage + 1);
+        .forEach((m, i) => {
+          const p = s.wrapPath[i * 16];
+          m.style.left = `${p.x * 100}%`;
+          m.style.top = `${p.y * 100}%`;
+          m.classList.toggle('done', i * 16 <= s.wrapProgress);
         });
-      this.dialog
-        .querySelector('.skill-wrap')!
-        .setAttribute('aria-disabled', String(!s.started || s.complete));
+      this.dialog.querySelector<HTMLElement>(
+        '.skill-canvas',
+      )!.dataset.wrapProgress = String(s.wrapProgress);
     }
     this.dialog
-      .querySelectorAll<HTMLElement>('[data-clean]')
-      .forEach((e) =>
-        e.classList.toggle(
-          'clean',
-          Number(e.dataset.clean) <
-            Math.floor((s.stage + (kind === 'comb' ? 1 : 0)) / 2),
-        ),
-      );
-    this.dialog
-      .querySelectorAll<HTMLButtonElement>('[data-cell]')
-      .forEach((b) => {
-        const i = Number(b.dataset.cell),
-          done = kind === 'spread' ? s.covered.has(i) : i < s.stage;
-        b.classList.toggle('done', done);
-        b.setAttribute('aria-pressed', String(done));
-        b.classList.toggle('next', kind === 'wrap' && i === s.stage);
+      .querySelectorAll<HTMLElement>('[data-care-mark]')
+      .forEach((mark, i) => {
+        const p = k === 'comb' ? s.fleaPosition(i) : s.patchPoint(i);
+        mark.style.left = `${p.x * 100}%`;
+        mark.style.top = `${p.y * 100}%`;
+        mark.dataset.x = String(p.x);
+        mark.dataset.y = String(p.y);
+        mark.hidden =
+          !['comb', 'brush', 'spread'].includes(k) ||
+          (k === 'brush' && i >= 3) ||
+          s.covered.has(i);
+        mark.textContent = k === 'comb' ? '' : String(i + 1);
+        mark.classList.toggle('flea-target', k === 'comb');
       });
-    const step =
-      kind === 'comb' || kind === 'brush'
-        ? `${s.stage % 2 ? '←' : '→'} ${kind === 'comb' && s.stage % 2 ? 'Lift and return' : 'Follow the arrow'} · ${Math.min(s.stage, 6)}/6`
-        : kind === 'aim'
-          ? `${Math.min(s.stage, 3)}/3 drops placed`
-          : kind === 'pull'
-            ? `${Math.min(s.stage, 3)}/3 gentle steps${s.gripped ? ' · Pause at the guide' : ''}`
-            : kind === 'steady'
-              ? `${Math.round(s.progress * 100)}% settled`
-              : kind === 'wrap'
-                ? `${Math.floor(s.stage / 2)}/3 wraps · Next: ${Math.min(s.stage + 2, 7)}`
-                : kind === 'spread'
-                  ? `${s.covered.size}/6 patches covered`
-                  : 'Watch the striped patch';
+    const steps =
+      k === 'comb'
+        ? `${s.covered.size}/6 fleas caught`
+        : k === 'spread'
+          ? `${s.covered.size}/6 patches soothed`
+          : k === 'brush'
+            ? `${s.covered.size}/3 ${s.surface === 'teeth' ? 'teeth cleaned' : 'tangles smoothed'}`
+            : k === 'wrap'
+              ? `${Math.floor(s.wrapProgress / 32)}/3 wraps`
+              : k === 'aim'
+                ? `${s.stage}/3 storybook drops`
+                : k === 'pull'
+                  ? `${s.stage}/3 gentle steps`
+                  : k === 'pour'
+                    ? `Water level ${Math.round(s.waterLevel * 100)}% · Fill line 65%`
+                    : `${Math.round(s.progress * 100)}% complete`;
     this.dialog.querySelector('.skill-step')!.textContent = s.complete
       ? 'Ready to finish'
-      : step;
-    const progress = this.dialog.querySelector<HTMLElement>('[role="meter"]')!;
-    progress.setAttribute(
-      'aria-valuenow',
-      String(Math.round(s.progress * 100)),
-    );
-    (progress.firstElementChild as HTMLElement).style.width =
-      `${s.progress * 100}%`;
+      : steps;
+    for (const [selector, value] of [
+      ['.skill-progress', s.progress],
+      ['.skill-pain', s.pain],
+    ] as const) {
+      const meter = this.dialog.querySelector<HTMLElement>(selector)!;
+      meter.setAttribute('aria-valuenow', String(Math.round(value * 100)));
+      (meter.firstElementChild as HTMLElement).style.width = `${value * 100}%`;
+    }
+    this.dialog.querySelector('.care-comfort-label')!.textContent = s.startled
+      ? 'Needs a calm retry'
+      : s.pain > 0.6
+        ? 'Lift for a break'
+        : s.pain > 0.2
+          ? 'A gentler touch'
+          : 'Comfortable';
     if (s.message !== this.lastMessage) {
       this.dialog.querySelector('.skill-feedback')!.textContent = s.message;
       this.lastMessage = s.message;
@@ -386,50 +349,24 @@ export class CareSkillView {
     )!.disabled = !s.complete;
   }
   pause() {
-    this.skill.holding = false;
-    this.painted = false;
-    this.releaseSlider();
-    this.releaseWrap();
-    if (this.skill.spec.kind === 'pressure' && !this.skill.complete)
-      this.skill.value = 0;
+    const pointer = this.pointer;
+    this.pointer = null;
+    const board = this.dialog.querySelector<HTMLElement>('.skill-canvas');
+    if (pointer !== null && board?.hasPointerCapture(pointer))
+      board.releasePointerCapture(pointer);
+    this.skill.release();
     this.refresh();
   }
   update(dt: number) {
     this.skill.update(dt);
+    this.scene?.draw();
     this.refresh();
   }
   dispose() {
-    this.releaseSlider();
-    this.releaseWrap();
+    this.disposed = true;
+    this.pause();
+    this.scene?.dispose();
     this.dialog.close();
     this.dialog.remove();
-  }
-  private wrapBoard() {
-    const path = bandagePattern
-      .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x * 300},${p.y * 220}`)
-      .join(' ');
-    return `<div class="skill-wrap" tabindex="0" role="group" aria-label="Bandage wrapping pattern" aria-describedby="skill-instructions"><div class="skill-paw">${icon('paw')}</div><svg class="bandage-ribbon" viewBox="0 0 300 220" preserveAspectRatio="none" aria-hidden="true"><path class="bandage-guide" d="${path}"/><path class="bandage-dots" d="${path}"/><path class="bandage-trail" d="${path}" pathLength="1" stroke-dasharray="0 1"/></svg>${bandagePattern
-      .filter((_, i) => i % 16 === 0)
-      .map(
-        (p, i) =>
-          `<span class="wrap-marker" data-wrap-marker="${i}" style="left:${p.x * 100}%;top:${p.y * 100}%" aria-hidden="true">${i + 1}</span>`,
-      )
-      .join(
-        '',
-      )}<span class="bandage-roll" aria-hidden="true">${icon('bandage')}</span></div>`;
-  }
-  private releaseWrap() {
-    const pointer = this.wrapPointer;
-    this.wrapPointer = null;
-    this.skill.releaseWrap();
-    const board = this.dialog.querySelector<HTMLElement>('.skill-wrap');
-    if (pointer !== null && board?.hasPointerCapture(pointer))
-      board.releasePointerCapture(pointer);
-  }
-  private releaseSlider() {
-    const drag = this.sliderDrag;
-    this.sliderDrag = null;
-    if (drag?.control.hasPointerCapture(drag.pointer))
-      drag.control.releasePointerCapture(drag.pointer);
   }
 }

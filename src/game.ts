@@ -1,3 +1,4 @@
+import { extraAmusements } from './extra-amusements.ts';
 import { petLook } from './pet-appearance.ts';
 export type Species =
   'dog' | 'cat' | 'rabbit' | 'hamster' | 'gerbil' | 'goldfish' | 'bird';
@@ -175,11 +176,6 @@ export const visits: Visit[] = [
         zone: 'paw',
         finding: 'A small pink bump on the paw. It looks like a little sting.',
       },
-      {
-        tool: 'listen',
-        zone: 'chest',
-        finding: 'A calm, steady heartbeat. Luna is feeling brave.',
-      },
     ],
     treatment: 'cream',
     zone: 'paw',
@@ -205,11 +201,6 @@ export const visits: Visit[] = [
         tool: 'ear',
         zone: 'ear',
         finding: 'This ear looks irritated. That explains the head shaking.',
-      },
-      {
-        tool: 'listen',
-        zone: 'chest',
-        finding: 'A steady heartbeat, with a small rumble of purring.',
       },
     ],
     treatment: 'drops',
@@ -270,11 +261,6 @@ export const visits: Visit[] = [
         finding:
           'Tiny specks hiding in the fur. We have found the itchy visitors.',
       },
-      {
-        tool: 'listen',
-        zone: 'chest',
-        finding: 'A lively little heartbeat. The itch is the main problem.',
-      },
     ],
     treatment: 'comb',
     zone: 'coat',
@@ -301,11 +287,6 @@ export const visits: Visit[] = [
         zone: 'coat',
         finding:
           'A tiny tangle with some bedding caught inside. No itchy visitors.',
-      },
-      {
-        tool: 'listen',
-        zone: 'chest',
-        finding: 'Everything sounds bright and lively.',
       },
     ],
     treatment: 'brush',
@@ -383,11 +364,6 @@ export const visits: Visit[] = [
         zone: 'mouth',
         finding: 'A little build-up on the teeth. A gentle clean will help.',
       },
-      {
-        tool: 'listen',
-        zone: 'chest',
-        finding: 'Cleo is relaxed and her heartbeat is steady.',
-      },
     ],
     treatment: 'brush',
     zone: 'mouth',
@@ -413,12 +389,6 @@ export const visits: Visit[] = [
         zone: 'paw',
         finding:
           'A sharp wooden splinter is sticking through the fur on the paw.',
-      },
-      {
-        tool: 'listen',
-        zone: 'chest',
-        finding:
-          'A quicker heartbeat. Scout is a little worried about his prickly paw.',
       },
     ],
     treatment: 'forceps',
@@ -446,11 +416,6 @@ export const visits: Visit[] = [
         zone: 'mouth',
         finding:
           'A dark crater in the tooth, with a brown edge. Poppy needs a dental care appointment.',
-      },
-      {
-        tool: 'listen',
-        zone: 'chest',
-        finding: 'A steady heartbeat. Poppy feels safe on the table.',
       },
     ],
     treatment: 'brush',
@@ -622,10 +587,10 @@ export function communityVisit(pet: Visit, reason: VisitReason): Visit {
           tool: 'inspect',
           zone: 'coat',
           finding:
-            'A small pink, warm patch from the fire. A gentle cooling pad and follow-up care will help.',
+            'A small pink, warm patch from the fire. Gently applied soothing cream and follow-up care will help.',
         },
       ],
-      treatment: 'cooling',
+      treatment: 'cream',
       zone: 'coat',
       aftercare:
         'The warm patch is soothed. Rest in fresh air at the safe home. Keep visiting Louise for regular checkups. Everyone will recover.',
@@ -889,6 +854,7 @@ export const zoneNames: Record<Zone, string> = {
   fin: 'Fin',
 };
 export const upgrades = [
+  ...extraAmusements,
   {
     id: 'plants',
     furniture: 'plant-0',

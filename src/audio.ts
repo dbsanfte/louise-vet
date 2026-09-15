@@ -96,16 +96,18 @@ export class Audio {
     } else this.heartbeat(0, null);
     return this.enabled;
   }
-  play(kind: 'hello' | 'success' | 'tap') {
+  play(kind: 'hello' | 'success' | 'tap' | 'piano', key = 0) {
     if (!this.enabled) return;
     this.context ??= new AudioContext();
     if (this.context.state !== 'running') void this.context.resume();
     const notes =
-      kind === 'success'
-        ? [523.25, 659.25, 783.99]
-        : kind === 'hello'
-          ? [659.25, 523.25]
-          : [440];
+      kind === 'piano'
+        ? [[523.25, 587.33, 659.25, 783.99, 880][Math.abs(key) % 5]]
+        : kind === 'success'
+          ? [523.25, 659.25, 783.99]
+          : kind === 'hello'
+            ? [659.25, 523.25]
+            : [440];
     notes.forEach((hz, i) => {
       const ctx = this.context!;
       const oscillator = ctx.createOscillator();
@@ -114,7 +116,10 @@ export class Audio {
       oscillator.type = 'sine';
       oscillator.frequency.value = hz;
       gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.045, start + 0.02);
+      gain.gain.linearRampToValueAtTime(
+        kind === 'piano' ? 0.018 : 0.045,
+        start + 0.02,
+      );
       gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
       oscillator.connect(gain).connect(ctx.destination);
       oscillator.start(start);

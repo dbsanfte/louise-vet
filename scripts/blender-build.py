@@ -47,9 +47,10 @@ def main():
     scope.add_argument('--emergencies', action='store_true', help='Build emergency stations, engine and rescue equipment.')
     scope.add_argument('--vehicles', action='store_true', help='Build the four ordinary traffic vehicles.')
     scope.add_argument('--street', action='store_true', help='Build lampposts, hydrants and dog-walk props.')
+    scope.add_argument('--amusements', action='store_true', help='Build extra pet activities and fish bowl trolley.')
     scope.add_argument('--all', action='store_true', help='Build all characters, rooms, town scenery, anatomy and instruments.')
     args = parser.parse_args()
-    scripts = [] if args.examination or args.town or args.leisure or args.room or args.pets or args.park or args.emergencies or args.vehicles or args.street else [PROJECT / 'scripts/create-blender-assets.py']
+    scripts = [] if args.examination or args.town or args.leisure or args.room or args.pets or args.park or args.emergencies or args.vehicles or args.street or args.amusements else [PROJECT / 'scripts/create-blender-assets.py']
     if args.examination or args.all:
         scripts.append(PROJECT / 'scripts/create-examination-assets.py')
     if args.town or args.all:
@@ -68,6 +69,8 @@ def main():
         scripts.append(PROJECT / 'scripts/create-vehicle-assets.py')
     if args.street or args.all:
         scripts.append(PROJECT / 'scripts/create-street-assets.py')
+    if args.amusements or args.all:
+        scripts.append(PROJECT / 'scripts/create-extra-amusements.py')
     if args.headless:
         for script in scripts:
             subprocess.run(
