@@ -1,8 +1,18 @@
 import { World } from '../../src/world';
 import { ClinicBuildEditor } from '../../src/clinic-build-editor';
 import { toClinic } from '../../src/clinic-build';
-import { localToTown } from '../../src/town-map';
-import { Vector3, Box3, InstancedMesh, type OrthographicCamera } from 'three';
+import { examRoom, localToTown } from '../../src/town-map';
+import { visits } from '../../src/game';
+import {
+  Vector3,
+  Box3,
+  InstancedMesh,
+  Mesh,
+  Raycaster,
+  BasicShadowMap,
+  PCFShadowMap,
+  type OrthographicCamera,
+} from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let world: World, editor: ClinicBuildEditor, advance: (dt: number) => void;
 const load = World.prototype.load,
@@ -20,6 +30,54 @@ ClinicBuildEditor.prototype.enter = function () {
 };
 void import('../../src/main');
 window.buildTest = {
+  examFloor: (closeUp = false, angle = 0, filteredShadows = false) => {
+    world.renderer.shadowMap.type = filteredShadows
+      ? PCFShadowMap
+      : BasicShadowMap;
+    if (closeUp) {
+      world.showTreatment(visits.find((v) => v.name === 'Luna')!);
+      world.rotate(angle);
+    } else {
+      world.showReception();
+      world.focusClinic('exam');
+      world.rotateClinicCamera(angle);
+    }
+    world.town!.furniture.applyBuild(world.town!.simulation.build, []);
+    world.scene.updateMatrixWorld(true);
+    const floors: Mesh[] = [];
+    world.scene.traverseVisible((o) => {
+      if (
+        o instanceof Mesh &&
+        (/^room_tile/.test(o.name) ||
+          (!Array.isArray(o.material) && o.material.name === 'floor tile'))
+      )
+        floors.push(o);
+    });
+    // Sample away from tile seams. Count distinct visible surfaces at the top
+    // height; coplanar meshes compete for depth even if one wins this frame.
+    const layers: number[] = [];
+    for (const x of [-1.7, -0.7, 0.3, 1.3, 2.3])
+      for (const z of [-2.3, -1.3, -0.3, 0.7, 1.7, 2.7]) {
+        const p = closeUp
+          ? { x, z }
+          : localToTown(x + examRoom.x, z + examRoom.z);
+        const hits = new Raycaster(
+          new Vector3(p.x, 1, p.z),
+          new Vector3(0, -1, 0),
+        ).intersectObjects(floors, false);
+        layers.push(
+          new Set(
+            hits
+              .filter((h) => h.distance - hits[0].distance < 0.005)
+              .map((h) => `${h.object.uuid}:${h.instanceId}`),
+          ).size,
+        );
+      }
+    return {
+      layers,
+      authored: floors.filter((o) => /^room_tile/.test(o.name)).length,
+    };
+  },
   occupyForErase: () => {
     const s = world.town!.simulation;
     const pet = [...s.leisure.pets.values()][0];
@@ -183,6 +241,11 @@ window.buildTest = {
 declare global {
   interface Window {
     buildTest: {
+      examFloor: (
+        closeUp?: boolean,
+        angle?: number,
+        filteredShadows?: boolean,
+      ) => { layers: number[]; authored: number };
       occupyForErase: () => { owner: number; ticket: number };
       occupantsSafe: () => boolean;
       itemPoint: (id: string) => { x: number; y: number };

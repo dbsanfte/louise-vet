@@ -242,9 +242,12 @@ export class ClinicFurniture {
           (!f.model.userData.requiresPlayroom || builtRooms.has('pet-room'));
     }
     this.base?.traverse((o) => {
+      // The editable floor also covers the examination room. Its authored
+      // tiles share the new floor's height and must hand over with reception.
+      // Only this office copy changes; close-up care keeps its own room model.
       if (
         o instanceof THREE.Mesh &&
-        /^(floor|foundation|left[ _]|connecting[ _]|side[ _]wall|back[ _]wall|back[ _]dado|back[ _]trim)/.test(
+        /^(floor|foundation|room[ _](tile|foundation)|left[ _]|connecting[ _]|side[ _]wall|back[ _]wall|back[ _]dado|back[ _]trim)/.test(
           o.name,
         )
       )

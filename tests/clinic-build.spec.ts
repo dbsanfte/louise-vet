@@ -1999,3 +1999,53 @@ test('erasure asks on release, keeps No unchanged, returns occupied furniture an
   );
   expect(errors).toEqual([]);
 });
+
+test('examination floors have one visible surface through floor edits, Undo, reload and camera rotation', async ({
+  page,
+}, info) => {
+  await open(page, false, [], true);
+  const inspect = async (authored: number, closeUp = false, angle = 0) => {
+    const floor = await page.evaluate(
+      ({ closeUp, angle }) =>
+        window.buildTest.examFloor(closeUp, angle, angle !== 0),
+      { closeUp, angle },
+    );
+    expect(floor.authored).toBe(authored);
+    expect(floor.layers).toEqual(Array(30).fill(1));
+  };
+  await inspect(42);
+  const extend = async () => {
+    await chooseTool(page, 'room');
+    await tap(page, -11, -4, info.project.name === 'mobile');
+    await tap(page, -5, 4, info.project.name === 'mobile');
+    await expect(page.locator('[data-build="undo"]')).toBeEnabled();
+  };
+  await extend();
+  await inspect(0);
+  await page.locator('[data-build="undo"]').click();
+  await inspect(42);
+  await extend();
+  await page.locator('[data-build="done"]').click();
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  expect(
+    (await page.evaluate(() => window.buildTest.snapshot())).build.floorEdited,
+  ).toBe(true);
+  for (const [i, angle] of [0, Math.PI / 2, Math.PI, Math.PI * 1.5].entries()) {
+    await inspect(0, false, angle);
+    // Let the actual animation loop submit the camera's next software frame.
+    const frame = await page.evaluate(
+      () => window.buildTest.scenery().renderedAt,
+    );
+    await expect
+      .poll(() => page.evaluate(() => window.buildTest.scenery().renderedAt))
+      .toBeGreaterThan(frame);
+    await page.screenshot({
+      path: info.outputPath(`exam-floor-orbit-${i}.png`),
+    });
+  }
+  await inspect(42, true, Math.PI / 2);
+  await inspect(0);
+});
