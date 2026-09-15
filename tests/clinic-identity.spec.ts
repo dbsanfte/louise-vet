@@ -26,7 +26,7 @@ test.beforeAll(async () => {
       for (const chunk of out.output)
         if (chunk.type === 'chunk') script += chunk.code;
 });
-function waiting(ride = false) {
+function waiting(ride = false, allAttractions = false) {
   const s = new TownSimulation(visits, () => 0.5);
   s.seedClinic(
     ['Luna', 'Milo', 'Peanut', 'Sunny', 'Hazel', 'Cleo'].map((name) =>
@@ -35,6 +35,32 @@ function waiting(ride = false) {
   );
   s.configureClinic(8, 22);
   s.configureLeisure(owned);
+  if (allAttractions) {
+    // Newly added purchases stay in inventory until the player places them.
+    // Give the label test a valid furnished layout, including a garden extension.
+    expect(
+      s.build.floor(
+        { x: -17, z: -24 },
+        { x: -10, z: -20 },
+        'garden',
+        5000,
+        [],
+        true,
+      ).error,
+    ).toBeUndefined();
+    for (const [id, [x, z]] of Object.entries({
+      'fish-bubbles': [-9.5, 0.5],
+      'fish-reef': [-7.5, 0.5],
+      'agility-tunnel': [-15.5, -16.5],
+      'snuffle-mat': [-15.5, -22.5],
+      'cat-feather': [-15.5, -20.5],
+      'dig-box': [-13.5, -22.5],
+      'bird-hoops': [-12.5, -20.5],
+      'pet-piano': [-11.5, -22.5],
+    }))
+      expect(s.build.place(id, { x, z, rotation: 0 }), id).toBeUndefined();
+    s.leisure.replan(s.households);
+  }
   const luna = visits.findIndex((v) => v.name === 'Luna');
   for (let i = 0; i < (ride ? 6000 : 200); i++) {
     s.update(0.1);
@@ -50,7 +76,7 @@ function waiting(ride = false) {
   if (ride) throw Error('No Luna coaster turn in the fixture');
   return s.snapshot();
 }
-async function open(page: Page, ride = false) {
+async function open(page: Page, ride = false, allAttractions = false) {
   const index = await (await page.request.get('/')).text(),
     css = index.match(/href="([^"]+\.css)"/)![1];
   await page.addInitScript(
@@ -69,7 +95,7 @@ async function open(page: Page, ride = false) {
           town,
         }),
       ),
-    { town: waiting(ride), owned },
+    { town: waiting(ride, allAttractions), owned },
   );
   await page.route('**/clinic-inspect-test.html', (r) =>
     r.fulfill({
@@ -102,7 +128,7 @@ async function pointAt(page: Page, name: string, touch: boolean) {
 test('head bubbles identify people, companions and every attraction without replacing the patient menu', async ({
   page,
 }, info) => {
-  await open(page);
+  await open(page, false, true);
   const touch = info.project.name === 'mobile';
   const menu = await page.locator('.patient-list').boundingBox();
   for (const name of [
