@@ -2009,7 +2009,7 @@ test('erasure asks on release, keeps No unchanged, returns occupied furniture an
   expect(errors).toEqual([]);
 });
 
-test('examination floors have one visible surface through floor edits, Undo, reload and camera rotation', async ({
+test('examination floors stay single and their reception partition survives floor edits, Undo, reload and rotation', async ({
   page,
 }, info) => {
   await open(page, false, [], true);
@@ -2021,6 +2021,15 @@ test('examination floors have one visible surface through floor edits, Undo, rel
     );
     expect(floor.authored).toBe(authored);
     expect(floor.layers).toEqual(Array(30).fill(1));
+    if (!closeUp)
+      expect(
+        await page.evaluate(() => window.buildTest.examPartition()),
+      ).toEqual({
+        partition: Array(6).fill(true),
+        tallPartition: true,
+        exteriorWindowWall: true,
+        doorwayClear: true,
+      });
   };
   await inspect(42);
   const extend = async () => {
@@ -2057,6 +2066,42 @@ test('examination floors have one visible surface through floor edits, Undo, rel
   }
   await inspect(42, true, Math.PI / 2);
   await inspect(0);
+  // The protected divider must not prevent children adding a room beside it.
+  // Replacing its exterior stretch removes the old window, leaving the fixed
+  // divider and clinical doorway intact and allowing the new room's own door.
+  await page.getByRole('button', { name: 'Build', exact: true }).click();
+  await chooseTool(page, 'room');
+  await tap(page, -5, -8, info.project.name === 'mobile');
+  await tap(page, -2, -4, info.project.name === 'mobile');
+  await expect(page.locator('[data-build="undo"]')).toBeEnabled();
+  await page.locator('[data-build="done"]').click();
+  await page.evaluate(() => window.buildTest.examFloor());
+  const besideRoom = {
+    partition: Array(6).fill(true),
+    tallPartition: true,
+    exteriorWindowWall: false,
+    doorwayClear: true,
+  };
+  expect(await page.evaluate(() => window.buildTest.examPartition())).toEqual(
+    besideRoom,
+  );
+  await page.reload();
+  await expect(page.locator('#world')).toHaveAttribute('data-ready', 'true', {
+    timeout: 45000,
+  });
+  await page.evaluate(() => window.buildTest.examFloor());
+  expect(await page.evaluate(() => window.buildTest.examPartition())).toEqual(
+    besideRoom,
+  );
+  const rendered = await page.evaluate(
+    () => window.buildTest.scenery().renderedAt,
+  );
+  await expect
+    .poll(() => page.evaluate(() => window.buildTest.scenery().renderedAt))
+    .toBeGreaterThan(rendered);
+  await page.screenshot({
+    path: info.outputPath('exam-partition-beside-added-room.png'),
+  });
 });
 
 test('fish docks have real catalogue pictures, independent paid copies and submerged play reached by trolley', async ({

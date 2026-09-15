@@ -30,6 +30,37 @@ ClinicBuildEditor.prototype.enter = function () {
 };
 void import('../../src/main');
 window.buildTest = {
+  examPartition: () => {
+    world.scene.updateMatrixWorld(true);
+    const meshes: Mesh[] = [];
+    world.scene.traverseVisible((o) => {
+      if (!(o instanceof Mesh)) return;
+      // The doorway must remain openable; its swinging leaf is not a wall.
+      for (let p = o.parent; p; p = p.parent)
+        if (p.name === 'ExamDoorHinge') return;
+      meshes.push(o);
+    });
+    const blocked = (x: number, height: number) => {
+      const start = localToTown(x, -3.4),
+        end = localToTown(x, -4.5);
+      const origin = new Vector3(start.x, height + 0.15, start.z);
+      const direction = new Vector3(end.x - start.x, 0, end.z - start.z);
+      return (
+        new Raycaster(
+          origin,
+          direction.clone().normalize(),
+          0,
+          direction.length(),
+        ).intersectObjects(meshes, false).length > 0
+      );
+    };
+    return {
+      partition: [-1.5, -0.5, 0.5, 1.5, 2.3, 4.7].map((x) => blocked(x, 0.5)),
+      tallPartition: blocked(-0.5, 2),
+      exteriorWindowWall: blocked(-3.3, 2),
+      doorwayClear: !blocked(3.5, 0.5),
+    };
+  },
   fish: () => {
     const result: {
       name: string;
@@ -285,6 +316,12 @@ window.buildTest = {
 declare global {
   interface Window {
     buildTest: {
+      examPartition: () => {
+        partition: boolean[];
+        tallPartition: boolean;
+        exteriorWindowWall: boolean;
+        doorwayClear: boolean;
+      };
       fish: () => {
         name: string;
         trolley: boolean;

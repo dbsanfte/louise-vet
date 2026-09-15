@@ -16,6 +16,9 @@ export class ClinicFurniture {
   private base?: THREE.Object3D;
   private build?: ClinicBuild;
   private lastRevision = -1;
+  private clinicalPartition: { original: THREE.Mesh; fixed?: THREE.Mesh }[] =
+    [];
+  private receptionWindow: THREE.Object3D[] = [];
   private assets = new Map<string, THREE.Group>();
   private fixtures: {
     model: THREE.Group;
@@ -188,6 +191,28 @@ export class ClinicFurniture {
   }
   registerBase(base: THREE.Object3D) {
     this.base = base;
+    // Reception's rear wall partly borders the protected examination suite.
+    // Build replaces exterior shells, but must retain that internal partition.
+    // Keep a shortened copy ready if new floor replaces the exterior portion.
+    base.traverse((o) => {
+      if (!(o instanceof THREE.Mesh) || o.parent?.name !== 'clinic') return;
+      if (/^window[ _]/.test(o.name)) this.receptionWindow.push(o);
+      if (!/^back[ _](wall|dado|trim)/.test(o.name)) return;
+      o.geometry.computeBoundingBox();
+      o.updateMatrix();
+      const bounds = o.geometry.boundingBox!.clone().applyMatrix4(o.matrix);
+      let fixed: THREE.Mesh | undefined;
+      if (bounds.min.x < -2) {
+        fixed = o.clone();
+        fixed.name = 'clinical partition ' + o.name;
+        fixed.scale.x *= (bounds.max.x + 2) / (bounds.max.x - bounds.min.x);
+        fixed.position.x += (-2 - bounds.min.x) / 2;
+        fixed.visible = false;
+      }
+      this.clinicalPartition.push({ original: o, fixed });
+    });
+    for (const { original, fixed } of this.clinicalPartition)
+      if (fixed) original.parent!.add(fixed);
     const filters: Record<string, (o: THREE.Object3D) => boolean> = {
       'welcome-bench': (o) => /bench|cushion/.test(o.name),
       shelf: (o) =>
@@ -255,6 +280,15 @@ export class ClinicFurniture {
       )
         o.visible = !build.state.floorEdited;
     });
+    const rearExteriorIntact = !build.tiles.some(
+      (tile) => tile.z === -5 && tile.x >= -5 && tile.x < -2,
+    );
+    for (const { original, fixed } of this.clinicalPartition) {
+      original.visible = !fixed || rearExteriorIntact;
+      if (fixed) fixed.visible = !rearExteriorIntact;
+    }
+    // This window belongs to the exterior part, not to the retained divider.
+    for (const part of this.receptionWindow) part.visible = rearExteriorIntact;
     // Legacy models also serve as templates; every copy has a separate scene
     // graph, animation state and hit target while sharing mesh resources.
     for (const item of build.items) {
