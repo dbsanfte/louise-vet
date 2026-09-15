@@ -43,7 +43,7 @@ function furnishedClinic() {
   return best;
 }
 test.setTimeout(120000);
-test('garden kits unlock stored activities and persist without automatically building space', async ({
+test('activities can be bought before optional garden kits and persist without automatically building space', async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -68,8 +68,8 @@ test('garden kits unlock stored activities and persist without automatically bui
   });
   await page.getByRole('button', { name: /Clinic shop/ }).click();
   for (const id of additions)
-    await expect(page.locator(`[data-upgrade="${id}"]`)).toBeDisabled();
-  for (const id of ['expansion', 'pet-room', 'play-annex', ...additions])
+    await expect(page.locator(`[data-upgrade="${id}"]`)).toBeEnabled();
+  for (const id of [...additions, 'expansion', 'pet-room', 'play-annex'])
     await page.locator(`[data-upgrade="${id}"]`).click();
   await expect(page.getByTestId('coins')).toHaveText('2,440');
   await page.getByRole('button', { name: 'Close shop', exact: true }).click();

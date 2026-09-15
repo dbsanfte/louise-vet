@@ -26,8 +26,8 @@ test('buying courtyard upgrades and decorations retains shop scroll position and
     timeout: 45000,
   });
   await page.getByRole('button', { name: /Clinic shop/ }).click();
-  await expect(page.locator('[data-upgrade="bubbles"]')).toBeDisabled();
-  for (const id of ['sun-courtyard', 'bubbles', 'wall-art']) {
+  await expect(page.locator('[data-upgrade="bubbles"]')).toBeEnabled();
+  for (const id of ['bubbles', 'wall-art', 'sun-courtyard']) {
     const button = page.locator(`[data-upgrade="${id}"]`);
     await button.scrollIntoViewIfNeeded();
     const before = await page
