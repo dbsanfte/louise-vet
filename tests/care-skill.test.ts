@@ -187,20 +187,33 @@ test('fleas move and hop; only a comb stroke close to a flea catches it', () => 
   assert.ok(s.covered.has(0));
   assert.equal(s.complete, false);
 });
-test('bandage follows continuous coils, retaining checkpoints on a slip or lift', () => {
+test('bandage preserves exact progress and rejoins within the same drag, without skipping coils', () => {
   const s = new CareSkill('bandage');
   s.start();
   assert.equal(s.beginWrap(bandagePattern[48]), false);
   s.beginWrap(bandagePattern[0]);
   s.traceWrap(bandagePattern[32]);
-  assert.equal(s.progress, 0);
+  assert.equal(s.progress, 0, 'a shortcut cannot add progress');
   assert.equal(s.misses, 1);
-  s.beginWrap(bandagePattern[0]);
-  for (const p of bandagePattern.slice(0, 24)) s.traceWrap(p);
+  assert.ok(s.wrapping, 'a drift must not cancel the drag');
+  assert.ok(s.wrapRecovering);
+  s.traceWrap(bandagePattern[48]);
+  s.traceWrap(bandagePattern[96]);
+  assert.equal(s.progress, 0);
+  assert.equal(s.misses, 1, 'one mistake per excursion, not per pointer event');
+  s.traceWrap(bandagePattern[0]);
+  assert.equal(s.wrapRecovering, false);
+  for (const p of bandagePattern.slice(1, 24)) s.traceWrap(p);
+  const beforeSlip = s.wrapProgress;
+  assert.ok(beforeSlip >= 23);
   s.traceWrap({ x: 1.5, y: 0.5 });
-  assert.equal(s.wrapProgress, 16);
-  s.beginWrap(s.wrapPosition);
-  for (const p of bandagePattern.slice(16, 40)) s.traceWrap(p);
+  assert.equal(
+    s.wrapProgress,
+    beforeSlip,
+    'keep everything wrapped, not just the last marker',
+  );
+  s.traceWrap(bandagePattern[23]);
+  for (const p of bandagePattern.slice(24, 40)) s.traceWrap(p);
   s.releaseWrap();
   const progress = s.wrapProgress;
   s.traceWrap(bandagePattern[96]);
@@ -209,6 +222,53 @@ test('bandage follows continuous coils, retaining checkpoints on a slip or lift'
   for (const p of bandagePattern.slice(39)) s.traceWrap(p);
   assert.ok(s.complete);
   assert.equal(s.wrapping, false);
+  assert.equal(s.misses, 2);
+});
+test('bandage tolerates small hand wobbles and rounded turns across board shapes', () => {
+  for (const [width, height] of [
+    [320, 170],
+    [320, 380],
+    [410, 210],
+  ]) {
+    const s = new CareSkill('bandage');
+    // A level camera projects each three-dimensional coil without hooked reversals.
+    const path = bandagePattern.map((p) => ({
+      x: 0.5 + (p.x - 0.5) * 0.65,
+      y: 0.5 + (p.y - 0.5) * 0.5,
+    }));
+    s.setWrapPath(path, width, height);
+    s.start();
+    s.beginWrap(path[0]);
+    // Sparse input rounds each turn; six-pixel wobbles should stay in the visible lane.
+    for (let i = 2; i <= 96; i += 2) {
+      s.traceWrap({
+        x: path[i].x + (Math.sin(i * 1.7) * 6) / width,
+        y: path[i].y + (Math.cos(i * 0.7) * 6) / height,
+      });
+      assert.equal(s.wrapRecovering, false, `${width}x${height} segment ${i}`);
+    }
+    assert.ok(s.complete, `${width}x${height}`);
+    assert.equal(s.misses, 0);
+  }
+});
+test('the final bandage marker accepts the same lane tolerance without skipping the last curve', () => {
+  const s = new CareSkill('bandage');
+  s.start();
+  s.beginWrap(bandagePattern[0]);
+  for (const p of bandagePattern.slice(1, 65)) s.traceWrap(p);
+  s.traceWrap(bandagePattern[96]);
+  assert.equal(
+    s.complete,
+    false,
+    'cannot skip the last coil by jumping to its final marker',
+  );
+  s.traceWrap(bandagePattern[64]);
+  for (const p of bandagePattern.slice(65, 94)) s.traceWrap(p);
+  assert.ok(
+    s.complete,
+    'reaching inside the final marker needs no exact endpoint',
+  );
+  assert.equal(s.wrapProgress, 96);
 });
 test('drops require steady aim; forceps need a grip, a slow straight pull and pauses', () => {
   const d = new CareSkill('drops');

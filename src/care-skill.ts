@@ -15,7 +15,7 @@ export const careSkills = {
   bandage: {
     kind: 'wrap',
     title: 'Wrap this little paw',
-    hint: 'Start at the roll. Drag along the dotted coils around the paw. Follow the numbers in order. Lift to pause; a slip keeps your last checkpoint.',
+    hint: 'Start at the roll. Follow the wide blue guide to the next number. If you drift away, return to the glowing ring. Your finished wrapping stays put. Lift to pause.',
     action: 'Wrap the paw',
   },
   comb: {
@@ -96,7 +96,10 @@ export class CareSkill {
   wrapPath = [...bandagePattern];
   wrapProgress = 0;
   wrapping = false;
+  wrapRecovering = false;
   wrapPosition = bandagePoint(0);
+  private wrapScale: TracePoint = { x: 1, y: 1 };
+  private wrapPixels = Infinity;
   message = 'Read the instructions, then start when you are ready.';
   private movement = 0;
   private movementAge = 0;
@@ -125,7 +128,13 @@ export class CareSkill {
     return this.assisted ? 0.115 : 0.08;
   }
   get wrapTolerance() {
-    return this.assisted ? 0.065 : 0.045;
+    return Math.max(this.assisted ? 0.1 : 0.075, 12 / this.wrapPixels);
+  }
+  private wrapDistance(a: TracePoint, b: TracePoint) {
+    return Math.hypot(
+      (a.x - b.x) * this.wrapScale.x,
+      (a.y - b.y) * this.wrapScale.y,
+    );
   }
   get targetPoint(): TracePoint {
     if (this.spec.kind === 'pull') {
@@ -309,8 +318,15 @@ export class CareSkill {
           : 'Ready. Ease the plunger into the striped range.';
     }
   }
-  setWrapPath(path: TracePoint[]) {
+  setWrapPath(path: TracePoint[], width?: number, height?: number) {
     this.wrapPath = path;
+    if (width && height) {
+      this.wrapPixels = Math.min(width, height);
+      this.wrapScale = {
+        x: width / this.wrapPixels,
+        y: height / this.wrapPixels,
+      };
+    }
     this.wrapPosition = bandagePoint(this.wrapProgress, path);
   }
   beginWrap(point: TracePoint) {
@@ -322,35 +338,56 @@ export class CareSkill {
     )
       return false;
     const roll = bandagePoint(this.wrapProgress, this.wrapPath);
-    if (distance(point, roll) > 0.1) {
-      this.message = 'Start at the roll and follow the dotted coils.';
+    if (this.wrapDistance(point, roll) > this.wrapTolerance * 1.3) {
+      this.message = 'Start at the glowing ring, then follow the blue guide.';
       return false;
     }
     this.wrapping = true;
+    this.wrapRecovering = false;
     this.wrapPosition = roll;
+    this.message =
+      'Follow the blue guide to the next number. Lift whenever you need a break.';
     return true;
   }
   traceWrap(point: TracePoint) {
     if (!this.wrapping || this.complete || !Number.isFinite(point.x + point.y))
       return;
-    const from = this.wrapPosition,
+    if (this.wrapRecovering) {
+      // Rejoining never draws a shortcut from the off-path pointer to a later coil.
+      const roll = bandagePoint(this.wrapProgress, this.wrapPath);
+      this.wrapPosition = point;
+      if (this.wrapDistance(point, roll) <= this.wrapTolerance) {
+        this.wrapRecovering = false;
+        this.wrapPosition = roll;
+        this.message = 'Back on track! Follow the blue guide.';
+      }
+      return;
+    }
+    const previousProgress = this.wrapProgress,
+      from = this.wrapPosition,
       steps = Math.min(
         300,
-        Math.max(1, Math.ceil(distance(point, from) / 0.008)),
+        Math.max(1, Math.ceil(this.wrapDistance(point, from) / 0.008)),
       );
     for (let i = 1; i <= steps; i++) {
       const p = {
         x: from.x + ((point.x - from.x) * i) / steps,
         y: from.y + ((point.y - from.y) * i) / steps,
       };
-      const projected = projectBandage(p, this.wrapProgress, this.wrapPath);
+      const projected = projectBandage(
+        p,
+        this.wrapProgress,
+        this.wrapPath,
+        this.wrapScale,
+      );
       if (projected.distance > this.wrapTolerance) {
-        this.wrapProgress = Math.floor(this.wrapProgress / 16) * 16;
-        this.stage = this.wrapProgress / 16;
-        this.releaseWrap();
+        this.wrapProgress = previousProgress;
+        this.stage = Math.floor(previousProgress / 16);
+        this.wrapRecovering = true;
+        this.wrapPosition = point;
         this.misses++;
         this.message =
-          'The roll slipped. Start at your last marker; the finished bandage stays in place.';
+          'Your wrapping is safe. Move back to the glowing ring to carry on.';
         return;
       }
       this.wrapProgress = projected.progress;
@@ -358,9 +395,18 @@ export class CareSkill {
     }
     this.wrapPosition = point;
     if (
-      this.wrapProgress >= 95 &&
-      distance(point, this.wrapPath[96]) <= 0.022
+      this.wrapProgress >= 80 &&
+      this.wrapDistance(point, this.wrapPath[96]) <= this.wrapTolerance
     ) {
+      // Finish within the visible lane, rather than requiring a sub-pixel endpoint.
+      // Measure the remaining curve too, so approaching across a coil cannot skip it.
+      let remaining = 0,
+        last = bandagePoint(this.wrapProgress, this.wrapPath);
+      for (const p of this.wrapPath.slice(Math.floor(this.wrapProgress) + 1)) {
+        remaining += this.wrapDistance(last, p);
+        last = p;
+      }
+      if (remaining > this.wrapTolerance) return;
       this.wrapProgress = 96;
       this.stage = 6;
       this.finish();
@@ -368,6 +414,7 @@ export class CareSkill {
   }
   releaseWrap() {
     this.wrapping = false;
+    this.wrapRecovering = false;
     this.wrapPosition = bandagePoint(this.wrapProgress, this.wrapPath);
   }
   update(dt: number) {

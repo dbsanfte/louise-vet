@@ -51,8 +51,16 @@ async function pointer(page: Page, touch: boolean) {
       y: number,
       selector = '.skill-canvas',
     ) {
-      const b = (await page.locator(selector).boundingBox())!,
-        p = { x: b.x + x * b.width, y: b.y + y * b.height };
+      const b = (await page
+          .locator(selector === '.skill-canvas' ? '.care-surface' : selector)
+          .boundingBox())!,
+        p = {
+          x: b.x + x * b.width,
+          y:
+            b.y +
+            y * b.height +
+            (touch && selector === '.skill-canvas' ? 44 : 0),
+        };
       if (session)
         await session.send('Input.dispatchTouchEvent', {
           type: (
@@ -163,6 +171,83 @@ test('tools follow continuous native touch or mouse drags, with keyboard aim and
   await expect(page.locator('#outcome')).toHaveText('Stopped with no reward');
   await p.dispose();
 });
+test('every care tool aims above native touch with reachable edges and direct mouse aim', async ({
+  page,
+}, info) => {
+  const touch = info.project.name === 'mobile';
+  await fixture(page, 'cream');
+  const p = await pointer(page, touch);
+  for (const size of [
+    { width: 360, height: 640 },
+    { width: 740, height: 360 },
+  ]) {
+    await page.setViewportSize(size);
+    for (const tool of Object.keys(careSkills) as CareTool[]) {
+      await page.evaluate((tool) => window.openCare(tool), tool);
+      await expect(page.locator('.skill-dialog')).toHaveAttribute(
+        'data-ready',
+        'true',
+      );
+      await page.getByRole('button', { name: 'Start when ready' }).click();
+      const surface = page.locator('.care-surface');
+      const board = page.locator('.skill-canvas');
+      // Wait for the projected geometry to catch up with a rotated phone.
+      const frames = await page.evaluate(() => window.careGeometry().frames);
+      await expect
+        .poll(() => page.evaluate(() => window.careGeometry().frames))
+        .toBeGreaterThan(frames);
+      const start =
+        tool === 'bandage'
+          ? await page.locator('.care-target').evaluate((e) => ({
+              x: Number((e as HTMLElement).dataset.x),
+              y: Number((e as HTMLElement).dataset.y),
+            }))
+          : { x: 0.5, y: 0.5 };
+      await p.send('start', start.x, start.y);
+      for (const target of [
+        { x: 0.25, y: 0.1 },
+        { x: 0.75, y: 0.95 },
+      ]) {
+        const b = (await surface.boundingBox())!;
+        const finger = {
+          x: b.x + target.x * b.width,
+          y: b.y + target.y * b.height + (touch ? 44 : 0),
+        };
+        const bounds = (await board.boundingBox())!;
+        expect(finger.y).toBeLessThan(bounds.y + bounds.height);
+        expect(finger.y).toBeLessThan(size.height);
+        await p.send('move', target.x, target.y);
+        await expect
+          .poll(async () => {
+            const tip = await page.locator('.care-cursor').evaluate((e) => {
+              const b = e.getBoundingClientRect();
+              return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+            });
+            return Math.max(
+              Math.abs(tip.x - finger.x),
+              Math.abs(finger.y - tip.y - (touch ? 44 : 0)),
+            );
+          })
+          .toBeLessThan(2);
+        // Changing contact/feedback must not shift the treatment grid under the hand.
+        expect(await surface.boundingBox()).toEqual(b);
+      }
+      if (tool === 'cream')
+        await page.screenshot({
+          path: info.outputPath(`offset-${size.width}.png`),
+        });
+      await p.send('cancel', 0.75, 0.95);
+      const before = await page.locator('.care-cursor').getAttribute('style');
+      await page.mouse.move(1, 1);
+      await expect(page.locator('.care-cursor')).toHaveAttribute(
+        'style',
+        before!,
+      );
+    }
+  }
+  await p.dispose();
+});
+
 test('native pressure and tilt sliders drag with a finger, pause on release and retain keyboard input', async ({
   page,
 }, info) => {
@@ -206,7 +291,7 @@ test('native pressure and tilt sliders drag with a finger, pause on release and 
   }
   await p.dispose();
 });
-test('bandage wraps the actual paw through native dragging, preserves checkpoints and supports keyboard tracing', async ({
+test('bandage wraps the actual paw through native dragging, recovers within a drag without losing progress and supports keyboard tracing', async ({
   page,
 }, info) => {
   await page.setViewportSize({ width: 390, height: 720 });
@@ -235,14 +320,28 @@ test('bandage wraps the actual paw through native dragging, preserves checkpoint
   ).toHaveAttribute('aria-valuenow', '0');
   await p.send('start', points[0].x, points[0].y);
   for (const q of points.slice(1, 25)) await p.send('move', q.x, q.y);
-  await p.send('move', 0.99, 0.99);
-  await p.send('end', 0.99, 0.99);
-  await expect(page.locator('.skill-feedback')).toContainText('last marker');
   await expect(
     page.getByRole('meter', { name: 'Care progress' }),
-  ).toHaveAttribute('aria-valuenow', '17');
-  await p.send('start', points[16].x, points[16].y);
-  for (const q of points.slice(17, 49)) await p.send('move', q.x, q.y);
+  ).toHaveAttribute('aria-valuenow', '25');
+  const progress = await page
+    .getByRole('meter', { name: 'Care progress' })
+    .getAttribute('aria-valuenow');
+  await p.send('move', 0.99, 0.99);
+  await expect(page.locator('.skill-dialog')).toHaveAttribute(
+    'data-rejoining',
+    'true',
+  );
+  await expect(page.locator('.skill-feedback')).toContainText('glowing ring');
+  await expect(
+    page.getByRole('meter', { name: 'Care progress' }),
+  ).toHaveAttribute('aria-valuenow', progress!);
+  // Rejoin without lifting: the off-path part must not be drawn as a shortcut.
+  await p.send('move', points[24].x, points[24].y);
+  await expect(page.locator('.skill-dialog')).toHaveAttribute(
+    'data-rejoining',
+    'false',
+  );
+  for (const q of points.slice(25, 49)) await p.send('move', q.x, q.y);
   await p.send('end', points[48].x, points[48].y);
   await page.screenshot({
     path: info.outputPath('real-paw-half-bandaged.png'),
@@ -271,6 +370,78 @@ test('bandage wraps the actual paw through native dragging, preserves checkpoint
   await expect(page.locator('[data-skill-finish]')).toBeEnabled();
   await p.dispose();
 });
+test('gentle cream strokes reach every patch through offset touch or direct mouse contact', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await fixture(page, 'cream');
+  await page.getByRole('button', { name: 'Start when ready' }).click();
+  const p = await pointer(page, info.project.name === 'mobile');
+  for (let i = 0; i < 6; i++) {
+    const mark = page.locator(`[data-care-mark="${i}"]`);
+    const center = await mark.evaluate((e) => ({
+      x: Number((e as HTMLElement).dataset.x),
+      y: Number((e as HTMLElement).dataset.y),
+    }));
+    await p.send('start', center.x + 0.025, center.y);
+    await expect
+      .poll(() => page.evaluate(() => window.careContact().holding))
+      .toBe(true);
+    for (let j = 1; j <= 36 && (await mark.isVisible()); j++) {
+      await p.send(
+        'move',
+        center.x + Math.cos(j * 0.3) * 0.025,
+        center.y + Math.sin(j * 0.3) * 0.025,
+      );
+      await page.waitForTimeout(40);
+    }
+    if (i === 0)
+      await page.screenshot({
+        path: info.outputPath('gentle-visible-contact.png'),
+      });
+    await p.send('end', center.x, center.y);
+    await expect(mark).toBeHidden();
+  }
+  await expect(page.locator('[data-skill-finish]')).toBeEnabled();
+  await expect(page.getByRole('meter', { name: 'Discomfort' })).toHaveAttribute(
+    'aria-valuenow',
+    '0',
+  );
+  await p.dispose();
+});
+
+test('a normal finger hold can follow the breathing patch and complete cooling', async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await fixture(page, 'cooling');
+  const p = await pointer(page, info.project.name === 'mobile');
+  await page.getByRole('button', { name: 'Start when ready' }).click();
+  const target = () =>
+    page.locator('.care-target').evaluate((e) => ({
+      x: Number((e as HTMLElement).dataset.x),
+      y: Number((e as HTMLElement).dataset.y),
+    }));
+  const start = await target();
+  await p.send('start', start.x, start.y);
+  for (
+    let i = 0;
+    i < 100 && (await page.locator('[data-skill-finish]').isDisabled());
+    i++
+  ) {
+    const aim = await target();
+    await p.send('move', aim.x, aim.y);
+    await page.waitForTimeout(50);
+  }
+  await p.send('end', start.x, start.y);
+  await expect(page.locator('[data-skill-finish]')).toBeEnabled();
+  await expect(page.getByRole('meter', { name: 'Discomfort' })).toHaveAttribute(
+    'aria-valuenow',
+    '0',
+  );
+  await p.dispose();
+});
+
 test('rough cream application shows discomfort and a calm retry resets coverage', async ({
   page,
 }, info) => {

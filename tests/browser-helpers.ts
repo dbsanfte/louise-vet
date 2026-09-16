@@ -73,8 +73,7 @@ export async function exerciseCareSkill(page: Page) {
   const start = dialog.locator('[data-skill-start]');
   if (await start.isVisible()) await start.click();
   const kind = await dialog.getAttribute('data-skill');
-  const board = dialog.locator('.skill-canvas');
-  const box = (await board.boundingBox())!;
+  const box = (await dialog.locator('.care-surface').boundingBox())!;
   const target = async () =>
     dialog.locator('.care-target').evaluate((e) => ({
       x: Number((e as HTMLElement).dataset.x),
@@ -111,7 +110,7 @@ export async function exerciseCareSkill(page: Page) {
             mark = d.querySelector<HTMLElement>(`[data-care-mark="${i}"]`)!;
           let angle = 0;
           for (let n = 0; n < 180 && !mark.hidden; n++) {
-            const b = board.getBoundingClientRect();
+            const b = d.querySelector('.care-surface')!.getBoundingClientRect();
             angle += 0.16;
             const x =
                 Number(mark.dataset.x) +
@@ -154,7 +153,7 @@ export async function exerciseCareSkill(page: Page) {
       let x = kind === 'pull' ? 0.35 : Number(t.dataset.x),
         y = kind === 'pull' ? 0.65 : Number(t.dataset.y);
       for (let n = 0; n < 400 && d.dataset.complete !== 'true'; n++) {
-        const b = board.getBoundingClientRect(),
+        const b = d.querySelector('.care-surface')!.getBoundingClientRect(),
           tx = Number(t.dataset.x),
           ty = Number(t.dataset.y),
           dx = tx - x,

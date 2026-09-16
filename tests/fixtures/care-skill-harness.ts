@@ -10,8 +10,22 @@ declare global {
     openCare: (tool: CareTool) => void;
     normalCareGraphics: (enabled: boolean) => void;
     careGeometry: () => { count: number; depth: number; frames: number };
+    careContact: () => {
+      holding: boolean;
+      elapsed: number;
+      pain: number;
+      position: { x: number; y: number };
+      coverage: number[];
+    };
   }
 }
+window.careContact = () => ({
+  holding: view!.skill.holding,
+  elapsed: view!.skill.elapsed,
+  pain: view!.skill.pain,
+  position: view!.skill.position,
+  coverage: [...view!.skill.coverage],
+});
 window.normalCareGraphics = (enabled) => {
   const scene = (view as unknown as { scene: CareScene }).scene;
   (scene as unknown as { software: boolean }).software = !enabled;

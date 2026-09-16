@@ -103,7 +103,11 @@
   touch-action: none;
   cursor: crosshair;
 }
-.skill-canvas > canvas {
+.care-surface {
+  position: absolute;
+  inset: 0 0 var(--care-touch-space, 0px);
+}
+.care-surface > canvas {
   width: 100%;
   height: 100%;
   display: block;
@@ -129,6 +133,18 @@
   font-size: 12px;
   margin: 0;
   color: #56695b;
+}
+.skill-touchhint {
+  display: none;
+  font-size: 12px;
+  margin: 0;
+  color: #56695b;
+}
+.skill-dialog[data-touch-layout='true'] .skill-keyhint {
+  display: none;
+}
+.skill-dialog[data-touch-layout='true'] .skill-touchhint {
+  display: block;
 }
 .skill-controls {
   display: grid;
@@ -231,6 +247,7 @@
 }
 .care-target,
 .care-cursor,
+.care-touch-guide,
 .care-mark,
 .care-wrap-marker {
   position: absolute;
@@ -249,6 +266,32 @@
   font-size: 28px;
   color: #284f48;
   text-shadow: 0 0 3px white;
+}
+.care-touch-guide {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.skill-dialog[data-input='touch'] .care-touch-guide {
+  display: block;
+}
+.care-touch-guide::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  height: 20px;
+  border-left: 2px dotted #335e65;
+}
+.care-touch-guide::after {
+  content: '';
+  position: absolute;
+  top: 44px;
+  width: 22px;
+  height: 22px;
+  border: 2px solid #335e65;
+  box-shadow: 0 0 0 2px #fff9;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
 }
 .care-mark,
 .care-wrap-marker {
@@ -282,6 +325,38 @@
 }
 .care-wrap-marker.done {
   background: #bbdfa6;
+}
+.skill-dialog[data-skill='wrap'] .care-wrap-path {
+  opacity: 0.35;
+}
+.care-wrap-lane,
+.care-wrap-next {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.care-wrap-lane {
+  stroke: #82c3d24d;
+}
+.care-wrap-next {
+  stroke: #265e76;
+  stroke-width: 3px;
+  stroke-dasharray: 5 5;
+}
+.care-wrap-marker.next {
+  border: 2px solid #265e76;
+  background: #d4eff9;
+  box-shadow: 0 0 0 3px #fff9;
+}
+.skill-dialog[data-skill='wrap'] .care-target {
+  width: 32px;
+  height: 32px;
+  border-style: solid;
+  background: #e2f4fb66;
+}
+.skill-dialog[data-rejoining='true'] .care-target {
+  box-shadow: 0 0 0 6px #f2cd8588;
 }
 .skill-dialog[data-startled='true'] .skill-canvas {
   outline: 3px solid #d69a7f;

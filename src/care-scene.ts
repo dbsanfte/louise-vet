@@ -157,6 +157,8 @@ export class CareScene {
       )
       .normalize();
     if (skill.zone === 'tank') this.normal.set(0.4, 0.55, 1).normalize();
+    // A level view keeps the three coils separate and avoids hooked screen-space turns.
+    if (skill.tool === 'bandage') this.normal.set(0, 0, 1);
     if (models.detail) this.normal.set(0, 0, 1);
     this.camera.position.copy(this.focus).addScaledVector(this.normal, 4);
     this.camera.lookAt(this.focus);
@@ -284,7 +286,11 @@ export class CareScene {
     this.camera.bottom = -this.camera.top;
     this.camera.updateProjectionMatrix();
     if (this.wraps.length)
-      this.skill.setWrapPath(this.wraps.map((p) => this.project(p)));
+      this.skill.setWrapPath(
+        this.wraps.map((p) => this.project(p)),
+        width,
+        height,
+      );
     return true;
   }
   project(point: THREE.Vector3): TracePoint {

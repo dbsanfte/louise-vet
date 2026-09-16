@@ -42,6 +42,7 @@ export function projectBandage(
   point: TracePoint,
   progress: number,
   path: readonly TracePoint[] = bandagePattern,
+  scale: TracePoint = { x: 1, y: 1 },
 ) {
   let distance = Infinity,
     next = progress;
@@ -52,16 +53,18 @@ export function projectBandage(
   ) {
     const a = path[i],
       b = path[i + 1];
-    const dx = b.x - a.x,
-      dy = b.y - a.y;
+    const dx = (b.x - a.x) * scale.x,
+      dy = (b.y - a.y) * scale.y,
+      px = (point.x - a.x) * scale.x,
+      py = (point.y - a.y) * scale.y;
     const t = Math.max(
       0,
       Math.min(
         1,
-        ((point.x - a.x) * dx + (point.y - a.y) * dy) / (dx * dx + dy * dy),
+        (px * dx + py * dy) / Math.max(Number.EPSILON, dx * dx + dy * dy),
       ),
     );
-    const d = Math.hypot(point.x - a.x - dx * t, point.y - a.y - dy * t);
+    const d = Math.hypot(px - dx * t, py - dy * t);
     if (d < distance) {
       distance = d;
       next = i + t;

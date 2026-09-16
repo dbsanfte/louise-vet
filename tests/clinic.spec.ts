@@ -247,7 +247,7 @@ test('all authored visits are playable and every pet can receive care', async ({
       // A miss must leave the vaccine unapplied, and stopping during timing
       // must return the same patient with no reward or lingering treatment.
       await page.getByRole('button', { name: 'Start when ready' }).click();
-      const board = (await page.locator('.skill-canvas').boundingBox())!;
+      const board = (await page.locator('.care-surface').boundingBox())!;
       await page.mouse.move(
         board.x + board.width / 2,
         board.y + board.height / 2,
@@ -352,7 +352,7 @@ test('vaccination pressure can be cancelled, retried and confirmed for exactly o
     .getByRole('button', { name: `Coat on ${visits[id].name}`, exact: true })
     .click();
   await page.getByRole('button', { name: 'Start when ready' }).click();
-  const board = (await page.locator('.skill-canvas').boundingBox())!;
+  const board = (await page.locator('.care-surface').boundingBox())!;
   await page.mouse.move(board.x + board.width / 2, board.y + board.height / 2);
   await page.mouse.down();
   await page.waitForTimeout(600);

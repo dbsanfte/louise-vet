@@ -2,14 +2,14 @@ import { CareSkill } from './care-skill';
 import { CareScene, loadCareModels, type CareModels } from './care-scene';
 import { toolInfo, visits } from './game';
 import { icon } from './icons';
-import type { TracePoint } from './bandage-pattern';
+import { bandagePoint, type TracePoint } from './bandage-pattern';
 /** The same contact controls serve the rendered tool, touch and keyboard. */
 export class CareSkillView {
   readonly dialog = document.createElement('dialog');
   private scene?: CareScene;
   private disposed = false;
   private pointer: number | null = null;
-  private offset: TracePoint = { x: 0, y: 0 };
+  private readonly touchOffset = 44;
   private lastMessage = '';
   constructor(
     readonly skill: CareSkill,
@@ -22,6 +22,14 @@ export class CareSkillView {
     this.dialog.dataset.skill = kind;
     this.dialog.dataset.tool = skill.tool;
     this.dialog.dataset.ready = 'false';
+    this.dialog.dataset.input =
+      navigator.maxTouchPoints > 0 ? 'touch' : 'mouse';
+    this.dialog.dataset.touchLayout = String(navigator.maxTouchPoints > 0);
+    if (navigator.maxTouchPoints > 0)
+      this.dialog.style.setProperty(
+        '--care-touch-space',
+        `${this.touchOffset + 16}px`,
+      );
     this.dialog.setAttribute('aria-labelledby', 'skill-title');
     this.dialog.setAttribute('aria-describedby', 'skill-instructions');
     const slider =
@@ -33,7 +41,7 @@ export class CareSkillView {
       : '';
     const guide =
       kind === 'wrap'
-        ? '<svg class="care-wrap-guide" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true"><path class="care-wrap-path"/></svg>' +
+        ? '<svg class="care-wrap-guide" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true"><path class="care-wrap-path"/><path class="care-wrap-lane"/><path class="care-wrap-next"/></svg>' +
           Array.from(
             { length: 7 },
             (_, i) =>
@@ -48,7 +56,7 @@ export class CareSkillView {
               )
               .join('')
           : '';
-    this.dialog.innerHTML = `<header class="skill-header"><span class="mini-badge">${icon(toolInfo[skill.tool].icon)}</span><div><small>${toolInfo[skill.tool].name}</small><h2 id="skill-title">${skill.spec.title}</h2></div><button class="icon-button" data-skill-cancel aria-label="Cancel care activity">${icon('close')}</button></header><div class="care-viewport"><div class="skill-canvas" tabindex="0" role="group" aria-label="${kind === 'wrap' ? 'Bandage wrapping around the 3D paw' : 'Apply ' + toolInfo[skill.tool].name + ' to the patient'}"><span class="care-loading">Loading your patient…</span>${guide}<span class="care-target" aria-hidden="true"></span><span class="care-cursor" aria-hidden="true">+</span>${Array.from({ length: 6 }, (_, i) => `<span class="care-mark" data-care-mark="${i}" aria-hidden="true"></span>`).join('')}</div><p class="skill-step"></p></div><div class="care-instructions"><p id="skill-instructions">${skill.spec.hint}</p><p class="skill-keyhint">${kind === 'wrap' ? 'Arrow keys move the roll along the coils. Stop to pause.' : 'Arrow keys aim. Hold Space to apply. Release to pause.'}</p><div class="skill-controls">${slider}${action}<button class="primary" data-skill-start disabled>Start when ready</button><button class="primary" data-skill-retry hidden>Try gently again</button></div><div class="care-meters"><label>Care progress<div class="skill-progress" role="meter" aria-label="Care progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label><label class="care-comfort" ${kind === 'wrap' || kind === 'comb' || kind === 'aim' ? 'hidden' : ''}>Discomfort <span class="care-comfort-label">Comfortable</span><div class="skill-pain" role="meter" aria-label="Discomfort" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label></div><p class="skill-feedback" role="status"></p></div><footer><button class="secondary" data-skill-stop>← Stop visit</button><button class="primary" data-skill-finish disabled>Finish care</button></footer>`;
+    this.dialog.innerHTML = `<header class="skill-header"><span class="mini-badge">${icon(toolInfo[skill.tool].icon)}</span><div><small>${toolInfo[skill.tool].name}</small><h2 id="skill-title">${skill.spec.title}</h2></div><button class="icon-button" data-skill-cancel aria-label="Cancel care activity">${icon('close')}</button></header><div class="care-viewport"><div class="skill-canvas" tabindex="0" role="group" aria-label="${kind === 'wrap' ? 'Bandage wrapping around the 3D paw' : 'Apply ' + toolInfo[skill.tool].name + ' to the patient'}"><div class="care-surface"><span class="care-loading">Loading your patient…</span>${guide}<span class="care-target" aria-hidden="true"></span><span class="care-cursor" aria-hidden="true">+</span><span class="care-touch-guide" aria-hidden="true"></span>${Array.from({ length: 6 }, (_, i) => `<span class="care-mark" data-care-mark="${i}" aria-hidden="true"></span>`).join('')}</div></div><p class="skill-step"></p></div><div class="care-instructions"><p id="skill-instructions">${skill.spec.hint}</p><p class="skill-keyhint">${kind === 'wrap' ? 'Arrow keys move the roll along the coils. Stop to pause.' : 'Arrow keys aim. Hold Space to apply. Release to pause.'}</p><p class="skill-touchhint">Drag the circle below the tool. It works above your finger.</p><div class="skill-controls">${slider}${action}<button class="primary" data-skill-start disabled>Start when ready</button><button class="primary" data-skill-retry hidden>Try gently again</button></div><div class="care-meters"><label>Care progress<div class="skill-progress" role="meter" aria-label="Care progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label><label class="care-comfort" ${kind === 'wrap' || kind === 'comb' || kind === 'aim' ? 'hidden' : ''}>Discomfort <span class="care-comfort-label">Comfortable</span><div class="skill-pain" role="meter" aria-label="Discomfort" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label></div><p class="skill-feedback" role="status"></p></div><footer><button class="secondary" data-skill-stop>← Stop visit</button><button class="primary" data-skill-finish disabled>Finish care</button></footer>`;
     mount.append(this.dialog);
     const bind = (selector: string, fn: () => void) =>
       this.dialog.querySelector(selector)?.addEventListener('click', fn);
@@ -62,6 +70,7 @@ export class CareSkillView {
       callbacks.cancel();
     });
     const board = this.dialog.querySelector<HTMLElement>('.skill-canvas')!;
+    const surface = this.dialog.querySelector<HTMLElement>('.care-surface')!;
     bind('[data-skill-start]', () => {
       if (!this.scene) return;
       skill.start();
@@ -78,12 +87,20 @@ export class CareSkillView {
       this.refresh();
     });
     const point = (e: PointerEvent) => {
-      const r = board.getBoundingClientRect();
+      const r = surface.getBoundingClientRect();
       return {
         x: (e.clientX - r.left) / r.width,
-        y: (e.clientY - r.top) / r.height,
+        y:
+          (e.clientY -
+            r.top -
+            (e.pointerType === 'touch' ? this.touchOffset : 0)) /
+          r.height,
       };
     };
+    // Finger pressure is not reliable across touch hardware; gentle care uses pace.
+    // A pressure-sensitive pen still controls contact force.
+    const pressure = (e: PointerEvent) =>
+      e.pointerType === 'touch' ? 0.5 : e.pressure;
     board.addEventListener('pointerdown', (e) => {
       if (
         !e.isPrimary ||
@@ -96,17 +113,14 @@ export class CareSkillView {
       )
         return;
       e.preventDefault();
+      this.dialog.dataset.input = e.pointerType === 'touch' ? 'touch' : 'mouse';
       const p = point(e);
       if (kind === 'wrap') {
         if (!skill.beginWrap(p)) {
           this.refresh();
           return;
         }
-        this.offset = {
-          x: p.x - skill.wrapPosition.x,
-          y: p.y - skill.wrapPosition.y,
-        };
-      } else skill.press(p, e.pressure);
+      } else skill.press(p, pressure(e));
       this.pointer = e.pointerId;
       board.setPointerCapture(e.pointerId);
       board.focus({ preventScroll: true });
@@ -115,9 +129,8 @@ export class CareSkillView {
     board.addEventListener('pointermove', (e) => {
       if (e.pointerId !== this.pointer) return;
       const p = point(e);
-      if (kind === 'wrap')
-        skill.traceWrap({ x: p.x - this.offset.x, y: p.y - this.offset.y });
-      else skill.move(p, e.pressure);
+      if (kind === 'wrap') skill.traceWrap(p);
+      else skill.move(p, pressure(e));
       this.refresh();
     });
     for (const event of ['pointerup', 'pointercancel', 'lostpointercapture'])
@@ -126,6 +139,7 @@ export class CareSkillView {
       });
     board.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      this.dialog.dataset.input = 'keyboard';
       const d: Record<string, TracePoint> = {
         ArrowLeft: { x: -0.015, y: 0 },
         ArrowRight: { x: 0.015, y: 0 },
@@ -198,7 +212,7 @@ export class CareSkillView {
     this.dialog.showModal();
     const prepare = (models: CareModels) => {
       if (this.disposed) return;
-      this.scene = new CareScene(board, skill, models);
+      this.scene = new CareScene(surface, skill, models);
       this.dialog.dataset.ready = 'true';
       this.dialog.querySelector('.care-loading')!.remove();
       this.refresh();
@@ -227,6 +241,7 @@ export class CareSkillView {
     this.dialog.dataset.complete = String(s.complete);
     this.dialog.dataset.started = String(s.started);
     this.dialog.dataset.startled = String(s.startled);
+    this.dialog.dataset.rejoining = String(s.wrapRecovering);
     const start =
       this.dialog.querySelector<HTMLButtonElement>('[data-skill-start]')!;
     start.hidden = s.started;
@@ -257,8 +272,10 @@ export class CareSkillView {
     }
     const target = this.dialog.querySelector<HTMLElement>('.care-target')!;
     target.hidden =
-      !['aim', 'pull', 'steady', 'pressure', 'pour'].includes(k) || s.complete;
-    const p = s.targetPoint;
+      !['aim', 'pull', 'steady', 'pressure', 'pour', 'wrap'].includes(k) ||
+      s.complete;
+    const p =
+      k === 'wrap' ? bandagePoint(s.wrapProgress, s.wrapPath) : s.targetPoint;
     target.style.left = `${p.x * 100}%`;
     target.style.top = `${p.y * 100}%`;
     target.dataset.x = String(p.x);
@@ -272,7 +289,32 @@ export class CareSkillView {
     cursor.style.left = `${pos.x * 100}%`;
     cursor.style.top = `${pos.y * 100}%`;
     cursor.hidden = !s.started || s.complete;
+    const touchGuide =
+      this.dialog.querySelector<HTMLElement>('.care-touch-guide')!;
+    touchGuide.style.left = cursor.style.left;
+    touchGuide.style.top = cursor.style.top;
+    touchGuide.hidden = s.complete;
     if (k === 'wrap') {
+      // Only the upcoming half-coil is bold, so nearby wraps cannot compete for attention.
+      const nextMarker = Math.min(
+        96,
+        (Math.floor(s.wrapProgress / 16) + 1) * 16,
+      );
+      const nextPoints = [
+        bandagePoint(s.wrapProgress, s.wrapPath),
+        ...s.wrapPath.slice(Math.floor(s.wrapProgress) + 1, nextMarker + 1),
+      ];
+      const nextPath = nextPoints
+        .map((p, i) => `${i ? 'L' : 'M'}${p.x},${p.y}`)
+        .join(' ');
+      const surface = this.dialog.querySelector<HTMLElement>('.care-surface')!;
+      const lane =
+        this.dialog.querySelector<SVGPathElement>('.care-wrap-lane')!;
+      lane.style.strokeWidth = `${s.wrapTolerance * Math.min(surface.clientWidth, surface.clientHeight) * 2}px`;
+      for (const selector of ['.care-wrap-lane', '.care-wrap-next'])
+        this.dialog
+          .querySelector(selector)!
+          .setAttribute('d', s.complete ? '' : nextPath);
       this.dialog
         .querySelector('.care-wrap-path')!
         .setAttribute(
@@ -286,6 +328,7 @@ export class CareSkillView {
           m.style.left = `${p.x * 100}%`;
           m.style.top = `${p.y * 100}%`;
           m.classList.toggle('done', i * 16 <= s.wrapProgress);
+          m.classList.toggle('next', i * 16 === nextMarker && !s.complete);
         });
       this.dialog.querySelector<HTMLElement>(
         '.skill-canvas',
