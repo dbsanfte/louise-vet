@@ -70,8 +70,6 @@ export async function showTownHome(page: Page, label: string) {
 export async function exerciseCareSkill(page: Page) {
   const dialog = page.locator('.skill-dialog');
   await expect(dialog).toHaveAttribute('data-ready', 'true');
-  const start = dialog.locator('[data-skill-start]');
-  if (await start.isVisible()) await start.click();
   const kind = await dialog.getAttribute('data-skill');
   const box = (await dialog.locator('.care-surface').boundingBox())!;
   const target = async () =>
@@ -83,7 +81,20 @@ export async function exerciseCareSkill(page: Page) {
     await page.mouse.move(box.x + p.x * box.width, box.y + p.y * box.height);
     if (down) await page.mouse.down();
   };
-  if (kind === 'wrap') {
+  if (kind === 'timing') {
+    // React to the visible ring. A drop is checked when it lands, so an early
+    // tap while the fish is approaching can miss; wait for it to swim away.
+    await dialog.locator('.skill-canvas').press('Space');
+    for (
+      let i = 0;
+      i < 200 && (await dialog.locator('[data-skill-finish]').isDisabled());
+      i++
+    ) {
+      if ((await dialog.getAttribute('data-water-state')) === 'clear')
+        await dialog.locator('.skill-canvas').press('Space');
+      await page.waitForTimeout(100);
+    }
+  } else if (kind === 'wrap') {
     const path = await dialog.locator('.care-wrap-path').getAttribute('d');
     const points = path!.split(' ').map((p) => {
       const [x, y] = p.slice(1).split(',').map(Number);
@@ -178,12 +189,7 @@ export async function exerciseCareSkill(page: Page) {
           d.querySelector<HTMLButtonElement>('[data-skill-action]')!.click();
         const input = d.querySelector<HTMLInputElement>('#skill-position');
         if (input) {
-          const fill = Number(
-            d
-              .querySelector('.skill-step')!
-              .textContent!.match(/Water level (\d+)/)?.[1] ?? 0,
-          );
-          input.value = kind === 'pour' && fill >= 64 ? '0' : '46';
+          input.value = '46';
           input.dispatchEvent(new Event('input', { bubbles: true }));
         }
         await new Promise((r) => setTimeout(r, 40));

@@ -279,13 +279,13 @@
   content: '';
   position: absolute;
   top: 12px;
-  height: 20px;
+  height: calc(var(--care-touch-offset, 55px) - 24px);
   border-left: 2px dotted #335e65;
 }
 .care-touch-guide::after {
   content: '';
   position: absolute;
-  top: 44px;
+  top: var(--care-touch-offset, 55px);
   width: 22px;
   height: 22px;
   border: 2px solid #335e65;
@@ -458,4 +458,29 @@
     height: 2.4em;
     min-height: 2.4em;
   }
+}
+
+.skill-dialog[data-skill='timing'] .care-target {
+  width: 34px;
+  height: 34px;
+  background: #a9e4c088;
+  border: 3px solid #206241;
+}
+.skill-dialog[data-water-state='wait'] .care-target {
+  background: #ffd59a88;
+  border-color: #975817;
+  border-style: dashed;
+}
+.skill-dialog[data-water-state='falling'] .care-target,
+.skill-dialog[data-water-state='settling'] .care-target {
+  background: #b4dce766;
+  border-color: #407483;
+}
+
+.skill-dialog[data-skill='timing'] .skill-controls {
+  display: none;
+}
+.skill-dialog[data-skill='timing'] .care-meters {
+  grid-template-columns: 1fr;
+  margin-top: 10px;
 }

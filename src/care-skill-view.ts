@@ -9,7 +9,7 @@ export class CareSkillView {
   private scene?: CareScene;
   private disposed = false;
   private pointer: number | null = null;
-  private readonly touchOffset = 44;
+  private readonly touchOffset = 55;
   private lastMessage = '';
   constructor(
     readonly skill: CareSkill,
@@ -25,16 +25,20 @@ export class CareSkillView {
     this.dialog.dataset.input =
       navigator.maxTouchPoints > 0 ? 'touch' : 'mouse';
     this.dialog.dataset.touchLayout = String(navigator.maxTouchPoints > 0);
-    if (navigator.maxTouchPoints > 0)
+    if (navigator.maxTouchPoints > 0 && kind !== 'timing')
       this.dialog.style.setProperty(
         '--care-touch-space',
         `${this.touchOffset + 16}px`,
       );
+    this.dialog.style.setProperty(
+      '--care-touch-offset',
+      `${this.touchOffset}px`,
+    );
     this.dialog.setAttribute('aria-labelledby', 'skill-title');
     this.dialog.setAttribute('aria-describedby', 'skill-instructions');
     const slider =
-      kind === 'pressure' || kind === 'pour'
-        ? `<label for="skill-position">${kind === 'pressure' ? 'Plunger pressure' : 'Bottle tilt'} <span class="pressure-guide">${kind === 'pressure' ? 'Gentle: 32–62%' : 'Slow pour: 25–60%'}</span></label><input id="skill-position" type="range" min="0" max="100" step="2" value="0" aria-label="${kind === 'pressure' ? 'Plunger pressure' : 'Bottle tilt'}"><span class="skill-input-value">0%</span>`
+      kind === 'pressure'
+        ? '<label for="skill-position">Plunger pressure <span class="pressure-guide">Gentle: 32–62%</span></label><input id="skill-position" type="range" min="0" max="100" step="2" value="0" aria-label="Plunger pressure"><span class="skill-input-value">0%</span>'
         : '';
     const action = ['aim', 'pull', 'pressure'].includes(kind)
       ? `<button class="primary" data-skill-action>${skill.spec.action}</button>`
@@ -56,7 +60,7 @@ export class CareSkillView {
               )
               .join('')
           : '';
-    this.dialog.innerHTML = `<header class="skill-header"><span class="mini-badge">${icon(toolInfo[skill.tool].icon)}</span><div><small>${toolInfo[skill.tool].name}</small><h2 id="skill-title">${skill.spec.title}</h2></div><button class="icon-button" data-skill-cancel aria-label="Cancel care activity">${icon('close')}</button></header><div class="care-viewport"><div class="skill-canvas" tabindex="0" role="group" aria-label="${kind === 'wrap' ? 'Bandage wrapping around the 3D paw' : 'Apply ' + toolInfo[skill.tool].name + ' to the patient'}"><div class="care-surface"><span class="care-loading">Loading your patient…</span>${guide}<span class="care-target" aria-hidden="true"></span><span class="care-cursor" aria-hidden="true">+</span><span class="care-touch-guide" aria-hidden="true"></span>${Array.from({ length: 6 }, (_, i) => `<span class="care-mark" data-care-mark="${i}" aria-hidden="true"></span>`).join('')}</div></div><p class="skill-step"></p></div><div class="care-instructions"><p id="skill-instructions">${skill.spec.hint}</p><p class="skill-keyhint">${kind === 'wrap' ? 'Arrow keys move the roll along the coils. Stop to pause.' : 'Arrow keys aim. Hold Space to apply. Release to pause.'}</p><p class="skill-touchhint">Drag the circle below the tool. It works above your finger.</p><div class="skill-controls">${slider}${action}<button class="primary" data-skill-start disabled>Start when ready</button><button class="primary" data-skill-retry hidden>Try gently again</button></div><div class="care-meters"><label>Care progress<div class="skill-progress" role="meter" aria-label="Care progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label><label class="care-comfort" ${kind === 'wrap' || kind === 'comb' || kind === 'aim' ? 'hidden' : ''}>Discomfort <span class="care-comfort-label">Comfortable</span><div class="skill-pain" role="meter" aria-label="Discomfort" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label></div><p class="skill-feedback" role="status"></p></div><footer><button class="secondary" data-skill-stop>← Stop visit</button><button class="primary" data-skill-finish disabled>Finish care</button></footer>`;
+    this.dialog.innerHTML = `<header class="skill-header"><span class="mini-badge">${icon(toolInfo[skill.tool].icon)}</span><div><small>${toolInfo[skill.tool].name}</small><h2 id="skill-title">${skill.spec.title}</h2></div><button class="icon-button" data-skill-cancel aria-label="Cancel care activity">${icon('close')}</button></header><div class="care-viewport"><div class="skill-canvas" tabindex="0" role="group" aria-label="${kind === 'wrap' ? 'Bandage wrapping around the 3D paw' : 'Apply ' + toolInfo[skill.tool].name + ' to the patient'}"><div class="care-surface"><span class="care-loading">Loading your patient…</span>${guide}<span class="care-target" aria-hidden="true"></span><span class="care-cursor" aria-hidden="true">+</span><span class="care-touch-guide" aria-hidden="true"></span>${Array.from({ length: 6 }, (_, i) => `<span class="care-mark" data-care-mark="${i}" aria-hidden="true"></span>`).join('')}</div></div><p class="skill-step"></p></div><div class="care-instructions"><p id="skill-instructions">${skill.spec.hint}</p><p class="skill-keyhint">${kind === 'timing' ? 'Press Space once for each drop. Watch the fish between drops.' : kind === 'wrap' ? 'Arrow keys move the roll along the coils. Stop to pause.' : 'Arrow keys aim. Hold Space to apply. Release to pause.'}</p><p class="skill-touchhint">${kind === 'timing' ? 'Tap the bowl for each drop. No dragging needed.' : 'Drag the circle below the tool. It works above your finger.'}</p><div class="skill-controls">${slider}${action}<button class="primary" data-skill-retry hidden>Try gently again</button></div><div class="care-meters"><label>Care progress<div class="skill-progress" role="meter" aria-label="Care progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label><label class="care-comfort" ${kind === 'wrap' || kind === 'comb' || kind === 'aim' || kind === 'timing' ? 'hidden' : ''}>Discomfort <span class="care-comfort-label">Comfortable</span><div class="skill-pain" role="meter" aria-label="Discomfort" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div></label></div><p class="skill-feedback" role="status"></p></div><footer><button class="secondary" data-skill-stop>← Stop visit</button><button class="primary" data-skill-finish disabled>Finish care</button></footer>`;
     mount.append(this.dialog);
     const bind = (selector: string, fn: () => void) =>
       this.dialog.querySelector(selector)?.addEventListener('click', fn);
@@ -71,12 +75,6 @@ export class CareSkillView {
     });
     const board = this.dialog.querySelector<HTMLElement>('.skill-canvas')!;
     const surface = this.dialog.querySelector<HTMLElement>('.care-surface')!;
-    bind('[data-skill-start]', () => {
-      if (!this.scene) return;
-      skill.start();
-      this.refresh();
-      board.focus({ preventScroll: true });
-    });
     bind('[data-skill-retry]', () => {
       skill.restart();
       this.refresh();
@@ -107,13 +105,13 @@ export class CareSkillView {
         e.button !== 0 ||
         this.pointer !== null ||
         !this.scene ||
-        !skill.started ||
         skill.complete ||
         skill.startled
       )
         return;
       e.preventDefault();
       this.dialog.dataset.input = e.pointerType === 'touch' ? 'touch' : 'mouse';
+      skill.start();
       const p = point(e);
       if (kind === 'wrap') {
         if (!skill.beginWrap(p)) {
@@ -138,7 +136,15 @@ export class CareSkillView {
         if ((e as PointerEvent).pointerId === this.pointer) this.pause();
       });
     board.addEventListener('keydown', (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey ||
+        !this.scene ||
+        skill.complete ||
+        skill.startled
+      )
+        return;
       this.dialog.dataset.input = 'keyboard';
       const d: Record<string, TracePoint> = {
         ArrowLeft: { x: -0.015, y: 0 },
@@ -146,6 +152,7 @@ export class CareSkillView {
         ArrowUp: { x: 0, y: -0.015 },
         ArrowDown: { x: 0, y: 0.015 },
       };
+      if (e.code === 'Space' || d[e.key]) skill.start();
       if (e.code === 'Space') {
         e.preventDefault();
         if (!e.repeat) skill.press(skill.position);
@@ -216,7 +223,7 @@ export class CareSkillView {
       this.dialog.dataset.ready = 'true';
       this.dialog.querySelector('.care-loading')!.remove();
       this.refresh();
-      this.dialog.querySelector<HTMLElement>('[data-skill-start]')!.focus();
+      board.focus({ preventScroll: true });
     };
     if (models) prepare(models);
     else {
@@ -242,10 +249,6 @@ export class CareSkillView {
     this.dialog.dataset.started = String(s.started);
     this.dialog.dataset.startled = String(s.startled);
     this.dialog.dataset.rejoining = String(s.wrapRecovering);
-    const start =
-      this.dialog.querySelector<HTMLButtonElement>('[data-skill-start]')!;
-    start.hidden = s.started;
-    start.disabled = !this.scene;
     this.dialog.querySelector<HTMLButtonElement>('[data-skill-retry]')!.hidden =
       !s.startled;
     const input =
@@ -272,7 +275,7 @@ export class CareSkillView {
     }
     const target = this.dialog.querySelector<HTMLElement>('.care-target')!;
     target.hidden =
-      !['aim', 'pull', 'steady', 'pressure', 'pour', 'wrap'].includes(k) ||
+      !['aim', 'pull', 'steady', 'pressure', 'timing', 'wrap'].includes(k) ||
       s.complete;
     const p =
       k === 'wrap' ? bandagePoint(s.wrapProgress, s.wrapPath) : s.targetPoint;
@@ -280,6 +283,17 @@ export class CareSkillView {
     target.style.top = `${p.y * 100}%`;
     target.dataset.x = String(p.x);
     target.dataset.y = String(p.y);
+    if (s.fishCare) {
+      const fish = s.fishCare;
+      this.dialog.dataset.waterState =
+        fish.dropProgress !== null
+          ? 'falling'
+          : fish.cooldown > 0
+            ? 'settling'
+            : fish.clear
+              ? 'clear'
+              : 'wait';
+    }
     target.style.setProperty(
       '--alignment',
       `${Math.min(1, s.stable / (k === 'steady' ? 4 : 0.45)) * 100}%`,
@@ -288,12 +302,12 @@ export class CareSkillView {
     const pos = k === 'wrap' ? s.wrapPosition : s.position;
     cursor.style.left = `${pos.x * 100}%`;
     cursor.style.top = `${pos.y * 100}%`;
-    cursor.hidden = !s.started || s.complete;
+    cursor.hidden = !this.scene || s.complete || k === 'timing';
     const touchGuide =
       this.dialog.querySelector<HTMLElement>('.care-touch-guide')!;
     touchGuide.style.left = cursor.style.left;
     touchGuide.style.top = cursor.style.top;
-    touchGuide.hidden = s.complete;
+    touchGuide.hidden = s.complete || k === 'timing';
     if (k === 'wrap') {
       // Only the upcoming half-coil is bold, so nearby wraps cannot compete for attention.
       const nextMarker = Math.min(
@@ -362,8 +376,8 @@ export class CareSkillView {
                 ? `${s.stage}/3 storybook drops`
                 : k === 'pull'
                   ? `${s.stage}/3 gentle steps`
-                  : k === 'pour'
-                    ? `Water level ${Math.round(s.waterLevel * 100)}% · Fill line 65%`
+                  : k === 'timing'
+                    ? `${s.fishCare!.drops}/5 drops · ${s.fishCare!.dropProgress !== null ? 'Drop falling…' : s.fishCare!.cooldown > 0 ? 'Let the water settle' : s.fishCare!.clear ? 'Ring clear' : 'Wait — fish passing'}`
                     : `${Math.round(s.progress * 100)}% complete`;
     this.dialog.querySelector('.skill-step')!.textContent = s.complete
       ? 'Ready to finish'

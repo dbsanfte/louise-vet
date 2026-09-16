@@ -891,7 +891,7 @@ export const upgrades = [
     price: 150,
     icon: 'stethoscope',
     description:
-      'Wider guides help you aim drops, pull gently, hold steady and control pressure or pouring.',
+      'Wider guides help you aim drops, pull gently, hold steady and control vaccine pressure.',
   },
   {
     id: 'poster',

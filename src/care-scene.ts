@@ -53,7 +53,10 @@ export class CareScene {
   private patches: THREE.Mesh[] = [];
   private fleas: THREE.Mesh[] = [];
   private water?: THREE.Mesh;
-  private stream?: THREE.Mesh;
+  private fallingDrop?: THREE.Mesh;
+  private ripple?: THREE.Mesh;
+  private swimmingFish?: THREE.Group;
+  private fins: { part: THREE.Object3D; angle: number }[] = [];
   private splinter?: THREE.Mesh;
   private plungers: { part: THREE.Object3D; y: number }[] = [];
   private owned: { dispose(): void }[] = [];
@@ -148,6 +151,25 @@ export class CareScene {
           Math.max(...bounds.getSize(new THREE.Vector3()).toArray()) * 2.2;
       }
     }
+    if (skill.tool === 'water-care') {
+      this.focus.set(0, 1.23, 0);
+      this.span = 1.75;
+      this.swimmingFish = new THREE.Group();
+      this.swimmingFish.name = 'CareSwimmingFish';
+      const parts: THREE.Object3D[] = [];
+      this.patient.traverse((part) => {
+        if (/^(body|eye|pupil|tail|fin)([._]|\d|$)/.test(part.name))
+          parts.push(part);
+      });
+      this.patient.add(this.swimmingFish);
+      for (const part of parts) {
+        this.swimmingFish.attach(part);
+        part.position.y -= 0.65;
+        if (/^(tail|fin)([._]|\d|$)/.test(part.name))
+          this.fins.push({ part, angle: part.rotation.y });
+      }
+      this.swimmingFish.scale.setScalar(0.28);
+    }
     if (skill.tool === 'bandage') this.makeWrap();
     this.normal
       .copy(
@@ -157,6 +179,10 @@ export class CareScene {
       )
       .normalize();
     if (skill.zone === 'tank') this.normal.set(0.4, 0.55, 1).normalize();
+    if (skill.tool === 'water-care') {
+      this.normal.set(0, 1, 0);
+      this.camera.up.set(0, 0, -1);
+    }
     // A level view keeps the three coils separate and avoids hooked screen-space turns.
     if (skill.tool === 'bandage') this.normal.set(0, 0, 1);
     if (models.detail) this.normal.set(0, 0, 1);
@@ -192,8 +218,20 @@ export class CareScene {
     for (let i = 0; i < 3; i++)
       this.drops.push(dot(0x73c1d3, this.span * 0.018));
     if (skill.tool === 'water-care') {
-      this.stream = dot(0x85cbd9, this.span * 0.013);
-      this.stream.scale.set(1, 12, 1);
+      this.fallingDrop = dot(0x248aa4, this.span * 0.025);
+      this.fallingDrop.name = 'CareWaterDrop';
+      const geometry = new THREE.RingGeometry(0.045, 0.06, 32),
+        material = new THREE.MeshBasicMaterial({
+          color: 0x4eb897,
+          transparent: true,
+          opacity: 0.8,
+          side: THREE.DoubleSide,
+        });
+      this.ripple = new THREE.Mesh(geometry, material);
+      this.ripple.rotation.x = -Math.PI / 2;
+      this.ripple.position.y = 1.235;
+      this.effects.add(this.ripple);
+      this.owned.push(geometry, material);
     }
     if (skill.tool === 'forceps') {
       this.splinter = dot(0x79502c, this.span * 0.01);
@@ -346,7 +384,7 @@ export class CareScene {
     const s = this.skill,
       kind = s.spec.kind;
     this.patient.rotation.z = s.startled ? Math.sin(now * 0.009) * 0.025 : 0;
-    this.prop.visible = s.started && !s.complete && !s.startled;
+    this.prop.visible = !s.complete && !s.startled;
     if (kind === 'wrap') {
       const i = Math.min(95, Math.floor(s.wrapProgress)),
         t = s.wrapProgress - i;
@@ -355,13 +393,9 @@ export class CareScene {
         .lerp(this.wraps[i + 1], t)
         .addScaledVector(this.normal, 0.015);
       this.ribbon!.geometry.setDrawRange(0, Math.floor(s.wrapProgress) * 6);
-    } else this.prop.position.copy(this.onSurface(s.position, 0.03));
-    this.prop.rotation.z =
-      kind === 'pour'
-        ? -s.value * 0.9
-        : kind === 'pressure'
-          ? -s.value * 0.1
-          : 0;
+    } else if (kind === 'timing') this.prop.position.set(0, 1.55, -0.28);
+    else this.prop.position.copy(this.onSurface(s.position, 0.03));
+    this.prop.rotation.z = kind === 'pressure' ? -s.value * 0.1 : 0;
     for (const { part, y } of this.plungers)
       part.position.y =
         y - (kind === 'pressure' && s.gripped ? s.progress * 0.35 : 0);
@@ -371,17 +405,23 @@ export class CareScene {
         s.gripped ? this.prop.position : this.onSurface({ x: 0.35, y: 0.65 }),
       );
     }
-    if (this.stream) {
-      this.stream.visible =
-        s.value > 0 &&
-        Math.hypot(
-          s.position.x - s.targetPoint.x,
-          s.position.y - s.targetPoint.y,
-        ) < s.tolerance;
-      this.stream.position
-        .copy(this.prop.position)
-        .addScaledVector(this.up, -this.span * 0.07);
-      this.stream.quaternion.copy(this.camera.quaternion);
+    if (this.swimmingFish && s.fishCare) {
+      const fish = s.fishCare;
+      this.swimmingFish.position.set(fish.position.x, 0.98, fish.position.y);
+      this.swimmingFish.rotation.y = fish.heading;
+      for (const { part, angle } of this.fins)
+        part.rotation.y = angle + Math.sin(s.elapsed * 9) * 0.3;
+      this.fallingDrop!.visible = fish.dropProgress !== null;
+      this.fallingDrop!.position.set(
+        0,
+        1.55 - (fish.dropProgress ?? 0) * 0.31,
+        -0.28 * (1 - (fish.dropProgress ?? 0)),
+      );
+      this.ripple!.visible = fish.splash > 0;
+      this.ripple!.scale.setScalar(1 + (1 - fish.splash / 0.65) * 4);
+      const material = this.ripple!.material as THREE.MeshBasicMaterial;
+      material.color.set(fish.result === 'fish' ? 0xe9a244 : 0x459c84);
+      material.opacity = fish.splash / 0.65;
     }
     this.patches.forEach((p, i) => {
       p.visible =
@@ -415,8 +455,8 @@ export class CareScene {
         if (part.name.startsWith('clinical tartar')) part.visible = false;
       });
     if (this.water) {
-      this.water.scale.y = 0.93 + s.waterLevel * 0.08;
-      this.water.position.y = 0.13 + 0.55 * this.water.scale.y;
+      const material = this.water.material as THREE.MeshStandardMaterial;
+      material.color.set(0x9eb998).lerp(new THREE.Color(0x9edce3), s.progress);
     }
     this.renderer.render(this.scene, this.camera);
     if (this.software) {

@@ -68,7 +68,10 @@ images are used.
 
 `src/fishbowl.ts` supplies an original translucent water volume fitted to the
 Blender bowl's base and rim, with clear/cloudy colours and tool-aware contact.
-Optical tools continue to reach the fish through the water. No external water
+Optical tools continue to reach the fish through the water. The water-care
+close-up reuses the original Blender fish parts, scaled to swim inside that bowl;
+runtime tail/fin strokes, a falling drop and ripples use original procedural
+animation/geometry in `src/care-scene.ts`. No GLB or Blender source is overwritten. No external water
 textures or assets are used.
 
 ## Louise's portrait

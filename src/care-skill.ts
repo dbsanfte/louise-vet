@@ -1,4 +1,5 @@
 import type { Tool, Zone } from './game.ts';
+import { FishCare } from './fish-care.ts';
 import {
   bandagePattern,
   bandagePoint,
@@ -55,10 +56,10 @@ export const careSkills = {
     action: 'Begin gentle press',
   },
   'water-care': {
-    kind: 'pour',
-    title: 'A gentle water change',
-    hint: 'Aim the bottle over the bowl opening. Tilt it a little to pour slowly, then straighten it near the fill line. Fast splashes upset your fish.',
-    action: 'Aim the bottle',
+    kind: 'timing',
+    title: 'Watch the swimming fish',
+    hint: 'Watch the fish swim away from the ring. Tap the bowl to release one drop, then wait for it to land. Add five drops without splashing the fish.',
+    action: 'Release a water drop',
   },
 } as const;
 export type CareTool = keyof typeof careSkills;
@@ -100,18 +101,23 @@ export class CareSkill {
   wrapPosition = bandagePoint(0);
   private wrapScale: TracePoint = { x: 1, y: 1 };
   private wrapPixels = Infinity;
-  message = 'Read the instructions, then start when you are ready.';
+  message =
+    'Take your time reading. Touch the tool or use the arrow keys or Space to begin.';
   private movement = 0;
   private movementAge = 0;
   private pressure = 0.5;
   private dose = 0;
-  private fill = 0.15;
-  private flow = 0;
+  readonly fishCare?: FishCare;
   readonly tool: CareTool;
   readonly assisted: boolean;
   readonly zone: Zone;
   constructor(tool: CareTool, assisted = false, zone: Zone = 'mouth') {
     this.tool = tool;
+    if (tool === 'water-care') {
+      this.fishCare = new FishCare();
+      this.message =
+        'Take your time reading. Tap the bowl or press Space when you are ready for the first drop.';
+    }
     this.assisted = assisted;
     this.zone = zone;
     this.surface = zone === 'mouth' ? 'teeth' : 'fur';
@@ -148,13 +154,9 @@ export class CareSkill {
       };
     if (this.spec.kind === 'aim')
       return { x: 0.5 + Math.sin(this.elapsed * 0.7) * 0.055, y: 0.43 };
-    if (this.spec.kind === 'pour') return { x: 0.5, y: 0.29 };
     if (this.spec.kind === 'wrap')
       return bandagePoint(Math.min(96, this.wrapProgress + 3), this.wrapPath);
     return { x: 0.5, y: 0.5 };
-  }
-  get waterLevel() {
-    return this.fill;
   }
   get progress() {
     if (this.complete) return 1;
@@ -174,8 +176,8 @@ export class CareSkill {
         return this.stable / 4;
       case 'pressure':
         return this.dose / 3;
-      case 'pour':
-        return clamp((this.fill - 0.15) / 0.5);
+      case 'timing':
+        return this.fishCare!.drops / 5;
     }
   }
   patchPoint(i: number) {
@@ -207,8 +209,6 @@ export class CareSkill {
     this.stable = 0;
     this.value = 0;
     this.dose = 0;
-    this.fill = 0.15;
-    this.flow = 0;
     this.covered.clear();
     this.coverage.fill(0);
     this.gripped = false;
@@ -234,7 +234,6 @@ export class CareSkill {
       this.holding = false;
       this.gripped = false;
       this.value = 0;
-      this.flow = 0;
       this.message =
         'That startled your pet. Let them settle, then try a gentler touch.';
     } else if (this.pain > 0.6)
@@ -249,6 +248,11 @@ export class CareSkill {
       !Number.isFinite(point.x + point.y)
     )
       return;
+    if (this.fishCare) {
+      this.fishCare.drop();
+      this.engaged = true;
+      return;
+    }
     this.position = { ...point };
     this.holding = true;
     this.engaged = true;
@@ -264,6 +268,7 @@ export class CareSkill {
       !Number.isFinite(point.x + point.y)
     )
       return;
+    if (this.fishCare) return;
     if (this.holding) this.movement += distance(this.position, point);
     this.position = { ...point };
     this.pressure = pressure > 0 ? clamp(pressure) : 0.5;
@@ -275,7 +280,7 @@ export class CareSkill {
     this.value = 0;
     this.releaseWrap();
   }
-  /** The pressure/tilt slider is shared by pointer and keyboard controls. */
+  /** The vaccine pressure slider is shared by pointer and keyboard controls. */
   input(value: number) {
     if (
       !this.started ||
@@ -284,7 +289,7 @@ export class CareSkill {
       !Number.isFinite(value)
     )
       return;
-    if (this.spec.kind !== 'pressure' && this.spec.kind !== 'pour') return;
+    if (this.spec.kind !== 'pressure') return;
     this.value = clamp(value);
     this.engaged = true;
   }
@@ -516,25 +521,21 @@ export class CareSkill {
         if (this.dose >= 3) this.finish();
       } else if (this.value > 0)
         this.message = 'Keep the plunger in the striped gentle-pressure range.';
-    } else if (kind === 'pour') {
-      const aligned = near;
-      this.flow = aligned ? this.value * 0.24 : 0;
-      if (this.value > 0.72) this.discomfort(dt * (this.value - 0.6) * 2);
-      if (this.value > 0 && !aligned)
-        this.message = 'Move the bottle over the bowl opening first.';
-      this.fill += this.flow * dt;
-      if (this.fill > 0.76) {
+    } else if (kind === 'timing') {
+      const fish = this.fishCare!,
+        before = fish.drops,
+        misses = fish.misses;
+      fish.update(dt);
+      if (fish.misses > misses) {
         this.misses++;
-        this.fill = 0.15;
-        this.value = 0;
         this.message =
-          'A little too full. Try again and straighten the bottle sooner.';
+          'Oops, the fish swam under that drop! Your fish is fine. Wait until the ring is clear and try again.';
+      } else if (fish.drops > before) {
+        this.message = `${fish.drops}/5 gentle drops. Watch where your fish swims next.`;
+        if (fish.drops === 5) this.finish();
       }
-      if (this.value === 0 && this.fill >= 0.6 && this.fill <= 0.7) {
-        this.stable += dt;
-        if (this.stable >= 0.45) this.finish();
-      } else this.stable = 0;
     }
+
     if (moving) this.movementAge = 0;
     this.movement = 0;
   }

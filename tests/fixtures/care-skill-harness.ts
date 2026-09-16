@@ -1,6 +1,6 @@
 // Isolated UI fixture; never imported by the production game.
 import { CareSkill, type CareTool } from '../../src/care-skill';
-import { Mesh } from 'three';
+import { Mesh, Vector3 } from 'three';
 import type { CareScene } from '../../src/care-scene';
 import { visits } from '../../src/game';
 import { CareSkillView } from '../../src/care-skill-view';
@@ -9,6 +9,15 @@ declare global {
   interface Window {
     openCare: (tool: CareTool) => void;
     normalCareGraphics: (enabled: boolean) => void;
+    careFish: () => {
+      x: number;
+      y: number;
+      frames: number;
+      drops: number;
+      misses: number;
+      falling: boolean;
+      rendered: boolean;
+    };
     careGeometry: () => { count: number; depth: number; frames: number };
     careContact: () => {
       holding: boolean;
@@ -19,6 +28,19 @@ declare global {
     };
   }
 }
+window.careFish = () => {
+  const scene = (view as unknown as { scene: CareScene }).scene;
+  const fish = scene.scene.getObjectByName('CareSwimmingFish')!;
+  const p = scene.project(fish.getWorldPosition(new Vector3()));
+  return {
+    ...p,
+    frames: scene.renderer.info.render.frame,
+    drops: view!.skill.fishCare!.drops,
+    misses: view!.skill.fishCare!.misses,
+    falling: view!.skill.fishCare!.dropProgress !== null,
+    rendered: fish.visible && fish.children.length >= 7,
+  };
+};
 window.careContact = () => ({
   holding: view!.skill.holding,
   elapsed: view!.skill.elapsed,

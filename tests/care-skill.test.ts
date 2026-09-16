@@ -8,6 +8,7 @@ import {
 } from '../src/care-skill.ts';
 import { bandagePattern, type TracePoint } from '../src/bandage-pattern.ts';
 import { visits } from '../src/game.ts';
+import { FishCare } from '../src/fish-care.ts';
 const tick = (s: CareSkill, seconds: number) => {
   for (let i = 0; i < Math.ceil(seconds / 0.05); i++) s.update(0.05);
 };
@@ -86,13 +87,19 @@ function complete(tool: CareTool) {
       s.input(0.45);
       tick(s, 3.1);
       break;
-    case 'pour':
-      s.press(s.targetPoint);
-      s.release();
-      s.input(0.5);
-      tick(s, 4.2);
-      s.input(0);
-      tick(s, 0.5);
+    case 'timing':
+      for (let i = 0; i < 1200 && !s.complete; i++) {
+        const fish = s.fishCare!;
+        // Tap as the fish reaches the rim, then watch the next crossing.
+        if (
+          Math.hypot(fish.position.x, fish.position.y) > 0.39 &&
+          fish.cooldown === 0
+        ) {
+          s.press(s.targetPoint);
+          s.release();
+        }
+        s.update(0.05);
+      }
       break;
   }
   return s;
@@ -323,7 +330,7 @@ test('cooling requires held alignment; lifting pauses, a parked pad does not com
   tick(parked, 30);
   assert.equal(parked.complete, false);
 });
-test('vaccine needs aim and gentle pressure; water needs alignment, slow flow and a deliberate stop', () => {
+test('vaccine needs aim and gentle pressure', () => {
   const v = new CareSkill('vaccine');
   v.start();
   v.input(0.45);
@@ -336,27 +343,58 @@ test('vaccine needs aim and gentle pressure; water needs alignment, slow flow an
   tick(v, 2);
   assert.ok(v.startled);
   assert.equal(v.complete, false);
-  const w = new CareSkill('water-care');
-  w.start();
-  w.press({ x: 0, y: 0 });
-  w.input(0.5);
-  tick(w, 6);
-  assert.equal(w.waterLevel, 0.15);
-  w.press(w.targetPoint);
-  w.input(0.5);
-  tick(w, 4.2);
-  assert.equal(w.complete, false, 'must stop pouring');
-  w.input(0);
-  tick(w, 0.5);
-  assert.ok(w.complete);
-  const over = new CareSkill('water-care');
-  over.start();
-  over.press(over.targetPoint);
-  over.input(0.5);
-  tick(over, 6);
-  assert.equal(over.complete, false);
-  assert.equal(over.misses, 1);
-  assert.equal(over.value, 0);
+});
+test('water care checks the swimming fish at landing, keeps safe drops and ignores repeated holds and sliders', () => {
+  const s = new CareSkill('water-care');
+  s.start();
+  s.press(s.targetPoint);
+  tick(s, 0.4);
+  assert.equal(s.fishCare!.drops, 1);
+  tick(s, 0.45);
+  // The fish now crosses underneath the dropper.
+  s.press(s.targetPoint);
+  s.press(s.targetPoint);
+  s.input(1);
+  tick(s, 0.4);
+  assert.equal(s.fishCare!.drops, 1, 'a miss preserves earlier care');
+  assert.equal(
+    s.fishCare!.misses,
+    1,
+    'repeat presses cannot stack falling drops',
+  );
+  assert.equal(s.qualityLoss, 4);
+  assert.equal(s.startled, false);
+  assert.match(s.message, /fish is fine/);
+  tick(s, 12);
+  assert.equal(s.fishCare!.drops, 1, 'holding does not keep dropping');
+  assert.equal(s.complete, false);
+  const before = { ...s.fishCare!.position };
+  tick(s, 0.7);
+  assert.notDeepEqual(s.fishCare!.position, before);
+  const approaching = new FishCare();
+  approaching.update(0.5);
+  assert.ok(approaching.clear);
+  approaching.drop();
+  approaching.update(0.35);
+  assert.equal(
+    approaching.misses,
+    1,
+    'check where the fish is at landing, not at release',
+  );
+});
+test('fish swims on changing bounded routes, with both safe and unsafe opportunities', () => {
+  const fish = new FishCare(() => 0.8);
+  let safe = 0,
+    unsafe = 0,
+    sideways = false;
+  for (let i = 0; i < 2400; i++) {
+    fish.update(0.025);
+    assert.ok(Math.hypot(fish.position.x, fish.position.y) <= 0.401);
+    if (fish.clear) safe++;
+    else unsafe++;
+    if (Math.abs(fish.position.y) > 0.1) sideways = true;
+  }
+  assert.ok(safe > 300 && unsafe > 300 && sideways);
 });
 test('equipment widens guides without bypassing the interaction', () => {
   for (const tool of Object.keys(careSkills) as CareTool[]) {

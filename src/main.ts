@@ -663,7 +663,7 @@ function renderModal() {
       [
         'heart',
         'Give a gentle helping hand',
-        'Choose the care tool and body spot, then follow its activity: spread, wrap, brush, aim or use gentle control. Start when ready and choose Finish care after success. Vaccination visits go straight to placement and gentle pressure.',
+        'Choose the care tool and body spot, then follow its activity: spread, wrap, brush, aim or use gentle control. Touch the work area to begin and choose Finish care after success. Vaccination visits go straight to placement and gentle pressure.',
       ],
       [
         'bag',

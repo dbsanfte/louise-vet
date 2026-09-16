@@ -246,7 +246,10 @@ test('all authored visits are playable and every pet can receive care', async ({
       const coinsBefore = await page.getByTestId('coins').textContent();
       // A miss must leave the vaccine unapplied, and stopping during timing
       // must return the same patient with no reward or lingering treatment.
-      await page.getByRole('button', { name: 'Start when ready' }).click();
+      await expect(page.locator('.skill-dialog')).toHaveAttribute(
+        'data-ready',
+        'true',
+      );
       const board = (await page.locator('.care-surface').boundingBox())!;
       await page.mouse.move(
         board.x + board.width / 2,
@@ -291,9 +294,10 @@ test('all authored visits are playable and every pet can receive care', async ({
           exact: true,
         })
         .click();
-      await expect(
-        page.getByRole('button', { name: 'Start when ready', exact: true }),
-      ).toBeVisible();
+      await expect(page.locator('.skill-dialog')).toHaveAttribute(
+        'data-ready',
+        'true',
+      );
     }
     await completeCareSkill(page);
     await expect(
@@ -351,7 +355,10 @@ test('vaccination pressure can be cancelled, retried and confirmed for exactly o
   await page
     .getByRole('button', { name: `Coat on ${visits[id].name}`, exact: true })
     .click();
-  await page.getByRole('button', { name: 'Start when ready' }).click();
+  await expect(page.locator('.skill-dialog')).toHaveAttribute(
+    'data-ready',
+    'true',
+  );
   const board = (await page.locator('.care-surface').boundingBox())!;
   await page.mouse.move(board.x + board.width / 2, board.y + board.height / 2);
   await page.mouse.down();
