@@ -1235,6 +1235,22 @@ h1 {
   line-height: 1.7;
   color: #939782;
 }
+.guide-credits {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid #d4ddc8;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.guide-credits p {
+  margin: 0;
+}
+.guide-credits a {
+  display: inline-block;
+  padding: 10px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .notebook-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

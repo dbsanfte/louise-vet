@@ -677,7 +677,7 @@ function renderModal() {
       )
       .join(
         '',
-      )}</div><p class="parent-note">Made for ages 7+. This is storybook animal care; a real animal needs a real veterinarian. Progress is saved in this browser. Sound is optional.</p>`;
+      )}</div><p class="parent-note">Made for ages 7+. This is storybook animal care; a real animal needs a real veterinarian. Progress is saved in this browser. Sound is optional.</p><footer class="guide-credits"><p>Copyright © 2026 by David Sanftenberg.</p><a href="https://github.com/dbsanfte/louise-vet" target="_blank" rel="noopener noreferrer">View the project on GitHub (opens in a new tab)</a></footer>`;
   } else {
     title = 'Louise’s care notebook';
     content = `<p class="modal-intro">A good vet stays curious. These friendly reminders can help you put the clues together.</p><div class="notebook-grid">${visits.map((p) => `<article><span class="pet-avatar ${p.color}">${petIcon(p.species)}</span><div><h3>${p.diagnosis}</h3><p>${p.treatment === 'vaccine' ? 'Find the soft fur patch, then control the vaccine pressure and pause in the striped patch.' : p.checks[0].finding}</p><small>${toolInfo[p.treatment].name} · ${zoneLabel(p.zone, p.species)}</small></div></article>`).join('')}</div>`;

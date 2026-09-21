@@ -101,7 +101,9 @@ Final prompt:
 under the SIL Open Font License. Its notice ships at `/licenses/nunito.txt`. There are no external font requests.
 
 The inline interface icons and pet silhouettes are original SVG code in
-`src/icons.ts`. Optional sounds are original synthesised chimes and double heartbeats in `src/audio.ts`;
+`src/icons.ts`. `public/favicon.svg` reuses that paw silhouette in cream on a
+rounded dark-green background; it adds no external artwork or licenses.
+Optional sounds are original synthesised chimes and double heartbeats in `src/audio.ts`;
 no music or third-party audio recordings are currently used.
 
 Three.js is distributed under the MIT License; its copyright and license notice
