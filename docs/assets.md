@@ -111,13 +111,15 @@ ship at `/licenses/three.txt`.
 
 ## Hookville exteriors — v2
 
-Twenty original Blender exports in `public/models/town/` provide the neighbourhood
+Original Blender exports in `public/models/town/` provide the neighbourhood
 (roads, pavements, crossings, gardens, fences, park, pond, trees and benches),
 sixteen geometrically distinct houses/flats, clinic canopy/sign, kennel, and car. Their reproducible authoring script
 is `scripts/create-town-assets.py`; the shared road/lot plan is
 `src/town-layout.json`, authored by `scripts/design-town-layout.py`. Editable source is
 `assets/blender/hookville.blend`. Static scenery is joined by material to reduce
-draw calls. Pavements are continuous joined strips with shared corner vertices and rounded branch junctions, generated from the navigation graph. These are original project models, with no third-party asset license.
+draw calls. Public rescue trees use a separate `rescue-tree.glb`, placed from
+`src/emergency-map.ts`, so clinic flooring can clear an individual tree.
+`src/shade-trees.json` positions the wider shade-tree instances clear of roads. Pavements are continuous joined strips with shared corner vertices and rounded branch junctions, generated from the navigation graph. These are original project models, with no third-party asset license.
 
 Kennels have open doorways and interior beds, with a separate instance for each
 dog. Town residents reuse the existing animated customer/pet models. Garden roaming,
@@ -125,6 +127,19 @@ kennel rest poses, walking routes and traffic are driven by `src/town.ts` and
 `src/town-simulation.ts`; the chat and sleeping-bubble textures are original canvas drawings.
 The v2 thermometer and cooling pad are authored in the examination generator and
 saved in `assets/blender/examination.blend` alongside the existing instruments.
+
+## Pet Party Hall
+
+`public/models/town/party-hall.glb` is an original Blender pavilion with a cutaway
+canopy, low walls, four benches, individual pet mats, snack and water bowls,
+balloons, bunting and wrapped decorative presents. Its editable source is
+`assets/blender/hookville-parties.blend`; reproduce it with
+`python3 scripts/blender-build.py --headless --parties`. The generator
+`scripts/create-party-assets.py` shares `src/party-layout.json` with the game.
+`src/party-scenery.ts` supplies an original canvas birthday sign and a bounded
+instanced bubble effect. Guests reuse the existing authored human/pet models and
+animation clips; fish reuse the original underwater enrichment effect. No
+external models, images, recordings or additional licences are introduced.
 
 ## Modular clinic and waiting amusements
 

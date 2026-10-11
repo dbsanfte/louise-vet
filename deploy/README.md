@@ -60,7 +60,7 @@ Never`), so no expiring GHCR pull token is stored on the cluster. Moving to mult
 nodes requires importing images to each node or configuring durable registry access.
 Two pods protect rolling updates, not failure of the host/router/internet link.
 
-The repository remains private; the served game and its runtime assets are public.
+The repository, served game and runtime assets are public.
 No accounts or cloud saves are introduced. Browser saves belong to the origin:
 progress from localhost does not automatically appear on `https://louise.vet`.
 

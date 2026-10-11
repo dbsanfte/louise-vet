@@ -10,6 +10,7 @@ import {
   routeBetween,
   clinicDoor,
 } from '../src/town-map.ts';
+import { partyPlan } from '../src/pet-parties.ts';
 import { clinicalProfile } from '../src/clinical.ts';
 
 test('every customer and pet belongs to one named household, including shared owners', () => {
@@ -39,7 +40,10 @@ test('routines reach park, chat, and home; pedestrians cross only at the crossin
     sim.update(0.1);
     for (const h of sim.households) {
       states.add(h.routine);
-      if (h.routine === 'walk' && !sim.weather.locked(h.id)) {
+      if (
+        ['walk', 'party-walk'].includes(h.routine) &&
+        !sim.weather.locked(h.id)
+      ) {
         const lot = layout.lots[h.lot];
         const onPavement = layout.edges.some(
           ([a, b]) =>
@@ -50,7 +54,12 @@ test('routines reach park, chat, and home; pedestrians cross only at the crossin
           segmentDistance(h.position, garden(lot), layout.nodes[lot.gate]) <
           0.05;
         assert.ok(
-          onPavement || onGardenPath,
+          onPavement ||
+            onGardenPath ||
+            segmentDistance(h.position, partyPlan.entrance, { x: -20, z: 3 }) <
+              0.05 ||
+            segmentDistance(h.position, { x: -20, z: 3 }, partyPlan.street) <
+              0.05,
           `${h.owner} stays on the connected paths`,
         );
       }

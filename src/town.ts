@@ -1,3 +1,7 @@
+import { rescueTrees } from './emergency-map';
+import { shelterTrees } from './town-weather';
+import { PartyScenery } from './party-scenery';
+import { partyPetPose } from './pet-parties';
 import { toClinic } from './clinic-build';
 import { TownSurfaces } from './town-surfaces';
 import { shadeTrees } from './town-weather';
@@ -89,7 +93,7 @@ export class Town {
   }
   setUpgrades(ids: UpgradeId[]) {
     for (const o of this.group.children)
-      if (o.userData.shadeTree)
+      if (o.userData.shadeTree || o.userData.rescueTree)
         o.visible = !this.simulation.build.contains(
           toClinic({ x: o.position.x, z: o.position.z }),
         );
@@ -114,6 +118,7 @@ export class Town {
   private contactShadows?: THREE.InstancedMesh;
   private shadowPose = new THREE.Object3D();
   private parkScenery?: ParkScenery;
+  private partyScenery?: PartyScenery;
   private emergencyScenery?: EmergencyScenery;
   private cars: TrafficVehicle[] = [];
   private streetScenery?: StreetScenery;
@@ -159,7 +164,9 @@ export class Town {
       [
         'neighbourhood',
         'shade-tree',
+        'rescue-tree',
         'park',
+        'party-hall',
         'duck',
         ...layout.lots.map((l) => l.asset),
         'clinic-exterior',
@@ -209,6 +216,12 @@ export class Town {
       tree.userData.shadeTree = true;
       this.group.add(tree);
     }
+    for (const p of rescueTrees) {
+      const tree = clone('rescue-tree');
+      tree.position.set(p.x, 0, p.z);
+      tree.userData.rescueTree = true;
+      this.group.add(tree);
+    }
     this.streetScenery = new StreetScenery(
       clone,
       this.simulation.households.length,
@@ -218,6 +231,8 @@ export class Town {
     this.group.add(this.emergencyScenery.group);
     this.parkScenery = new ParkScenery(clone('park'), clone('duck'));
     this.group.add(this.parkScenery.group);
+    this.partyScenery = new PartyScenery(clone('party-hall'));
+    this.group.add(this.partyScenery.group);
     const clinic = clone('clinic-exterior');
     clinic.position.set(layout.clinic.x, 0.15, layout.clinic.z);
     clinic.scale.setScalar(layout.clinic.scale);
@@ -479,10 +494,28 @@ export class Town {
   update(dt: number, visible: boolean) {
     this.recordOwnerPaths();
     if (!visible) return;
+    // Finish any occupied tree rescue/shelter before its cleared tree disappears.
+    // New detours already filter trees covered by purchased floors.
+    const rescue = this.simulation.emergencies.active;
+    for (const tree of this.group.children) {
+      if (!tree.userData.rescueTree && !tree.userData.shadeTree) continue;
+      const occupied =
+        (rescue &&
+          rescue.kind === 'lost' &&
+          rescue.phase !== 'return' &&
+          distance(rescue.tree, tree.position) < 0.1) ||
+        [...this.simulation.weather.active.values()].some(
+          (s) => distance(shelterTrees[s.tree], tree.position) < 0.1,
+        );
+      tree.visible =
+        Boolean(occupied) ||
+        !this.simulation.build.contains(toClinic(tree.position));
+    }
     this.surfaces.weather(this.simulation.weather.wetness);
     this.furniture.update(this.simulation.leisure);
     const t = this.simulation.time;
     this.parkScenery?.update(t, this.simulation.park);
+    this.partyScenery?.update(t, this.simulation.parties);
     const incident = this.simulation.incident;
     this.incidentMarker.visible = incident?.phase === 'scene';
     if (incident)
@@ -501,8 +534,11 @@ export class Town {
         activity &&
         this.simulation.build.stations.find((s) => s.id === activity.station);
       const parkVisit = this.simulation.park.visits.get(h.id);
+      const partyGuest = this.simulation.parties.guest(h.id);
+      const partySeated = partyGuest?.stage === 'settled';
       const parkSeated = Boolean(parkVisit?.seated);
       const seated =
+        partySeated ||
         parkSeated ||
         (activity &&
           station?.kind !== 'standing' &&
@@ -515,7 +551,7 @@ export class Town {
         h.position.x,
         THREE.MathUtils.lerp(
           r.owner.position.y,
-          parkSeated ? 0.33 : seated ? 0.348 : 0.2,
+          parkSeated || partySeated ? 0.33 : seated ? 0.348 : 0.2,
           Math.min(1, dt * 10),
         ),
         h.position.z,
@@ -524,13 +560,17 @@ export class Town {
       r.owner.rotation.y = turnToward(r.owner.rotation.y, h.facing, dt);
       if (!activity)
         r.ownerAnimation.setMotion(
-          parkSeated
-            ? this.simulation.park.chatting(h.id, t)
+          partySeated
+            ? Math.sin(t * 0.6 + h.id) > 0.5
               ? 'Play'
               : 'Sit'
-            : ownerDistance > 0.001
-              ? 'Walk'
-              : 'Idle',
+            : parkSeated
+              ? this.simulation.park.chatting(h.id, t)
+                ? 'Play'
+                : 'Sit'
+              : ownerDistance > 0.001
+                ? 'Walk'
+                : 'Idle',
         );
       if (activity)
         r.ownerAnimation.setMotion(
@@ -907,6 +947,48 @@ export class Town {
           if (p.perch) p.perch.visible = false;
           p.model.userData.parkActivity = parkPet.station ?? parkPet.phase;
         } else delete p.model.userData.parkActivity;
+        const partyPet =
+          partyGuest &&
+          ['arrive', 'settled', 'leave'].includes(partyGuest.stage)
+            ? partyGuest.pets.find((a) => a.name === p.visit.name)
+            : undefined;
+        if (partyPet && partyGuest && this.simulation.parties.active) {
+          const pose = partyPetPose(
+            partyPet,
+            partyGuest,
+            this.simulation.parties.active,
+          );
+          p.model.position.set(
+            pose.x,
+            THREE.MathUtils.lerp(previousHeight, pose.y, Math.min(1, dt * 6)),
+            pose.z,
+          );
+          p.model.rotation.set(
+            0,
+            turnToward(previousFacing, pose.facing, dt),
+            0,
+          );
+          p.animation.setMotion(pose.motion);
+          p.model.userData.partyActivity = this.simulation.parties.active.phase;
+          petDistance = distance(previous, p.model.position);
+          if (p.perch) {
+            const flying =
+              pose.motion === 'Fly' || p.model.position.y > pose.y + 0.02;
+            p.model.userData.flying = flying;
+            if (flying) p.animation.setMotion('Fly');
+            p.perch.visible = !flying;
+            p.perch.position.set(pose.x, 0.2, pose.z);
+          }
+          if (p.trolley) p.trolley.visible = partyGuest.stage !== 'settled';
+          if (p.aquatic)
+            p.aquatic.update(
+              this.simulation.parties.active.phase === 'games'
+                ? 'fish-bubbles'
+                : undefined,
+              this.simulation.parties.active.elapsed,
+              dt,
+            );
+        } else delete p.model.userData.partyActivity;
         const emergency = this.simulation.emergencies.active;
         const rescue = emergency
           ? rescuePetPose(emergency, p.visit.name, this.simulation.households)
@@ -993,6 +1075,15 @@ export class Town {
           0.4,
         );
         p.animation.update(dt);
+        if (
+          partyPet &&
+          partyGuest?.stage === 'settled' &&
+          this.simulation.parties.active?.phase === 'snacks'
+        )
+          p.model.traverse((o) => {
+            if (o.name.startsWith('head_joint'))
+              o.rotation.x += 0.22 + Math.sin(t * 3) * 0.04;
+          });
         if (dogBreak?.pet === p.visit.name)
           p.model.traverse((o) => {
             if (dogBreak.phase === 'sniff' && o.name.startsWith('head_joint'))

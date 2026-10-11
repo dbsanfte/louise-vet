@@ -150,6 +150,10 @@ const go = (a: RescueActor, p: Point, fromEngine = false) => {
   }
 };
 export class Emergencies {
+  private availableTrees: () => Point[];
+  constructor(availableTrees: () => Point[] = () => rescueTrees) {
+    this.availableTrees = availableTrees;
+  }
   active?: RescueEvent;
   due = 35;
   pending: RescueCare[] = [];
@@ -278,7 +282,7 @@ export class Emergencies {
       firefighter: actor(stations.fire.door),
       partner: kind === 'fire' ? actor(stations.fire.door) : undefined,
       driver: actor(pos),
-      tree: nearestTree(pos),
+      tree: nearestTree(pos, this.availableTrees()),
       elapsed: 0,
       age: 0,
       notice: 4 + random() * 4,
@@ -296,7 +300,8 @@ export class Emergencies {
     };
     const e = this.active;
     if (kind === 'lost') {
-      const destination = rescueTrees[(h.id + 2) % rescueTrees.length];
+      const destination =
+        this.availableTrees()[(h.id + 2) % this.availableTrees().length];
       if (pet.species === 'bird') e.pet.route = [rescuePerch(destination)];
       else go(e.pet, destination);
     }
@@ -405,7 +410,9 @@ export class Emergencies {
             e.hop += dt;
             if (e.hop > 7 && e.age < 120) {
               e.hop = 0;
-              const other = rescueTrees.filter((t) => distance(t, e.pet) > 2);
+              const other = this.availableTrees().filter(
+                (t) => distance(t, e.pet) > 2,
+              );
               e.pet.route = [
                 {
                   ...rescuePerch(
@@ -415,7 +422,7 @@ export class Emergencies {
               ];
             }
           }
-          e.tree = nearestTree(e.pet);
+          e.tree = nearestTree(e.pet, this.availableTrees());
         } else {
           move(e.pet, dt, e.phase === 'wander' ? 4.2 : e.chase ? 3.2 : 1.8);
           if (!e.pet.route.length && !e.chase) {
@@ -423,10 +430,11 @@ export class Emergencies {
             // nearby tree forever when a short first leg cannot open a gap.
             const choices =
               e.phase === 'wander'
-                ? rescueTrees.filter((t) => distance(t, e.owner) > 20)
-                : rescueTrees;
+                ? this.availableTrees().filter((t) => distance(t, e.owner) > 20)
+                : this.availableTrees();
             const dest =
-              choices[Math.floor(random() * choices.length) % choices.length];
+              choices[Math.floor(random() * choices.length) % choices.length] ??
+              nearestTree(e.pet, this.availableTrees());
             go(e.pet, dest);
           }
           if (pet.species === 'cat' && !e.chased) {
@@ -443,7 +451,7 @@ export class Emergencies {
               e.chaserPet = dogHome.pets.find((p) => p.species === 'dog')!.name;
               e.chase = actor(dogHome.position);
               e.chased = true;
-              e.tree = nearestTree(e.pet);
+              e.tree = nearestTree(e.pet, this.availableTrees());
               go(e.pet, rescuePerch(e.tree));
               if (random() < 0.25) e.injury = 'paw-adventure';
             } else if (e.age > 16 && !e.chased && e.hop === 0) {
@@ -552,7 +560,7 @@ export class Emergencies {
         if ((pet.species === 'bird' && !e.pet.route.length) || e.trapped) {
           e.trapped = true;
           e.pet.route = [];
-          e.tree = nearestTree(e.pet);
+          e.tree = nearestTree(e.pet, this.availableTrees());
           e.engine.route = emergencyDrive(e.engine, e.tree);
           this.phase(e, 'dispatch');
         } else if (

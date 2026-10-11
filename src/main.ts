@@ -362,17 +362,21 @@ function showHome(id: number | undefined) {
   if (homeLabel)
     homeLabel.textContent =
       pointedResident ??
-      (selectedHome === -1
-        ? 'Louise’s Vet Office'
-        : h
-          ? h.label
-          : 'Hover or tap a person, pet or home to meet your neighbours');
+      (selectedHome === -2
+        ? simulation.parties.description()
+        : selectedHome === -1
+          ? 'Louise’s Vet Office'
+          : h
+            ? h.label
+            : 'Hover or tap a person, pet or home to meet your neighbours');
   const markup =
-    selectedHome === -1
-      ? `<h3>Louise’s Vet Office</h3><p>The heart of Hookville. ${queue.length} pets are waiting.</p>${button('Enter the clinic', 'reception')}`
-      : h
-        ? `<h3>${h.label}</h3><p>${simulation.status(h)}</p><p>${h.pets.map((p) => `${p.name} · ${p.species}`).join(' · ')}</p><button class="secondary" data-action="follow-family" data-id="${h.id}">Follow ${h.owner}</button>${neighbours.length > 1 ? `<p class="flat-neighbours">Shared flat · ${neighbours.map((n) => `<button class="secondary" data-action="home" data-id="${n.id}" aria-pressed="${n.id === h.id}">${n.owner}</button>`).join('')}</p>` : ''}`
-        : '<h3>Every home has a story</h3><p>Hover or tap a house, or choose a family below.</p>';
+    selectedHome === -2
+      ? `<h3>Pet Party Hall</h3><p>${simulation.parties.description()}</p><p>${simulation.parties.active ? simulation.parties.active.guests.map((g) => simulation.households[g.owner].pets.map((p) => p.name).join(' & ')).join(' · ') : 'Pets invite friends for birthdays, snacks and bubble games, then head home together.'}</p><button class="secondary" data-action="town-party">Watch the party hall</button>`
+      : selectedHome === -1
+        ? `<h3>Louise’s Vet Office</h3><p>The heart of Hookville. ${queue.length} pets are waiting.</p>${button('Enter the clinic', 'reception')}`
+        : h
+          ? `<h3>${h.label}</h3><p>${simulation.status(h)}</p><p>${h.pets.map((p) => `${p.name} · ${p.species}`).join(' · ')}</p><button class="secondary" data-action="follow-family" data-id="${h.id}">Follow ${h.owner}</button>${neighbours.length > 1 ? `<p class="flat-neighbours">Shared flat · ${neighbours.map((n) => `<button class="secondary" data-action="home" data-id="${n.id}" aria-pressed="${n.id === h.id}">${n.owner}</button>`).join('')}</p>` : ''}`
+          : '<h3>Every home has a story</h3><p>Hover or tap a house, or choose a family below.</p>';
   if (panel.dataset.markup !== markup) {
     panel.innerHTML = markup;
     panel.dataset.markup = markup;
@@ -442,7 +446,7 @@ function renderTownNews() {
     Math.max(0, Math.min(4, simulation.events.length) - 1),
   );
   if (!el.querySelector('.emergency-services'))
-    el.innerHTML = `<h3>Around Hookville</h3><nav class="emergency-services" aria-label="Community helpers"><button class="secondary" data-action="town-fire">Fire station</button><button class="secondary" data-action="town-police">Police station</button><button class="secondary" data-action="town-rescue">Watch rescue</button></nav><div class="town-news-live"></div>`;
+    el.innerHTML = `<h3>Around Hookville</h3><nav class="emergency-services" aria-label="Community helpers"><button class="secondary" data-action="town-fire">Fire station</button><button class="secondary" data-action="town-police">Police station</button><button class="secondary" data-action="town-rescue">Watch rescue</button><button class="secondary" data-action="town-party">Pet parties</button></nav><div class="town-news-live"></div>`;
   const markup = `<p class="emergency-status">${simulation.emergencies.description()}</p><ul>${
     simulation.events
       .slice(-4)
@@ -451,7 +455,7 @@ function renderTownNews() {
         const h = simulation.households.find((h) =>
           h.pets.some((p) => p.name === e.pet),
         )!;
-        return `<li ${i !== newsPage ? 'hidden' : ''}>${simulation.eventText(e)} <button class="secondary" data-action="follow-family" data-id="${h.id}">Find ${h.owner}</button></li>`;
+        return `<li ${i !== newsPage ? 'hidden' : ''}>${simulation.eventText(e)} <button class="secondary" data-action="${['birthday-invite', 'birthday', 'party-home'].includes(e.kind) ? 'town-party' : 'follow-family'}" data-id="${h.id}">${['birthday-invite', 'birthday', 'party-home'].includes(e.kind) ? 'See the party hall' : `Find ${h.owner}`}</button></li>`;
       })
       .join('') || '<li>A lovely day for a walk.</li>'
   }</ul><nav class="office-pages" aria-label="News pages"><button class="secondary" data-action="news-page" data-step="-1" ${newsPage === 0 ? 'disabled' : ''} aria-label="Newer news">←</button><span>${newsPage + 1} / ${Math.max(1, Math.min(4, simulation.events.length))}</span><button class="secondary" data-action="news-page" data-step="1" ${newsPage >= Math.min(4, simulation.events.length) - 1 ? 'disabled' : ''} aria-label="Older news">→</button></nav>`;
@@ -1051,7 +1055,10 @@ app.addEventListener('click', (event) => {
     return;
   }
   if (action?.startsWith('town-') && mode === 'town') {
-    if (action === 'town-park') world.focusPark();
+    if (action === 'town-party') {
+      world.focusParty();
+      showHome(-2);
+    } else if (action === 'town-park') world.focusPark();
     else if (action === 'town-reset') world.resetTownCamera();
     else if (action === 'town-in') world.zoomTown(0.8);
     else if (action === 'town-out') world.zoomTown(1.25);

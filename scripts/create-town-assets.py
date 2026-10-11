@@ -152,7 +152,7 @@ for lot in layout['lots']:
     segment(r,'garden path',local(lot,0,1.7),[gate['x'],gate['z']],.8,.12,'path')
     tx,tz=local(lot,-2.7,0);tree(r,tx,-tz)
 # Park at the established crossing, plus planted greens between the curving streets.
-for x,z in [(-25,10),(-40,-18),(-4,-18),(12,-17),(-20,18),(3,18),(22,12),(-41,-5),(40,17)]:tree(r,x,-z)
+for x,z in [(-40,-18),(-41,-5),(40,17)]:tree(r,x,-z)
 export(r)
 
 # Sixteen authored silhouettes: different proportions, roof forms, porches,
@@ -250,5 +250,7 @@ r=root('shade-tree');box(r,'shade trunk',(0,0,1.2),(.25,.25,2.4),'wood')
 for x,y,z in [(-.65,0,2.8),(.65,.1,2.8),(0,-.6,2.8),(0,.55,2.8),(0,0,3.25)]:
  bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2,radius=1,location=(x,y,z));o=bpy.context.object;o.scale=(1,1,.75);o.parent=r;o.data.materials.append(mats['leaf'])
 export(r)
+# Public rescue trees remain separate so purchased clinic flooring can clear them.
+r=root('rescue-tree');tree(r,0,0);export(r)
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT,'assets','blender','hookville.blend'),compress=True)
 print('Exported original Hookville scenery, including sixteen unique homes and a shade tree.')

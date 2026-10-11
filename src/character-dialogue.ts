@@ -565,3 +565,40 @@ pets(
   'That key lit up!|I made a little tune.|What happens on this key?|The colours follow my taps.|I will try the next one.',
   'A soft tap makes it light up.|This is my favourite key.|I can make a little pattern.|Another colourful note.|I like playing this little piano.',
 );
+
+// Birthday guests have distinct five-line selections, just like the rest of town.
+pets(
+  ['party-invitations'],
+  'I want to see my friends.|There is a party today!|I can hear my friends coming.|I wonder what we will play.|I am ready for some fun.',
+  'Time to meet everyone.|I hope there are bubbles.|A party sounds fun.|I can see the party hall.|I like going out with my friends.',
+);
+pets(
+  ['party-welcome'],
+  'All my friends are here!|I found a cosy little mat.|This looks like a fun place.|Look at those balloons!|I am glad I came.',
+  'There is room for everyone.|I like having my friends nearby.|So many familiar faces.|I can see a friend over there.|I feel happy here.',
+);
+pets(
+  ['party-farewell'],
+  'That was a lovely party.|I am ready for a rest.|One last look at the balloons.|I had fun with my friends.|Time to head home.',
+  'I liked playing together.|I will see my friends again soon.|My favourite bit was playing.|A nap sounds nice now.|I am happy and a little sleepy.',
+);
+owners(
+  ['party-invitations'],
+  'Ready for a birthday party, {friend}?|We are going to meet our friends, {friend}.|Come along, {friend}. The party hall is ready.|Let’s get ready for the party, {friend}.|A birthday party today, {friend}!',
+);
+owners(
+  ['party-welcome'],
+  'Look, {friend}, our friends are here!|We found our seats, {friend}.|What a lovely birthday party, {friend}.|There’s a little mat for you, {friend}.|Let’s join the birthday cheer, {friend}!',
+);
+owners(
+  ['party-snacks'],
+  'Here are your special pet snacks, {friend}.|There is a bowl ready for you, {friend}.|A little snack break, {friend}, then more games.|There is fresh water here too, {friend}.|Take your time with your snack, {friend}.',
+);
+owners(
+  ['party-games'],
+  'Look at you enjoying the party, {friend}!|Can you see the bubbles, {friend}?|It’s lovely watching you play, {friend}.|There’s plenty of space to play, {friend}.|I think you’re having fun, {friend}.',
+);
+owners(
+  ['party-farewell'],
+  'Time to say goodbye, {friend}.|Come along, {friend}. We are heading home.|What a lovely party, {friend}.|Time for a rest, {friend}.|We will see our friends again soon, {friend}.',
+);

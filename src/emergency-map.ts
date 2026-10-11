@@ -3,7 +3,7 @@ export const stations = {
   fire: { x: 43, z: -10, facing: -Math.PI / 2, door: { x: 39, z: -10 } },
   police: { x: -43, z: 9, facing: Math.PI / 2, door: { x: -39, z: 9 } },
 };
-// These are the public trees authored in create-town-assets.py.
+// Public tree placements; the separate rescue-tree asset can clear for clinic expansion.
 export const rescueTrees: Point[] = [
   { x: -25, z: 10 },
   { x: -4, z: -18 },
@@ -17,10 +17,8 @@ export const rescuePerch = (tree: Point): Point => ({
   x: tree.x + 1,
   z: tree.z + 1,
 });
-export function nearestTree(p: Point) {
-  return rescueTrees.reduce((a, b) =>
-    distance(p, a) < distance(p, b) ? a : b,
-  );
+export function nearestTree(p: Point, trees = rescueTrees) {
+  return trees.reduce((a, b) => (distance(p, a) < distance(p, b) ? a : b));
 }
 const nodes: Point[] = [],
   edges: number[][] = [];

@@ -203,6 +203,40 @@ export function characterFeeling(
       2,
     );
   }
+  const guest = s.parties.guest(h.id),
+    birthday = s.parties.active;
+  if (guest && birthday && (!pet || h.companions.includes(pet.name))) {
+    const phase = ['gather', 'travel', 'arrive'].includes(guest.stage)
+      ? 'invitations'
+      : guest.stage === 'leave'
+        ? 'farewell'
+        : birthday.phase;
+    const snack: Record<string, string> = {
+      dog: 'Yum! Crunchy doggy treats!',
+      cat: 'Purrr… tasty kitty nibbles!',
+      bird: 'Chirp! Lovely little seeds!',
+      rabbit: 'Nibble, nibble! Yummy greens!',
+      hamster: 'Mmm! A snack for my cheeks!',
+      gerbil: 'Crunch! Tasty little grains!',
+      goldfish: 'Bloop! Delicious fish flakes!',
+    };
+    return {
+      ...say(
+        `party:${birthday.pet}:${phase}`,
+        pet
+          ? phase === 'snacks'
+            ? snack[pet.species]
+            : phase === 'games'
+              ? pet.species === 'goldfish'
+                ? 'fish-bubbles'
+                : 'Pop! Got that bubble!'
+              : `party-${phase}`
+          : `party-${phase}`,
+        3,
+      ),
+      companion: pet ? undefined : h.pets.map((p) => p.name).join(' and '),
+    };
+  }
   const park = s.park.visits.get(h.id);
   if (park && (!pet || h.companions.includes(pet.name))) {
     const p = park.pets.find((p) => p.name === pet?.name);
@@ -244,6 +278,9 @@ export function characterFeeling(
     ],
     chat: ['Hello, new friend!', 'Hello! Lovely to see you!'],
     park: ['Playtime!', 'What a lovely park.'],
+    'party-gather': ['party-invitations', 'party-invitations'],
+    'party-walk': ['party-invitations', 'party-invitations'],
+    party: ['party-welcome', 'party-welcome'],
     'clinic-gather': ['A little visit to Louise.', 'Time for your checkup.'],
     'clinic-walk': ['Louise will look after me.', 'We are on our way, Louise!'],
     'clinic-wait': ['Nearly our turn!', 'We will wait safely here.'],

@@ -368,3 +368,64 @@ window.clinicCamera = async (action = 'state', x = 0, y = 0) => {
     texturedLawn,
   };
 };
+
+declare global {
+  interface Window {
+    inspectParty: (
+      snapshot: unknown,
+      advance?: number,
+    ) => Promise<{
+      label: string;
+      pets: {
+        name: string;
+        x: number;
+        y: number;
+        z: number;
+        flying: boolean;
+        wings: number[];
+      }[];
+      trees: { x: number; z: number; visible: boolean }[];
+    }>;
+  }
+}
+window.inspectParty = async (snapshot, advance = 0) => {
+  await ready;
+  if (!simulation.restore(snapshot))
+    throw Error('Invalid party visual fixture');
+  for (let i = 0; i < advance * 10; i++) simulation.update(0.1);
+  world.focusParty();
+  world.renderer.getContext().finish();
+  world.draw(performance.now() + 500, 0.3);
+  world.renderer.getContext().finish();
+  world.draw(performance.now() + 1000, 0.3);
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const pets: {
+    name: string;
+    x: number;
+    y: number;
+    z: number;
+    flying: boolean;
+    wings: number[];
+  }[] = [];
+  const trees: { x: number; z: number; visible: boolean }[] = [];
+  let label = '';
+  world.town!.group.traverse((o) => {
+    if (o.name === 'PetPartyHall') label = o.userData.townLabel;
+    if (o.userData.rescueTree || o.userData.shadeTree)
+      trees.push({ x: o.position.x, z: o.position.z, visible: o.visible });
+    if (!o.userData.partyActivity) return;
+    const wings: number[] = [];
+    o.traverse((part) => {
+      if (part.name.startsWith('wing_joint')) wings.push(part.rotation.z);
+    });
+    pets.push({
+      name: o.userData.petName,
+      x: o.position.x,
+      y: o.position.y,
+      z: o.position.z,
+      flying: Boolean(o.userData.flying),
+      wings,
+    });
+  });
+  return { label, pets, trees };
+};

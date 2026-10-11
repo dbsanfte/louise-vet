@@ -1,3 +1,5 @@
+import { rescueTrees } from './emergency-map.ts';
+import { PetParties, type PartyEvent } from './pet-parties.ts';
 import { ClinicBuild, toClinic } from './clinic-build.ts';
 import { TownWeather } from './town-weather.ts';
 import { ClinicEntrance, clinicStreetRoute } from './clinic-entrance.ts';
@@ -32,6 +34,9 @@ export type Routine =
   | 'gather'
   | 'walk'
   | 'park'
+  | 'party-gather'
+  | 'party-walk'
+  | 'party'
   | 'chat'
   | 'clinic-gather'
   | 'clinic-walk'
@@ -50,7 +55,7 @@ export interface VisitTicket {
 }
 export interface TownEvent {
   pet: string;
-  kind: VisitReason | 'arrived' | 'home' | 'deferred';
+  kind: VisitReason | 'arrived' | 'home' | 'deferred' | PartyEvent;
   at: number;
 }
 export interface RoadIncident {
@@ -95,10 +100,13 @@ const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.z - b.z);
 /** Pure active-time simulation. Home identity comes from the patient roster. */
 export class TownSimulation {
   readonly households: Household[] = [];
-  emergencies = new Emergencies();
+  emergencies = new Emergencies(() =>
+    rescueTrees.filter((p) => !this.build.contains(toClinic(p))),
+  );
   weather = new TownWeather();
   dogWalks = new DogWalks();
   park = new Park();
+  parties = new PetParties();
   build = new ClinicBuild();
   leisure = new ClinicLeisure(this.build);
   escort = new ClinicEscort();
@@ -170,6 +178,8 @@ export class TownSimulation {
     }
   }
   status(h: Household) {
+    const party = this.parties.status(h.id);
+    if (party) return party;
     const shelter = this.weather.status(h.id);
     if (shelter) return shelter;
     const dogBreak = this.dogWalks.status(h.id);
@@ -195,8 +205,19 @@ export class TownSimulation {
       gather: 'Gathering pets for a walk',
       walk: h.returning ? 'Walking home' : 'Walking to the park',
       park: 'Enjoying the park',
+      'party-gather': 'Getting ready for a birthday party',
+      'party-walk': 'Walking to the Pet Party Hall',
+      party: 'Celebrating with friends',
       chat: 'Chatting with a neighbour',
     }[h.routine];
+  }
+  private partyCareReady(h: Household, tickets = this.tickets) {
+    if (h.ticket === undefined) return true;
+    const ticket = tickets.get(h.ticket);
+    if (ticket?.status !== 'deferred') return false;
+    const pet = this.roster.find((p) => p.name === ticket.pet)!;
+    const visit = communityVisit(pet, ticket.reason);
+    return visit.purpose === 'checkup' || visit.treatment === 'vaccine';
   }
   private outingPets(h: Household) {
     const t = this.tickets.get(h.ticket!);
@@ -270,6 +291,10 @@ export class TownSimulation {
       arrived: 'has arrived at Louise’s office',
       home: 'is safely home after care',
       deferred: 'will visit later because the clinic is busy',
+      'birthday-invite':
+        'has invited friends to a birthday at the Pet Party Hall',
+      birthday: 'is celebrating a birthday with friends',
+      'party-home': 'had a lovely party; everyone is heading home',
     }[event.kind];
     return `${event.pet} ${action}.`;
   }
@@ -613,6 +638,7 @@ export class TownSimulation {
         : undefined,
       cars: this.cars.map((c) => ({ ...c })),
       park: this.park.snapshot(),
+      parties: this.parties.snapshot(),
       dogWalks: this.dogWalks.snapshot(),
       households: this.households.map((h) => ({
         owner: h.owner,
@@ -687,6 +713,9 @@ export class TownSimulation {
         'gather',
         'walk',
         'park',
+        'party-gather',
+        'party-walk',
+        'party',
         'chat',
         'clinic-gather',
         'clinic-walk',
@@ -784,9 +813,16 @@ export class TownSimulation {
             (!t || !this.households[i].pets.some((p) => p.name === t.pet))) ||
           (t?.status === 'deferred') !== (h.retryCareAt !== undefined) ||
           (t?.status === 'deferred' &&
-            !['garden', 'gather', 'walk', 'park', 'chat'].includes(
-              h.routine,
-            )) ||
+            ![
+              'garden',
+              'gather',
+              'walk',
+              'park',
+              'chat',
+              'party-gather',
+              'party-walk',
+              'party',
+            ].includes(h.routine)) ||
           h.inClinic !==
             Boolean(
               t &&
@@ -820,7 +856,15 @@ export class TownSimulation {
         !data.events.every(
           (e) =>
             this.roster.some((p) => p.name === e.pet) &&
-            [...reasons, 'arrived', 'home', 'deferred'].includes(e.kind) &&
+            [
+              ...reasons,
+              'arrived',
+              'home',
+              'deferred',
+              'birthday-invite',
+              'birthday',
+              'party-home',
+            ].includes(e.kind) &&
             number(e.at, 0, data.time),
         )
       )
@@ -865,7 +909,9 @@ export class TownSimulation {
         )
       )
         return false;
-      const emergencies = new Emergencies();
+      const emergencies = new Emergencies(() =>
+        rescueTrees.filter((p) => !this.build.contains(toClinic(p))),
+      );
       if (
         !emergencies.restore(
           data.emergencies,
@@ -903,6 +949,26 @@ export class TownSimulation {
         )
       )
         return false;
+      const parties = new PetParties();
+      if (
+        !parties.restore(
+          data.parties,
+          data.households.map((h, i) => ({ ...this.households[i], ...h })),
+          this.roster,
+          data.time,
+          (h) => this.partyCareReady(h, tickets),
+        ) ||
+        parties.active?.guests.some(
+          (g) =>
+            g.stage !== 'gone' &&
+            (emergencies.locked(g.owner) ||
+              dogWalks.locked(g.owner) ||
+              weather.locked(g.owner) ||
+              park.visits.has(g.owner)),
+        )
+      )
+        return false;
+      this.parties = parties;
       this.weather = weather;
       this.entrance = entrance;
       this.dogWalks = dogWalks;
@@ -979,6 +1045,24 @@ export class TownSimulation {
     // Keep long pauses from teleporting residents across an entire route.
     const step = Math.min(Math.max(dt, 0), 0.1);
     this.time += step;
+    this.parties.update(
+      step,
+      this.time,
+      this.households,
+      this.roster,
+      (id) =>
+        this.emergencies.locked(id) ||
+        this.dogWalks.locked(id) ||
+        this.weather.locked(id),
+      (pet, kind) => this.record(pet, kind),
+      (h) =>
+        this.partyCareReady(h) &&
+        !(
+          h.retryCareAt !== undefined &&
+          this.time >= h.retryCareAt &&
+          this.incomingCare < this.capacity
+        ),
+    );
     this.emergencies.update(
       step,
       this.time,
@@ -1044,6 +1128,7 @@ export class TownSimulation {
       if (h.inClinic && !['clinic-enter', 'clinic-exit'].includes(h.routine))
         continue;
       h.chatCooldown = Math.max(0, h.chatCooldown - step);
+      if (h.routine === 'party' || h.routine === 'party-gather') continue;
       if (h.routine === 'clinic-wait') {
         this.admit(h);
         if (!h.inClinic) {
@@ -1094,6 +1179,7 @@ export class TownSimulation {
       if (
         ![
           'walk',
+          'party-walk',
           'clinic-walk',
           'homeward',
           'clinic-enter',
@@ -1112,6 +1198,10 @@ export class TownSimulation {
       }
       const target = h.route[0];
       if (!target) {
+        if (h.routine === 'party-walk') {
+          this.parties.arrive(h);
+          continue;
+        }
         if (h.routine === 'clinic-enter') {
           h.routine = 'clinic-wait';
           this.leisure.checkIn(h);
@@ -1145,7 +1235,14 @@ export class TownSimulation {
         if (!h.returning) this.park.enter(h);
         continue;
       }
-      const speed = h.routine === 'walk' ? 1.65 : h.inClinic ? 1.4 : 2.8;
+      const speed =
+        h.routine === 'walk'
+          ? 1.65
+          : h.routine === 'party-walk'
+            ? 1.9
+            : h.inClinic
+              ? 1.4
+              : 2.8;
       let remaining = step;
       while (h.route.length && remaining > 1e-8) {
         const target = h.route[0];

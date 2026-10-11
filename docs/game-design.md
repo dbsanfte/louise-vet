@@ -280,7 +280,7 @@ wall drawing, upper floors and movable treatment rooms remain outside this edito
 
 The grid spans the available greenspace around the clinic, including the larger
 rear grounds. It excludes public roads and pavements, neighbouring homes/gardens,
-and public rescue-tree access. Ordinary shade trees are cleared when their tile is built; a family actively sheltering at one must finish before that patch can be edited. Covered trees stop attracting rain-shelter trips. New space must connect to the clinic. **Whole plot**
+and neighbouring public buildings. Trees do not reserve clinic expansion land. Ordinary shade and public rescue trees clear when their root tile is built. A family actively sheltering at one must finish before that patch can be edited; an ongoing tree rescue keeps its tree visible until the rescue is over. Covered trees stop attracting new rain-shelter trips or lost-pet rescues. Tree trunks and canopies stay clear of asphalt. New space must connect to the clinic. **Whole plot**
 frames the available land; **Whole clinic** frames built space. Desktop pan, orbit
 and zoom remain available with the Camera tool. Desktop players also have arrow
 keys and camera buttons, including left/right turn while placing furniture;
@@ -424,7 +424,7 @@ short phase will be spoken. No backlog delivers an old reaction after an event.
 Hookville uses the same bubbles for owners and pets throughout walks, gathering,
 garden/kennel rest, neighbour chats, park activities and bench conversations,
 clinic journeys/queues/returns, rain shelter, dog sniffing/toilet breaks and owner
-cleanup. Every lost-pet, police search, tree/ladder rescue, driver/road response,
+cleanup, birthday invitations and parties. Every lost-pet, police search, tree/ladder rescue, driver/road response,
 house-fire rescue and reunion phase has contextual pet and owner lines. Uninvolved
 companions do not claim to be rescued, and hidden animals inside houses do not
 reveal themselves through a roof. These bubbles replace the old always-on “...”
@@ -551,6 +551,51 @@ state save across reload; older saves without park state allocate the family's
 seat on arrival. Switching between office and town keeps the park running;
 existing dialogs, care activities and hidden tabs retain their
 usual pause rules. Vaccination, Stop visit and clinical rewards are unchanged.
+
+**Pet birthdays and the Pet Party Hall (V2-14).** Across High Street from the
+clinic, a permanent, free party pavilion brings neighbours together without
+using clinic expansion land. Choose **Town news → Pet parties**, or **See the
+party hall** on birthday news, to focus it on desktop or touch. Its information
+panel names the birthday pet and invited pets; hovering/tapping the hall shows
+its current event. The hall has a cutaway canopy, balloons, bunting, a birthday
+sign, four reserved owner seats and individual pet mats with snack/water bowls.
+It is a town venue, not a purchasable clinic room or a playable home interior.
+
+The first birthday opportunity is after 35 active seconds. A pet invites up to
+three other available households, with at least one friend household required.
+Only families at home or gathering for an ordinary walk, without immediate care,
+a rescue, dog stop or rain detour, accept. Deferred healthy checkups/vaccinations
+may attend while they wait for a clinic slot; an already-due retry with a free
+place takes priority. Sick or injured pets await their treatment first.
+Unavailable celebrations wait and retry
+after 12 seconds. Pets with fewer completed celebrations get priority, with a
+rotating roster tie-break, so a pet busy during care keeps a future turn. There
+is no calendar date, real-time notification, compulsory attendance or ageing of
+the authored clinical cases. Birthday counts are saved; these are recurring
+storybook celebrations, not medically meaningful changes of age.
+
+Owners gather all their pets, set off at staggered intervals, follow the same
+pavements/crossings as other journeys, and enter through the hall's front aisle.
+They sit facing the activities; each pet has its own mat, including siblings.
+The party waits for the guests (up to 120 active seconds), then has a ten-second
+birthday welcome, sixteen seconds of species-appropriate snacks, and thirty
+seconds of bubbles and gentle play. Owners gesture and chat; pets nibble, play
+in separate spaces and express their feelings in their individual thought
+bubbles. Birds flap throughout flight and rest on perches; fish stay in their
+own bowls with underwater bubbles. There is no human birthday cake fed to pets.
+After a short goodbye, families leave in staggered groups and walk home. A new
+birthday becomes eligible 90 seconds after the hall empties. Arrivals delayed
+in town can join late and still leave safely; no guest is teleported home.
+
+Parties add friendly town activity to the care loop without changing money,
+satisfaction, vaccinations, Stop visit or treatment. Reading, dialogs, Build,
+care skill activities and hidden tabs retain their existing pause rules; there
+is no offline catch-up or penalty for missing a celebration. Party invitations
+never pull patients out of the queue or an ongoing rescue. Deferred routine
+appointments retain their ticket and retry schedule; further automatic clinic invitations wait until the party family
+returns to an eligible routine. The current venue hosts birthday events with
+snack/bubble games; player-organised parties, gifts, hiring or other festivals
+are not implemented.
 
 The town and clinic share **town event → owner gathers pet → journey to clinic →
 queued visit → care → journey home**. The first three authored patients are already in their waiting places when a
@@ -1531,6 +1576,13 @@ cat decisions, tree reservations and both owner/pet detour positions and routes.
 Reload resumes sheltering or the return to the original walk without creating
 another detour. Invalid weather state rejects the town snapshot atomically;
 older saves without weather begin sunny and preserve existing journeys.
+Birthday state saves the next opportunity, rotating pet cursor, per-pet celebration
+counts, host, phase/timer, guest reservations, owner routes and individual pet
+positions. Reload resumes gathering, travel, play or departures; the birthday
+count increments once at the welcome, never again on reload. Invalid guests,
+identities, positions or conflicting care/rescue reservations reject the town
+snapshot atomically. Older saves without parties preserve their existing routines
+and get their first birthday opportunity 35 active seconds later.
 An unfinished examination returns to its queue on reload;
 clues and care activities restart. Completed rewards are saved atomically with the visit
 transition so reloading cannot award them twice. Different ports/devices have separate
@@ -1619,6 +1671,7 @@ Development milestones group work; they are not player levels or release dates:
 | V2-11 | Street furniture and dog stops             | Implemented | Seventeen lamps, six hydrants, reserved sniffing stops, male-only leg-lift wees and owner poo pickup before resuming outdoor walks. One poo per dog on outings of twelve town units at the next safe spot, more frequent random poos, 45–90-second random-stop cooldowns and sniffing opportunities; saved outing progress/phases/cooldowns; no clinic or road stops, litter buildup or rewards. [Rules and save checks](../tests/dog-walks.test.ts), [rendered poses](../tests/street-visual.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | V2-12 | Textured town, weather and cat shelter     | Implemented | Textured ground/wood/roof/plaster, glossy car paint, mostly sunny active-time weather with brief rain, saved off-road cat/owner shelter detours and automatic return. [Weather rules and saves](../tests/weather.test.ts), [materials and rendered scenes](../tests/weather-visual.spec.ts). No storms, weather injuries or rain effects inside examinations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | V2-13 | Grid construction and furniture collection | Implemented | Room/garden grid expansion across available clinic grounds, separate Place furniture/Build spaces modes, pictured spare-only furniture inventory and surface-specific prefab grids with unused kit credits first, one card per stored type, available counts and direct scene pickup for existing furniture, stored shop items, quarter-turn placement, picking/moving/storing, occupied-item unloading, custom routes, exact legacy migration, saved layouts and recovery of paid furniture when town activity is rejected. Live snapped rectangle previews on desktop/touch, release-to-build custom rectangles with fixed anchors, nearby edge snapping, overlap-aware boundaries and automatic safe entrances for every added patch, dedicated back-arrow Undo/eraser controls and exact space refunds, furnished erasure with release-time Yes/No confirmation, inventory returns, safe occupant relocation, repaired boundaries/doors and saved inactive leftovers, invalid-stroke retry without spending, automatic surface-aware garden joins and room doors without boundary toggles, reusable pictured drag/drop prefabs, two-finger pan/pinch/twist in every Build tool, flexible room/garden guides, direct furniture purchases without room-kit gates, shared doorway placement/closing and wall-section removal, saved walls and route safety. Counter, entrance and treatment suite anchored; paid copies with independent seating/queues/animations and no per-type ownership cap. No standalone wall drawing, upper floors or movable clinical suites. [Layout and unloading checks](../tests/clinic-build.test.ts), [desktop/touch editor checks](../tests/clinic-build.spec.ts). |
+| V2-14 | Recurring pet birthday parties             | Implemented | Saved active-time birthdays, invitations for two to four available families, street journeys to a permanent nearby party hall, distinct seats/mats, species-specific snacks, animated bubble games and continuous journeys home. No ageing, fees, medical changes or player-hosted events. [Party simulation checks](../tests/parties.test.ts), [desktop/touch/rendering checks](../tests/parties.spec.ts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 V2 connects navigation and ambient routines to actual appointments, bounded road
 incidents, care outcomes, return journeys, and cross-reload saving. Later campaign
@@ -1789,6 +1842,18 @@ no station has two pet users; each pet species has suitable activity or quiet
 pond-side rest; owners chat while seated; ducks swim without leaving their pond;
 families gather pets before leaving; reload preserves activity reservations and
 positions; the Pet park and clinic-return controls stay within the viewport.
+
+Birthday acceptance: two to four invited households walk from their homes through
+the hall entrance, use separate seats and pet mats, complete welcome/snacks/games,
+then walk home. All seven species have appropriate snacks; airborne birds flap
+and fish remain in bowls. Every participant has five readable messages per action.
+Birthdays recur across different pets without taking over clinic/rescue families.
+Reload at every phase preserves progress and counts exactly once; legacy saves
+acquire a timer without losing other state. Party navigation and clinic return
+fit 360 × 640 and desktop screens. The pavilion avoids roads, home gardens and
+the buildable clinic plot. Roadside trees clear asphalt; floor can extend through
+unoccupied northern public trees, which then disappear and cease attracting new
+rescues. Ongoing tree rescues retain visible support until they finish.
 
 Weather/courtyard acceptance: sunshine occupies most active time; showers stop,
 sheltering cats and owners stay off roads and resume their original journey,
@@ -1984,6 +2049,11 @@ This lets children notice that healthy small hearts beat quickly, and that fever
 raises a patient's own rate. The waveform remains schematic and the thermometer
 remains necessary for diagnosis; see [heartbeat physiology](#heartbeat-physiology).
 
+Decision **D17:** birthdays are gentle, recurring community celebrations using
+active play time and the existing families. A separate party pavilion, bounded
+invitations and saved arrivals/activities/departures make town life more varied
+without emptying the clinic, ageing case data or adding a second economy.
+
 ## 14. Implementation and verification map
 
 These links provide evidence and navigation, not a replacement for product rules.
@@ -2038,6 +2108,8 @@ Accompanying pets: [owner path following](../src/owner-trail.ts), [active frame 
 Breed appearance: [catalogue](../src/pet-looks.json), [asset identity](../src/pet-appearance.ts),
 [original Blender breeds](../scripts/create-pet-models.py), [continuous route movement](../src/movement.ts),
 [bird journeys](../tests/community.test.ts), and [breed gallery/bird care browser checks](../tests/pet-varieties.spec.ts).
+
+Pet birthdays: [shared venue plan](../src/party-layout.json), [birthday director and persistence](../src/pet-parties.ts), [party scenery](../src/party-scenery.ts), [Blender authoring](../scripts/create-party-assets.py), [simulation checks](../tests/parties.test.ts), and [browser/rendering checks](../tests/parties.spec.ts).
 
 Hookville park: [shared plan](../src/park-layout.json), [park routines and saved state](../src/park.ts),
 [animated scenery](../src/park-scenery.ts), [Blender generator](../scripts/create-park-assets.py),

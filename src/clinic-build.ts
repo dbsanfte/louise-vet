@@ -16,7 +16,6 @@ import {
   segmentDistance,
   type Point,
 } from './town-map.ts';
-import { rescueTrees } from './emergency-map.ts';
 import { upgrades, type UpgradeId } from './game.ts';
 
 export type Placement = Point & { rotation: number };
@@ -392,7 +391,8 @@ function townGreen(p: Point) {
     })
   )
     return false;
-  return !rescueTrees.some((t) => Math.hypot(p.x - t.x, p.z - t.z) < 3.2);
+  // Unoccupied trees clear as floor is built; foliage never reserves buildable land.
+  return true;
 }
 export const buildableCells: Point[] = [];
 for (let x = -24; x <= 5; x++)

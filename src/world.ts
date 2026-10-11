@@ -838,6 +838,14 @@ export class World {
     );
     this.townControls.update();
   }
+  focusParty() {
+    this.followedFamily = undefined;
+    this.followingRescue = false;
+    this.townControls.target.set(-20, 0.6, 8.7);
+    this.townCamera.position.set(-10, 14, -5);
+    this.townControls.update();
+    this.onTownPick(undefined);
+  }
   focusPark() {
     this.followedFamily = undefined;
     this.followingRescue = false;

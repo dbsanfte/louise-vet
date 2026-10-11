@@ -42,6 +42,7 @@ def main():
     scope.add_argument('--room', action='store_true', help='Build the connected examination room.')
     scope.add_argument('--leisure', action='store_true', help='Build modular clinic rooms and amusements.')
     scope.add_argument('--town', action='store_true', help='Build Hookville scenery only.')
+    scope.add_argument('--parties', action='store_true', help='Build the Pet Party Hall.')
     scope.add_argument('--park', action='store_true', help='Build the park and ducks.')
     scope.add_argument('--pets', action='store_true', help='Build articulated pet breeds and avian anatomy.')
     scope.add_argument('--emergencies', action='store_true', help='Build emergency stations, engine and rescue equipment.')
@@ -50,7 +51,7 @@ def main():
     scope.add_argument('--amusements', action='store_true', help='Build extra pet activities and fish bowl trolley.')
     scope.add_argument('--all', action='store_true', help='Build all characters, rooms, town scenery, anatomy and instruments.')
     args = parser.parse_args()
-    scripts = [] if args.examination or args.town or args.leisure or args.room or args.pets or args.park or args.emergencies or args.vehicles or args.street or args.amusements else [PROJECT / 'scripts/create-blender-assets.py']
+    scripts = [] if args.examination or args.town or args.leisure or args.room or args.pets or args.park or args.emergencies or args.vehicles or args.street or args.amusements or args.parties else [PROJECT / 'scripts/create-blender-assets.py']
     if args.examination or args.all:
         scripts.append(PROJECT / 'scripts/create-examination-assets.py')
     if args.town or args.all:
@@ -61,6 +62,8 @@ def main():
         scripts.append(PROJECT / 'scripts/create-exam-room.py')
     if args.pets or args.all:
         scripts.append(PROJECT / 'scripts/create-pet-models.py')
+    if args.parties or args.all:
+        scripts.append(PROJECT / 'scripts/create-party-assets.py')
     if args.park or args.all:
         scripts.append(PROJECT / 'scripts/create-park-assets.py')
     if args.emergencies or args.all:

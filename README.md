@@ -21,7 +21,8 @@ account needed.
 - **Watch Hookville come alive.** Follow families from their homes to the clinic
   and back, explore a park with ducks and pet activities, and watch police and
   firefighters reunite lost pets with their owners. Sunshine, brief showers and
-  rescue stories bring variety to town life.
+  rescue stories bring variety to town life. Pets invite friends to birthday
+  parties with special snacks and bubble games.
 - **Build a clinic to be proud of.** Earn happy hearts and in-game coins through
   caring for animals. Spend those coins on rooms, equipment, decorations and
   waiting-room comforts, or create a pet playground with climbing trees, an
@@ -58,6 +59,12 @@ Hookville’s police and fire crews automatically help lost pets, perform ladder
 rescues, and extinguish occasional house fires safely. Choose **Town news** for
 station cameras and **Watch rescue**; rescued pets become real clinic patients.
 Enable sound to hear the engine’s siren.
+
+Choose **Town news → Pet parties** to visit the Pet Party Hall across the street
+from the clinic. Pets periodically invite friends to birthdays: families walk
+there, enjoy pet-safe snacks and bubble games, then head home. Parties and their
+guests save with the town; they use play time, with no calendar deadlines, fees,
+offline catch-up or interruption to existing care visits.
 
 Choose **Hookville** in the clinic navigation to browse the town. Drag to orbit,
 right-drag, use the keyboard arrow keys or the arrow buttons to pan, and
@@ -130,6 +137,9 @@ kits with unused credits come first in their surface list.
 **Doors** edits entrances and shared wall sections while keeping every space
 reachable. Two fingers pan/pinch/twist in every tool. Touch Build menus omit **Camera**; it remains a desktop option. Desktop arrow keys and camera buttons remain available.
 **Whole plot** frames the buildable grounds; **Done** returns to the clinic.
+Trees behind the clinic clear as you build over their tiles; they do not reserve
+expansion land. A tree involved in an ongoing rescue remains visible until that
+rescue finishes. New rescues and rain detours avoid cleared trees.
 
 Buy furniture in **Clinic shop** to add it to your collection. Every purchase
 buys one copy: add as many lounge chairs, exercise wheels or other furnishings as
@@ -389,7 +399,7 @@ python3 scripts/blender-build.py --headless --all
 
 The VS Code task **Game: rebuild Blender models (headless)** runs the same command.
 It needs neither Windows Blender nor a running MCP server. Use `--examination`
-instead of `--all` to rebuild only anatomy and instruments, `--pets` for the eleven dog/cat/bird varieties and bird skeleton, `--town` for Hookville scenery, `--vehicles` for its four ordinary traffic models, `--street` for lampposts, hydrants and dog-walk cleanup props, `--park` for its pet park and ducks, `--emergencies` for police/fire stations, engine, ladder and responder kits, `--leisure` for modular clinic rooms and amusements, `--room` for the connected examination room, `--amusements` for fish docks, bowl trolley and six further pet activities, or omit scope flags
+instead of `--all` to rebuild only anatomy and instruments, `--pets` for the eleven dog/cat/bird varieties and bird skeleton, `--town` for Hookville scenery, `--vehicles` for its four ordinary traffic models, `--street` for lampposts, hydrants and dog-walk cleanup props, `--park` for its pet park and ducks, `--parties` for the birthday pavilion, `--emergencies` for police/fire stations, engine, ladder and responder kits, `--leisure` for modular clinic rooms and amusements, `--room` for the connected examination room, `--amusements` for fish docks, bowl trolley and six further pet activities, or omit scope flags
 to rebuild only the clinic and animated characters. A full rebuild takes several
 minutes. `BLENDER_PROJECT_ROOT` can direct output into a separate directory.
 This builds from the Python authoring script, so it does not need to open a source
