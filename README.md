@@ -329,10 +329,15 @@ browser-test image and installed server deployment helper.
 
 Successful main runs also deploy to **https://louise.vet/** using the dedicated
 `louise-vet-eqvm` runner on the Ubuntu server. Four browser-test shards check the
-same built image before publication and rollout. The server imports that tested
-artifact into its single-node k3s cluster, and Traefik serves it with an automatically
+same built image before publication and rollout. Kubernetes pulls that image from
+GHCR by its published digest, including when a node loses its cached copy.
+Traefik serves it with an automatically
 renewed Let's Encrypt certificate. A final GitHub-hosted check verifies public HTTPS
 and the exact deployed revision. Pull requests do not deploy.
+
+Deployment-helper validation, retry and rollback checks run with
+`sudo python3 tests/deploy.test.py` in an isolated temporary directory; CI runs
+them alongside the game checks.
 
 See [production hosting](deploy/README.md) for DNS, runner setup, health checks,
 rollback and recovery. `/version.json` identifies the deployed commit. The game

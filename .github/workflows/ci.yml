@@ -28,6 +28,10 @@ jobs:
       - run: npm run format:check
       - run: npm run build
       - run: npm run test:unit
+      - name: Check deployment validation and rollback
+        run: |
+          bash -n deploy/louise-deploy
+          sudo python3 tests/deploy.test.py
       - name: Build and start production container
         run: docker compose up --build --detach --wait --wait-timeout 90
         env:
@@ -103,6 +107,8 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
     permissions:
       contents: read
       packages: write
@@ -117,6 +123,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish the exact tested image
+        id: publish
         env:
           REVISION: ${{ github.sha }}
         run: |
@@ -127,6 +134,9 @@ jobs:
           docker tag "$image:$REVISION" "$image:latest"
           docker push "$image:$REVISION"
           docker push "$image:latest"
+          reference=$(docker image inspect --format '{{index .RepoDigests 0}}' "$image:$REVISION")
+          [[ "$reference" =~ ^ghcr.io/dbsanfte/vet-game@sha256:[0-9a-f]{64}$ ]]
+          printf 'digest=%s\n' "${reference##*@}" >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: publish
@@ -141,18 +151,11 @@ jobs:
       group: louise-vet-production
       cancel-in-progress: false
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: web-image
-          path: ${{ runner.temp }}/louise-image
-      - name: Deploy the tested image to k3s
+      - name: Deploy the published GHCR digest to k3s
         env:
           REVISION: ${{ github.sha }}
-          ARCHIVE: ${{ runner.temp }}/louise-image/vet-game-image.tar
-        run: sudo /usr/local/sbin/louise-deploy "$REVISION" < "$ARCHIVE"
-      - name: Remove downloaded archive
-        if: always()
-        run: rm -f "$RUNNER_TEMP/louise-image/vet-game-image.tar"
+          IMAGE_DIGEST: ${{ needs.publish.outputs.digest }}
+        run: sudo /usr/local/sbin/louise-deploy "$REVISION" "$IMAGE_DIGEST"
 
   live-check:
     needs: deploy

@@ -31,20 +31,24 @@ describes this certificate management.
 The [workflow](../.github/workflows/ci.yml) builds once, checks formatting/types and
 unit tests, and tests that same Nginx image across four browser-test shards on
 GitHub-hosted machines. Pull requests never deploy. Successful `main` runs publish
-commit-tagged and `latest` images to private GHCR, then send the **same tested image
-artifact** to the dedicated `louise-vet-eqvm` runner. Its `louise-vet-deploy` label
-selects the deployment job. The `production` GitHub environment accepts `main` only.
+commit-tagged and `latest` images to GHCR, then pass the **published image digest**
+to the dedicated `louise-vet-eqvm` runner. Kubernetes pulls that exact image from
+GHCR; the deployment job does not download or import an image archive.
+The runner's `louise-vet-deploy` label selects the deployment job. The `production`
+GitHub environment accepts `main` only.
 
 The repository is `dbsanfte/louise-vet`; the container package remains
 `ghcr.io/dbsanfte/vet-game`. Build, browser verification, publication and the
 installed helper all use that stable image name. Renaming the repository must
-not silently change the published image name or the archive's image reference.
+not silently change the published image name. Archives still transfer the one
+built image between CI build, browser-test and publication jobs.
 
 The runner runs as the separate `louise-runner` Unix account, without Docker group
 membership or general sudo/cluster credentials. Its sole sudo entry invokes the
 root-owned `/usr/local/sbin/louise-deploy`. That helper accepts a full commit SHA
-and a matching single-image Docker archive, imports it into k3s containerd, updates
-only `louise-vet/web`, waits for readiness and a valid certificate, and checks the
+and SHA-256 registry digest, updates only `louise-vet/web` to
+`ghcr.io/dbsanfte/vet-game:<commit>@sha256:<digest>` with `imagePullPolicy:
+IfNotPresent`, waits for readiness and a valid certificate, and checks the
 served `/version.json` revision. Failed rollout/local HTTPS checks restore the
 previous image when one exists. Pod readiness can precede Traefik's endpoint
 updates, so the helper allows up to ten health-and-revision attempts with
@@ -55,14 +59,30 @@ HTTPS, redirect, game title, revision and missing-asset 404s from outside the LA
 A public-check failure is reported; it does not undo an otherwise healthy local rollout.
 
 The deployment has two non-root, read-only Nginx pods with rolling updates and
-health probes. Both pods use the single node's imported image (`imagePullPolicy:
-Never`), so no expiring GHCR pull token is stored on the cluster. Moving to multiple
-nodes requires importing images to each node or configuring durable registry access.
+health probes. Pods pull a missing image from GHCR, including after a restart or
+image-cache cleanup. Digest pinning keeps recovery on the tested release even if
+a tag changes. Registry access must remain available after the CI job finishes;
+the job's short-lived `GITHUB_TOKEN` must not become a Kubernetes pull secret.
 Two pods protect rolling updates, not failure of the host/router/internet link.
 
 The repository, served game and runtime assets are public.
 No accounts or cloud saves are introduced. Browser saves belong to the origin:
 progress from localhost does not automatically appear on `https://louise.vet`.
+
+### Registry access
+
+A public GHCR package supports anonymous pulls without a Kubernetes secret.
+Package visibility is separate from repository visibility; a public repository
+does not automatically make its container package public.
+
+A private package instead needs a dedicated classic GitHub token with
+`read:packages` and access to this package. Store its Docker authentication file
+outside the checkout, create a `kubernetes.io/dockerconfigjson` secret named
+`ghcr-pull` in `louise-vet`, and reference it in the Deployment's
+`spec.template.spec.imagePullSecrets`. Keep the token out of command arguments,
+logs and Git; rotate it before expiry. Do not use a workflow token for this
+persistent credential. See [GHCR authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+and [Kubernetes registry secrets](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).
 
 ## Server files and first-time setup
 
@@ -108,20 +128,30 @@ sudo systemctl status actions.runner.dbsanfte-vet-game.louise-vet-eqvm
 curl --fail https://louise.vet/version.json
 ```
 
-Five successful image archives are retained in `/var/lib/louise-vet/images/` and
-`/var/lib/louise-vet/current-revision` records the last successful local deployment.
-An administrator can list those archives and explicitly restore a known version:
+`/var/lib/louise-vet/current-revision` and `current-image` record the last
+successful local deployment and its full registry reference. Kubernetes retains
+five old ReplicaSets; inspect those or the successful CI run's publication output
+for a previous commit and digest. Retain corresponding GHCR versions for rollback.
+An administrator can explicitly restore a known version:
 
 ```sh
-sudo ls /var/lib/louise-vet/images/
-sudo /usr/local/sbin/louise-deploy FULL_PREVIOUS_COMMIT_SHA --cached
+sudo kubectl -n louise-vet get replicasets -o custom-columns=NAME:.metadata.name,IMAGE:.spec.template.spec.containers[0].image
+sudo /usr/local/sbin/louise-deploy FULL_PREVIOUS_COMMIT_SHA sha256:PREVIOUS_IMAGE_DIGEST
 ```
 
-If containerd garbage-collects an unused image, `--cached` reimports its retained
-archive. For older releases, pull the private GHCR commit tag with authorized
-registry access, `docker save` just that tag, and feed the archive to the helper.
+For a 404 with healthy DNS/TLS, inspect pods and service endpoints first. Traefik
+can return 404 when there are no ready game backends. `ErrImageNeverPull` identifies
+an older Deployment that cannot recover a missing image: install the current
+helper, confirm registry access, and redeploy the intended commit and digest.
+`ImagePullBackOff` requires checking the pod events for registry access, a missing
+image, or network failures. Do not change the domain or certificate to hide those
+failures. Check public `/healthz`, `/version.json`, the game page and browser load
+after recovery, with normal TLS validation.
+
+The older archive-import deployment is superseded; existing archives are left
+untouched but the helper no longer accepts `--cached` or image data on stdin.
 Manual rollback remains until the next successful main deployment. Server backups
 should cover k3s data (including certificate/account secrets), the runner install,
-`/etc/louise-vet`, the helper/sudo rule, and retained release archives. All current
+`/etc/louise-vet`, the helper/sudo rule, and release records. All current
 cluster/Traefik/cert-manager versions are inherited from the host; upgrading shared
 infrastructure is a separate maintenance task.

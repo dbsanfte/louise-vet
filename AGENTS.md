@@ -137,12 +137,12 @@ Follow [the workflow](.github/workflows/ci.yml) and the
 [production runbook](deploy/README.md) for current commands and recovery details:
 
 - Pull requests run checks. Successful authorized `main` releases publish the
-  exact tested image, tagged with its full commit SHA, and deploy that same image
-  artifact through the dedicated `louise-vet-eqvm` runner, using the
+  exact tested image, tagged with its full commit SHA, and deploy its GHCR digest
+  through the dedicated `louise-vet-eqvm` runner, using the
   `louise-vet-deploy` label and `production` environment.
 - The Ubuntu host `eqvm` (`192.168.50.100`) runs single-node **k3s**, Traefik and
-  cert-manager. The root-owned `/usr/local/sbin/louise-deploy` helper imports the
-  image, rolls out `louise-vet/web`, checks readiness, certificate and revision,
+  cert-manager. The root-owned `/usr/local/sbin/louise-deploy` helper sets the
+  GHCR digest with recovery pulls enabled, rolls out `louise-vet/web`, checks readiness, certificate and revision,
   and restores the preceding image on failure when one exists. Changes to this
   privileged helper need review and installation on the host; pushing its source
   does not update the installed helper. Preserve unrelated applications/runners.

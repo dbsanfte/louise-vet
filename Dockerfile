@@ -11,7 +11,7 @@ ARG REVISION=development
 RUN printf '{"revision":"%s"}\n' "$REVISION" > dist/version.json
 
 FROM nginxinc/nginx-unprivileged:1.28-alpine AS web
-LABEL org.opencontainers.image.source="https://github.com/dbsanfte/vet-game"
+LABEL org.opencontainers.image.source="https://github.com/dbsanfte/louise-vet"
 ARG REVISION=development
 LABEL org.opencontainers.image.revision="$REVISION"
 COPY nginx.conf /etc/nginx/conf.d/default.conf

@@ -32,8 +32,8 @@ spec:
         - name: web
           # Bootstrap only: the deployment helper sets a tested full-commit tag.
           image: ghcr.io/dbsanfte/vet-game:bootstrap
-          # The single k3s node imports the exact CI artifact into containerd.
-          imagePullPolicy: Never
+          # Pull the tested GHCR digest again if the node loses its cached copy.
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080
