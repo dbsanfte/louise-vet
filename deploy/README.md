@@ -71,18 +71,13 @@ progress from localhost does not automatically appear on `https://louise.vet`.
 
 ### Registry access
 
-A public GHCR package supports anonymous pulls without a Kubernetes secret.
+The `vet-game` GHCR package is public and supports anonymous pulls without a
+Kubernetes secret. CI verifies anonymous access to the published digest before
+deployment, using an empty Docker credentials directory. Publishing still uses
+the workflow's `GITHUB_TOKEN`; that token is never stored on the cluster.
 Package visibility is separate from repository visibility; a public repository
-does not automatically make its container package public.
-
-A private package instead needs a dedicated classic GitHub token with
-`read:packages` and access to this package. Store its Docker authentication file
-outside the checkout, create a `kubernetes.io/dockerconfigjson` secret named
-`ghcr-pull` in `louise-vet`, and reference it in the Deployment's
-`spec.template.spec.imagePullSecrets`. Keep the token out of command arguments,
-logs and Git; rotate it before expiry. Do not use a workflow token for this
-persistent credential. See [GHCR authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-and [Kubernetes registry secrets](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).
+does not automatically make a new container package public. See
+[GHCR authentication](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
 ## Server files and first-time setup
 

@@ -137,6 +137,13 @@ jobs:
           reference=$(docker image inspect --format '{{index .RepoDigests 0}}' "$image:$REVISION")
           [[ "$reference" =~ ^ghcr.io/dbsanfte/vet-game@sha256:[0-9a-f]{64}$ ]]
           printf 'digest=%s\n' "${reference##*@}" >> "$GITHUB_OUTPUT"
+      - name: Verify anonymous registry access
+        env:
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          registry_config=$(mktemp -d)
+          trap 'rm -rf "$registry_config"' EXIT
+          docker --config "$registry_config" manifest inspect "ghcr.io/dbsanfte/vet-game@$IMAGE_DIGEST" > /dev/null
 
   deploy:
     needs: publish
