@@ -10,7 +10,7 @@ RUN npm run build
 ARG REVISION=development
 RUN printf '{"revision":"%s"}\n' "$REVISION" > dist/version.json
 
-FROM nginxinc/nginx-unprivileged:1.28-alpine AS web
+FROM nginx/nginx-unprivileged:1.31.9-alpine@sha256:60214a103e6f38e953ff957f34b1f2e97a9db801ab2df3821da955d0fe6cadd6 AS web
 LABEL org.opencontainers.image.source="https://github.com/dbsanfte/louise-vet"
 ARG REVISION=development
 LABEL org.opencontainers.image.revision="$REVISION"
